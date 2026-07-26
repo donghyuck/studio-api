@@ -132,7 +132,15 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
               FROM tb_ai_document_chunk
              WHERE object_type = :objectType AND object_id = :objectId
              ORDER BY chunk_index
-             LIMIT 1
+            LIMIT 1
+            """;
+    private static final String PATCH_METADATA_BY_OBJECT_SQL = """
+            UPDATE tb_ai_document_chunk
+               SET metadata = (COALESCE(metadata, '{}'::jsonb)
+                               - ARRAY['docMetadataId', 'docSemanticType', 'docTitle',
+                                       'docAuthors', 'docPublicationYear', 'docOrganization'])
+                            || CAST(:metadata AS jsonb)
+             WHERE object_type = :objectType AND object_id = :objectId
             """;
 
     private static final RowMapper<PgVectorSearchRow> ROW_MAPPER = new RowMapper<>() {
@@ -285,6 +293,13 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                 objectParams(objectType, objectId),
                 (rs, rowNum) -> rs.getString("metadata"));
         return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    @Override
+    public int patchMetadataByObject(String objectType, String objectId, String metadata) {
+        return jdbcTemplate.update(
+                PATCH_METADATA_BY_OBJECT_SQL,
+                objectParams(objectType, objectId).addValue("metadata", metadata));
     }
 
     private static MapSqlParameterSource chunkParams(PgVectorChunkParameter parameter) {

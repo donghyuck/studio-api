@@ -59,6 +59,9 @@ import studio.one.platform.chunking.core.ChunkingStrategyType;
 import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
 import studio.one.platform.chunking.core.NormalizedDocument;
+import studio.one.platform.documentmetadata.DocumentMetadataArtifact;
+import studio.one.platform.documentmetadata.DocumentMetadataProjectionPolicy;
+import studio.one.platform.markdown.application.MarkdownDocumentMetadataService;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockSummary;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyOptions;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyResult;
@@ -67,7 +70,9 @@ import studio.one.platform.markdown.application.MarkdownIdeaBlockMergePreviewOpt
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeUndoOptions;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeUndoResult;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
+import studio.one.platform.markdown.application.MarkdownPipelinePlan;
 import studio.one.platform.markdown.application.MarkdownPipelineProgress;
+import studio.one.platform.markdown.application.port.MarkdownMetadataEnrichmentPort;
 import studio.one.platform.markdown.application.port.MarkdownPipelinePort;
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.domain.MarkdownLocator;
@@ -96,6 +101,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
     private final ObjectProvider<EmbeddingPort> embeddingPortProvider;
     private final ObjectProvider<AiProviderRegistry> aiProviderRegistryProvider;
     private final ObjectProvider<ChunkSetStore> chunkSetStoreProvider;
+    private final MarkdownMetadataEnrichmentPort metadataEnrichmentPort;
     private final MarkdownRepository repository;
     private final ObjectMapper objectMapper;
 
@@ -150,6 +156,21 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
             ObjectProvider<ChunkSetStore> chunkSetStoreProvider,
             MarkdownRepository repository,
             ObjectMapper objectMapper) {
+        this(ragJobServiceProvider, skillJobServiceProvider, chunkingProvider, chunkStageStoreProvider,
+                embeddingPortProvider, aiProviderRegistryProvider, chunkSetStoreProvider,
+                MarkdownMetadataEnrichmentPort.noop(), repository, objectMapper);
+    }
+
+    public MarkdownDownstreamPipelineAdapter(ObjectProvider<RagIndexJobService> ragJobServiceProvider,
+            ObjectProvider<SkillRagExtractionJobService> skillJobServiceProvider,
+            ObjectProvider<ChunkingOrchestrator> chunkingProvider,
+            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
+            ObjectProvider<EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<AiProviderRegistry> aiProviderRegistryProvider,
+            ObjectProvider<ChunkSetStore> chunkSetStoreProvider,
+            MarkdownMetadataEnrichmentPort metadataEnrichmentPort,
+            MarkdownRepository repository,
+            ObjectMapper objectMapper) {
         this.ragJobServiceProvider = ragJobServiceProvider;
         this.skillJobServiceProvider = skillJobServiceProvider;
         this.chunkingProvider = chunkingProvider;
@@ -157,6 +178,8 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         this.embeddingPortProvider = embeddingPortProvider;
         this.aiProviderRegistryProvider = aiProviderRegistryProvider;
         this.chunkSetStoreProvider = chunkSetStoreProvider;
+        this.metadataEnrichmentPort = metadataEnrichmentPort == null
+                ? MarkdownMetadataEnrichmentPort.noop() : metadataEnrichmentPort;
         this.repository = repository;
         this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
     }
@@ -169,7 +192,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
 
     @Override
     public void process(MarkdownRevision revision, MarkdownPipelineOptions options) {
-        process(revision, options, MarkdownPipelineStage.CHUNKING, stage -> {
+        process(revision, options, MarkdownPipelinePlan.of(options).first(), stage -> {
         });
     }
 
@@ -180,12 +203,18 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         String objectId = Long.toString(revision.sourceAttachmentId());
         Map<String, Object> metadata = metadata(revision, objectType, objectId);
         addPipelineMetadata(metadata, options);
+        MarkdownPipelinePlan plan = MarkdownPipelinePlan.of(options);
+        if (plan.shouldRunFrom(fromStage, MarkdownPipelineStage.METADATA_ENRICHMENT)) {
+            metadataEnrichmentPort.enrich(revision, options);
+            stageCompleted.accept(MarkdownPipelineStage.METADATA_ENRICHMENT);
+        }
+        addDocumentMetadata(metadata, revision.revisionId());
         ChunkSet preparedChunkSet = null;
-        if (options.runChunking() && fromStage.ordinal() <= MarkdownPipelineStage.CHUNKING.ordinal()) {
+        if (plan.shouldRunFrom(fromStage, MarkdownPipelineStage.CHUNKING)) {
             preparedChunkSet = stageChunks(revision, objectType, objectId, metadata, options);
             stageCompleted.accept(MarkdownPipelineStage.CHUNKING);
         }
-        if (options.runRagIndex() && fromStage.ordinal() <= MarkdownPipelineStage.RAG_INDEX.ordinal()) {
+        if (plan.shouldRunFrom(fromStage, MarkdownPipelineStage.RAG_INDEX)) {
             assertRagIndexEligible(revision);
             if (preparedChunkSet == null) {
                 preparedChunkSet = resolvePreparedChunkSet(revision, objectType, objectId, metadata, options);
@@ -221,8 +250,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
             }
             stageCompleted.accept(MarkdownPipelineStage.RAG_INDEX);
         }
-        if (options.runSkillExtraction()
-                && fromStage.ordinal() <= MarkdownPipelineStage.SKILL_EXTRACTION.ordinal()) {
+        if (plan.shouldRunFrom(fromStage, MarkdownPipelineStage.SKILL_EXTRACTION)) {
             SkillRagExtractionJobService skillService = skillJobServiceProvider.getIfAvailable();
             if (skillService == null) {
                 throw new IllegalStateException("Skill extraction service is not configured");
@@ -1044,6 +1072,11 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
     }
 
     private void addPipelineMetadata(Map<String, Object> metadata, MarkdownPipelineOptions options) {
+        Map<String, Object> processing = new LinkedHashMap<>();
+        put(processing, "requestedProfile", options.requestedDocumentProfile());
+        put(processing, "effectiveProfile", options.resolvedDocumentProfile());
+        put(processing, "profileVersion", options.documentProfileVersion());
+        metadata.put("processing", Map.copyOf(processing));
         put(metadata, ChunkMetadata.KEY_STRATEGY, options.chunkingStrategy());
         put(metadata, ChunkMetadata.KEY_MAX_SIZE, options.chunkMaxSize());
         put(metadata, ChunkMetadata.KEY_OVERLAP, options.chunkOverlap());
@@ -1251,6 +1284,34 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         put(metadata, "sourceFileName", revision.sourceFileName());
         put(metadata, "sourceFormat", revision.sourceFormat());
         return metadata;
+    }
+
+    private void addDocumentMetadata(Map<String, Object> metadata, String revisionId) {
+        repository.findResource(revisionId, MarkdownDocumentMetadataService.RESOURCE_TYPE).ifPresent(resource -> {
+            try {
+                DocumentMetadataArtifact artifact = objectMapper.readValue(
+                        resource.metadataJson(), DocumentMetadataArtifact.class);
+                metadata.putAll(new DocumentMetadataProjectionPolicy().compact(artifact));
+                Map<String, Object> semantic = new LinkedHashMap<>();
+                put(semantic, "requestedType", artifact.classification().requestedSemanticType().name());
+                put(semantic, "detectedType", artifact.classification().detectedSemanticType().name());
+                put(semantic, "effectiveType", artifact.classification().effectiveSemanticType().name());
+                put(semantic, "subject", artifact.classification().subject());
+                put(semantic, "confidence", artifact.classification().confidence());
+                put(semantic, "classifierVersion", artifact.classification().classifierVersion());
+                metadata.put("semantic", Map.copyOf(semantic));
+                Map<String, Object> blockify = new LinkedHashMap<>();
+                put(blockify, "requestedType", artifact.classification().requestedBlockifyType());
+                put(blockify, "detectedType", artifact.classification().detectedBlockifyType());
+                put(blockify, "confidence", artifact.classification().blockifyConfidence());
+                put(blockify, "schemaVersion", artifact.classification().blockifySchemaVersion());
+                if (!blockify.isEmpty()) {
+                    metadata.put("blockify", Map.copyOf(blockify));
+                }
+            } catch (Exception ex) {
+                log.warn("Skipping invalid document metadata projection for revision {}", revisionId);
+            }
+        });
     }
 
     private MarkdownIdeaBlockSummary.SampleIdeaBlock sampleIdeaBlock(

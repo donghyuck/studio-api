@@ -31,7 +31,50 @@ public record MarkdownDocumentRequest(
                 String ocrLanguage,
                 String ocrMode,
                 Boolean mathVisionCorrection,
-                String documentProfile) {
+                String documentProfile,
+                String documentSemanticType,
+                String metadataEnrichmentMode) {
+
+        public MarkdownDocumentRequest(
+                        long attachmentId,
+                        boolean runChunking,
+                        boolean runRagIndex,
+                        boolean runSkillExtraction,
+                        boolean force,
+                        String chunkingStrategy,
+                        Integer chunkMaxSize,
+                        Integer chunkOverlap,
+                        String chunkUnit,
+                        String blockifyLlmProvider,
+                        String blockifyLlmModel,
+                        Boolean blockifyPiiMaskingEnabled,
+                        String embeddingDeploymentId,
+                        String embeddingModelId,
+                        String embeddingProfileId,
+                        String embeddingProvider,
+                        String embeddingModel,
+                        Integer embeddingDimension,
+                        boolean useLlmKeywordExtraction,
+                        String skillExtractionMode,
+                        boolean generateSkillEmbeddings,
+                        String skillEmbeddingProvider,
+                        String skillEmbeddingModel,
+                        Integer skillEmbeddingDimension,
+                        Boolean ocrRequired,
+                        String ocrLanguage,
+                        String ocrMode,
+                        Boolean mathVisionCorrection,
+                        String documentProfile) {
+                this(attachmentId, runChunking, runRagIndex, runSkillExtraction, force,
+                                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                                embeddingDeploymentId, embeddingModelId,
+                                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
+                                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, documentProfile,
+                                null, null);
+        }
 
         public MarkdownDocumentRequest(
                         long attachmentId,
@@ -66,7 +109,7 @@ public record MarkdownDocumentRequest(
                                 null, null, embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
-                                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, null);
+                                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, null, null, null);
         }
 
         public MarkdownDocumentRequest(
@@ -103,6 +146,6 @@ public record MarkdownDocumentRequest(
                                 null, null, embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
-                                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, documentProfile);
+                                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, documentProfile, null, null);
         }
 }

@@ -404,7 +404,8 @@ public class MarkdownDocumentController {
                 request.skillEmbeddingModel(), request.skillEmbeddingDimension(), request.ocrRequired(),
                 request.ocrLanguage(), request.ocrMode(), request.mathVisionCorrection(),
                 request.documentProfile(), null, null,
-                embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()));
+                embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()),
+                request.documentSemanticType(), request.metadataEnrichmentMode());
     }
 
     private ResponseEntity<StreamingResponseBody> markdownResponse(MarkdownContent content, boolean download) {
@@ -447,7 +448,8 @@ public class MarkdownDocumentController {
                 request.skillEmbeddingModel(), request.skillEmbeddingDimension(), request.ocrRequired(),
                 request.ocrLanguage(), request.ocrMode(), request.mathVisionCorrection(),
                 request.documentProfile(), null, null,
-                embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()));
+                embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()),
+                request.documentSemanticType(), request.metadataEnrichmentMode());
     }
 
     private boolean extractionQualityOptionsOmitted(MarkdownReextractRequest request) {
@@ -502,7 +504,9 @@ public class MarkdownDocumentController {
                 request.ocrLanguage(),
                 request.ocrMode(),
                 request.mathVisionCorrection(),
-                embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()));
+                embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()),
+                request.documentSemanticType(),
+                request.metadataEnrichmentMode());
     }
 
     private MarkdownIdeaBlockMergePreviewOptions mergePreviewOptions(MarkdownIdeaBlockMergePreviewRequest request) {

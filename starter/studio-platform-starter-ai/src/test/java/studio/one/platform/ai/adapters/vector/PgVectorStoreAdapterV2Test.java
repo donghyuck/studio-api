@@ -83,6 +83,23 @@ class PgVectorStoreAdapterV2Test {
     }
 
     @Test
+    void patchMetadataByObjectDelegatesMetadataOnlyJsonPatch() {
+        when(mapper.patchMetadataByObject(eq("attachment"), eq("42"), any())).thenReturn(3);
+
+        int updated = adapter.patchMetadataByObject(
+                "attachment",
+                "42",
+                Map.of("docTitle", "A Book", "docPublicationYear", "2024"));
+
+        assertThat(updated).isEqualTo(3);
+        verify(mapper).patchMetadataByObject(
+                eq("attachment"),
+                eq("42"),
+                argThat(json -> json.contains("\"docTitle\":\"A Book\"")
+                        && json.contains("\"docPublicationYear\":\"2024\"")));
+    }
+
+    @Test
     void upsertRecordAdaptsChunkIndexForPgVectorBinding() {
         VectorRecord record = VectorRecord.builder()
                 .id("record-1")

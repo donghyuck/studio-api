@@ -24,11 +24,10 @@ import studio.one.platform.chunking.core.ChunkingStrategyType;
  */
 public class RagContextBuilder {
 
-    private static final String NO_CONTEXT_MESSAGE = "참고할 문서가 없습니다. 일반적으로 답변하세요.";
+    private static final String NO_CONTEXT_MESSAGE = "제공된 문서에서 확인할 수 없습니다.";
     private static final String HEADER = "다음 문서 내용을 참고해 답변하세요:\n";
     static final String KEY_CHUNK_ID = "chunkId";
     private static final String KEY_DOCUMENT_ID = "documentId";
-    private static final String TRUNCATION_MARKER = "\n...[truncated]...\n";
     private final int maxChunks;
     private final int maxChars;
     private final int maxChunkChars;
@@ -228,7 +227,7 @@ public class RagContextBuilder {
         String packedContent = excerpt(result.content(), maxChunkChars);
         boolean compressed = !packedContent.equals(result.content());
         RagSearchResult packedResult = compressed
-                ? new RagSearchResult(result.documentId(), packedContent, result.metadata(), result.score())
+                ? packedResult(result, packedContent, true)
                 : result;
         return new PackedChunk(formatChunk(index, packedResult), packedResult, compressed);
     }
@@ -245,16 +244,24 @@ public class RagContextBuilder {
             return Optional.empty();
         }
         String packedContent = excerpt(result.content(), Math.min(maxChunkChars, contentBudget));
-        RagSearchResult packedResult = new RagSearchResult(
-                result.documentId(),
+        RagSearchResult packedResult = packedResult(
+                result,
                 packedContent,
-                result.metadata(),
-                result.score());
+                !packedContent.equals(result.content()));
         String packedText = formatChunk(index, packedResult);
         if (packedText.length() > remainingChars) {
             return Optional.empty();
         }
         return Optional.of(new PackedChunk(packedText, packedResult, !packedContent.equals(result.content())));
+    }
+
+    private RagSearchResult packedResult(RagSearchResult source, String packedContent, boolean truncated) {
+        Map<String, Object> metadata = new LinkedHashMap<>(
+                source.metadata() == null ? Map.of() : source.metadata());
+        metadata.put("truncated", truncated);
+        metadata.putIfAbsent("startOffset", 0);
+        metadata.put("endOffset", packedContent.length());
+        return new RagSearchResult(source.documentId(), packedContent, Map.copyOf(metadata), source.score());
     }
 
     private String formatChunk(int index, RagSearchResult result) {
@@ -272,7 +279,7 @@ public class RagContextBuilder {
         Map<String, Object> values = metadata == null ? Map.of() : metadata;
         appendMetadataLine(target, "원본 파일", firstText(values,
                 "sourceFileName", "filename", "fileName", "name", "sourceName"));
-        appendMetadataLine(target, "문서 제목", firstText(values, "documentTitle", "title"));
+        appendMetadataLine(target, "문서 제목", firstText(values, "docTitle", "documentTitle"));
         Integer page = firstInteger(values, ChunkMetadata.KEY_PAGE, "pageNumber", "pageFrom");
         if (page != null) {
             appendMetadataLine(target, "페이지", page.toString());
@@ -321,13 +328,7 @@ public class RagContextBuilder {
         if (content == null || content.length() <= limit) {
             return content == null ? "" : content;
         }
-        if (limit <= TRUNCATION_MARKER.length() + 2) {
-            return content.substring(0, limit);
-        }
-        int bodyBudget = limit - TRUNCATION_MARKER.length();
-        int head = Math.max(1, (int) Math.ceil(bodyBudget * 0.67d));
-        int tail = Math.max(1, bodyBudget - head);
-        return content.substring(0, head) + TRUNCATION_MARKER + content.substring(content.length() - tail);
+        return content.substring(0, limit);
     }
 
     private ExpansionAttempt expandResultWithDiagnostics(RagSearchResult result, List<RagSearchResult> expansionCandidates) {
@@ -354,14 +355,82 @@ public class RagContextBuilder {
                 .includeParentContent(expansion.isIncludeParentContent())
                 .build();
         try {
-            ChunkContextExpansion expansion = expander.get().expand(request);
+            ChunkContextExpansion expanded = expander.get().expand(request);
+            Map<String, Object> expandedMetadata = new LinkedHashMap<>(result.metadata());
+            List<Map<String, Object>> sourceSpans = expandedSourceSpans(
+                    expanded.content(), seed.get(), expansionCandidates);
+            if (!sourceSpans.isEmpty()) {
+                expandedMetadata.put("sourceSpans", sourceSpans);
+            }
             return new ExpansionAttempt(
-                    new RagSearchResult(result.documentId(), expansion.content(), result.metadata(), result.score()),
+                    new RagSearchResult(result.documentId(), expanded.content(), expandedMetadata, result.score()),
                     true,
                     strategy,
                     null);
         } catch (RuntimeException ignored) {
             return new ExpansionAttempt(result, false, strategy, "expander_failed");
+        }
+    }
+
+    private List<Map<String, Object>> expandedSourceSpans(
+            String expandedContent,
+            Chunk seed,
+            List<RagSearchResult> candidates) {
+        if (!hasText(expandedContent)) {
+            return List.of();
+        }
+        Map<String, RagSearchResult> scoped = new LinkedHashMap<>();
+        if (candidates != null) {
+            candidates.stream()
+                    .filter(Objects::nonNull)
+                    .filter(candidate -> toChunk(candidate)
+                            .filter(chunk -> sameObjectScope(seed, chunk))
+                            .isPresent())
+                    .forEach(candidate -> scoped.putIfAbsent(
+                            firstText(candidate.metadata(), KEY_CHUNK_ID) == null
+                                    ? candidate.documentId()
+                                    : firstText(candidate.metadata(), KEY_CHUNK_ID),
+                            candidate));
+        }
+        scoped.putIfAbsent(seed.id(), new RagSearchResult(
+                seed.id(), seed.content(), seed.metadata().attributes(), 0.0d));
+        List<Map<String, Object>> spans = new ArrayList<>();
+        scoped.values().stream()
+                .sorted(Comparator.comparingInt(candidate ->
+                        intValue(candidate.metadata().get(ChunkMetadata.KEY_CHUNK_ORDER), 0)))
+                .forEach(candidate -> {
+                    String exactText = candidate.content();
+                    int offset = expandedContent.indexOf(exactText);
+                    if (offset < 0) {
+                        return;
+                    }
+                    Map<String, Object> span = new LinkedHashMap<>();
+                    span.put("exactText", exactText);
+                    span.put("chunkId", firstText(candidate.metadata(), KEY_CHUNK_ID) == null
+                            ? candidate.documentId()
+                            : firstText(candidate.metadata(), KEY_CHUNK_ID));
+                    putIfPresent(span, "sourceRef", firstText(candidate.metadata(),
+                            ChunkMetadata.KEY_SOURCE_REF, "sourceRef"));
+                    putIfPresent(span, "page", firstInteger(candidate.metadata(),
+                            ChunkMetadata.KEY_PAGE, "pageNumber"));
+                    putIfPresent(span, "slide", firstInteger(candidate.metadata(), "slide", "slideNumber"));
+                    putIfPresent(span, "section", firstText(candidate.metadata(),
+                            ChunkMetadata.KEY_SECTION, ChunkMetadata.KEY_HEADING_PATH, "heading"));
+                    span.put("startOffset", offset);
+                    span.put("endOffset", offset + exactText.length());
+                    span.put("truncated", false);
+                    Object blockIds = candidate.metadata().get("blockIds");
+                    if (blockIds != null) {
+                        span.put("blockIds", blockIds);
+                    }
+                    spans.add(Map.copyOf(span));
+                });
+        return List.copyOf(spans);
+    }
+
+    private void putIfPresent(Map<String, Object> target, String key, Object value) {
+        if (value != null && (!(value instanceof String textValue) || !textValue.isBlank())) {
+            target.put(key, value);
         }
     }
 
@@ -493,14 +562,33 @@ public class RagContextBuilder {
         return value != null && !value.isBlank();
     }
 
-    public record BuildResult(String context, Diagnostics diagnostics, List<RagSearchResult> usedResults) {
+    public record BuildResult(
+            String context,
+            Diagnostics diagnostics,
+            List<RagSearchResult> usedResults,
+            PackedEvidenceSet evidenceSet) {
 
         public BuildResult(String context, Diagnostics diagnostics) {
-            this(context, diagnostics, List.of());
+            this(context, diagnostics, List.of(), PackedEvidenceSet.empty(
+                    context,
+                    diagnostics == null ? Map.of() : diagnostics.toMetadata()));
+        }
+
+        public BuildResult(String context, Diagnostics diagnostics, List<RagSearchResult> usedResults) {
+            this(context, diagnostics, usedResults, PackedEvidenceSet.from(
+                    context,
+                    usedResults,
+                    diagnostics == null ? Map.of() : diagnostics.toMetadata()));
         }
 
         public BuildResult {
             usedResults = usedResults == null ? List.of() : List.copyOf(usedResults);
+            evidenceSet = evidenceSet == null
+                    ? PackedEvidenceSet.from(
+                            context,
+                            usedResults,
+                            diagnostics == null ? Map.of() : diagnostics.toMetadata())
+                    : evidenceSet;
         }
     }
 

@@ -11,6 +11,13 @@ public interface AiModelUsageStore {
 
     UsageEstimate record(ChatResponseMetadata metadata, String fallbackModel);
 
+    default UsageEstimate record(
+            ChatResponseMetadata metadata,
+            String fallbackModel,
+            AiModelUsageRequestKind requestKind) {
+        return record(metadata, fallbackModel);
+    }
+
     List<ModelUsageSummary> summaries(String provider, String model);
 
     static AiModelUsageStore noop() {
@@ -52,15 +59,24 @@ public interface AiModelUsageStore {
     record ModelUsageSummary(
             String provider,
             String model,
+            AiModelUsageRequestKind requestKind,
             long requestCount,
             long pricedRequestCount,
+            long cacheReportedRequestCount,
+            long cacheHitRequestCount,
+            Double cacheHitRate,
             long inputTokens,
+            long uncachedInputTokens,
+            long cacheReadInputTokens,
+            long cacheWriteInputTokens,
             long outputTokens,
             long totalTokens,
             long totalLatencyMs,
             double averageLatencyMs,
             String currency,
             BigDecimal estimatedCost,
+            BigDecimal estimatedBaselineInputCost,
+            BigDecimal estimatedInputSavings,
             Instant firstSeenAt,
             Instant lastSeenAt) {
     }

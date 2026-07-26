@@ -53,6 +53,42 @@ class ChatResponseMetadataTest {
     }
 
     @Test
+    void promptCacheUsageKeepsTypedMapCompatibility() {
+        ChatResponseMetadata metadata = ChatResponseMetadata.from(Map.of(
+                ChatResponseMetadata.KEY_TOKEN_USAGE, Map.of(
+                        TokenUsage.KEY_INPUT_TOKENS, 100,
+                        TokenUsage.KEY_OUTPUT_TOKENS, 20,
+                        TokenUsage.KEY_TOTAL_TOKENS, 120),
+                ChatResponseMetadata.KEY_PROMPT_CACHE_USAGE, Map.of(
+                        PromptCacheUsage.KEY_UNCACHED_INPUT_TOKENS, 60,
+                        PromptCacheUsage.KEY_CACHE_READ_INPUT_TOKENS, 30,
+                        PromptCacheUsage.KEY_CACHE_WRITE_INPUT_TOKENS, 10,
+                        PromptCacheUsage.KEY_COMPLETENESS, "COMPLETE")));
+
+        assertThat(metadata.promptCacheUsage()).isNotNull();
+        assertThat(metadata.promptCacheUsage().cacheHit()).isTrue();
+        assertThat(metadata.promptCacheUsage().completeness())
+                .isEqualTo(PromptCacheUsage.Completeness.COMPLETE);
+        assertThat(metadata.toMap()).containsKey(ChatResponseMetadata.KEY_PROMPT_CACHE_USAGE);
+    }
+
+    @Test
+    void promptCacheUsageDowngradesMismatchedCompleteBuckets() {
+        ChatResponseMetadata metadata = ChatResponseMetadata.from(Map.of(
+                ChatResponseMetadata.KEY_TOKEN_USAGE, Map.of(TokenUsage.KEY_INPUT_TOKENS, 100),
+                ChatResponseMetadata.KEY_PROMPT_CACHE_USAGE, Map.of(
+                        PromptCacheUsage.KEY_UNCACHED_INPUT_TOKENS, 50,
+                        PromptCacheUsage.KEY_CACHE_READ_INPUT_TOKENS, 25,
+                        PromptCacheUsage.KEY_CACHE_WRITE_INPUT_TOKENS, 10,
+                        PromptCacheUsage.KEY_COMPLETENESS, "COMPLETE")));
+
+        assertThat(metadata.promptCacheUsage().completeness())
+                .isEqualTo(PromptCacheUsage.Completeness.PARTIAL);
+        assertThat(metadata.toMap().get(ChatResponseMetadata.KEY_PROMPT_CACHE_USAGE))
+                .isEqualTo(metadata.promptCacheUsage().toMap());
+    }
+
+    @Test
     void chatPortDefaultStreamFallsBackToChatResponseEvents() {
         ChatPort port = request -> new ChatResponse(
                 List.of(ChatMessage.assistant("delta")),

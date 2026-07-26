@@ -11,6 +11,8 @@ import static org.mockito.Mockito.when;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,13 @@ import studio.one.platform.chunking.core.ChunkingStrategyType;
 import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
+import studio.one.platform.documentmetadata.DocumentMetadataArtifact;
+import studio.one.platform.documentmetadata.DocumentMetadataClassification;
+import studio.one.platform.documentmetadata.DocumentMetadataField;
+import studio.one.platform.documentmetadata.DocumentMetadataProvenance;
+import studio.one.platform.documentmetadata.DocumentMetadataQuality;
+import studio.one.platform.documentmetadata.DocumentSemanticType;
+import studio.one.platform.documentmetadata.DocumentSemanticTypeSelection;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
 import studio.one.platform.markdown.application.MarkdownPipelineProgress;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyOptions;
@@ -154,6 +163,78 @@ class MarkdownDownstreamPipelineAdapterTest {
                     .containsEntry("ragRechunkApplied", false);
         });
         verify(ragJobs).startJob("rag-job-1");
+    }
+
+    @Test
+    void projectsMetadataCreatedDuringEnrichmentIntoChunks() throws Exception {
+        ChunkingOrchestrator chunking = mock(ChunkingOrchestrator.class);
+        MarkdownRepository repository = mock(MarkdownRepository.class);
+        AtomicReference<MarkdownResource> metadataResource = new AtomicReference<>();
+        when(repository.findResources("revision-1")).thenReturn(List.of());
+        when(repository.findLocators("revision-1")).thenReturn(List.of());
+        when(repository.findResource("revision-1", "DOCUMENT_METADATA"))
+                .thenAnswer(invocation -> Optional.ofNullable(metadataResource.get()));
+        when(chunking.chunk(any(NormalizedDocument.class), any(ChunkingContext.class)))
+                .thenReturn(List.of(new Chunk("chunk-1", "content",
+                        ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, 0).build())));
+
+        DocumentMetadataArtifact artifact = new DocumentMetadataArtifact(
+                "metadata-1",
+                "revision-1",
+                "schema-1",
+                "extractor-1",
+                "fingerprint-1",
+                new DocumentMetadataClassification(
+                        "PROFESSIONAL_BOOK",
+                        "PROFESSIONAL_BOOK",
+                        DocumentSemanticTypeSelection.BOOK,
+                        DocumentSemanticType.BOOK,
+                        DocumentSemanticType.BOOK,
+                        "HUMANITIES",
+                        0.98d,
+                        "classifier-1",
+                        null,
+                        null,
+                        null,
+                        null),
+                DocumentMetadataQuality.COMPLETE,
+                Map.of("title", new DocumentMetadataField(
+                        "title",
+                        List.of("미국은 왜 전쟁을 멈추지 못하는가"),
+                        List.of("미국은 왜 전쟁을 멈추지 못하는가"),
+                        0.98d,
+                        DocumentMetadataProvenance.SOURCE_VERIFIED,
+                        List.of())),
+                List.of());
+        ObjectMapper objectMapper = new ObjectMapper();
+        String artifactJson = objectMapper.writeValueAsString(artifact);
+        RagChunkStageStore stageStore = new InMemoryRagChunkStageStore();
+        MarkdownDownstreamPipelineAdapter adapter = new MarkdownDownstreamPipelineAdapter(
+                provider(RagIndexJobService.class),
+                provider(SkillRagExtractionJobService.class),
+                provider(ChunkingOrchestrator.class, chunking),
+                provider(RagChunkStageStore.class, stageStore),
+                provider(EmbeddingPort.class),
+                provider(AiProviderRegistry.class),
+                provider(ChunkSetStore.class),
+                (revision, options) -> metadataResource.set(new MarkdownResource(
+                        "metadata-1",
+                        revision.revisionId(),
+                        "DOCUMENT_METADATA",
+                        "document-metadata.json",
+                        null,
+                        artifactJson)),
+                repository,
+                objectMapper);
+
+        adapter.process(revision(), new MarkdownPipelineOptions(true, false, false));
+
+        ArgumentCaptor<ChunkingContext> context = ArgumentCaptor.forClass(ChunkingContext.class);
+        verify(chunking).chunk(any(NormalizedDocument.class), context.capture());
+        assertThat(context.getValue().metadata())
+                .containsEntry("docMetadataId", "metadata-1")
+                .containsEntry("docSemanticType", "BOOK")
+                .containsEntry("docTitle", "미국은 왜 전쟁을 멈추지 못하는가");
     }
 
     @Test

@@ -15,6 +15,7 @@ import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.service.pipeline.RagDocumentMetadataProvider;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRagRetrievalOptionsDto;
 import studio.one.platform.chunking.core.ChunkMetadata;
@@ -40,6 +41,7 @@ public class RagChatRetrievalService {
 
     private final RagPipelineService ragPipelineService;
     private final AiWebRagProperties.RetrievalProperties properties;
+    private final List<RagDocumentMetadataProvider> metadataProviders;
 
     public RagChatRetrievalService(RagPipelineService ragPipelineService) {
         this(ragPipelineService, new AiWebRagProperties.RetrievalProperties());
@@ -48,8 +50,16 @@ public class RagChatRetrievalService {
     public RagChatRetrievalService(
             RagPipelineService ragPipelineService,
             AiWebRagProperties.RetrievalProperties properties) {
+        this(ragPipelineService, properties, List.of());
+    }
+
+    public RagChatRetrievalService(
+            RagPipelineService ragPipelineService,
+            AiWebRagProperties.RetrievalProperties properties,
+            List<RagDocumentMetadataProvider> metadataProviders) {
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.properties = properties == null ? new AiWebRagProperties.RetrievalProperties() : properties;
+        this.metadataProviders = metadataProviders == null ? List.of() : List.copyOf(metadataProviders);
     }
 
     public RetrievalResult retrieve(
@@ -61,6 +71,28 @@ public class RagChatRetrievalService {
             double defaultMinScore,
             Integer requestedTopK,
             boolean exposeDiagnostics) {
+        return retrieve(request, resolvedQuery, objectType, objectId, defaultTopK, defaultMinScore,
+                requestedTopK, exposeDiagnostics, false);
+    }
+
+    public RetrievalResult retrieve(
+            ChatRagRequestDto request,
+            String resolvedQuery,
+            String objectType,
+            String objectId,
+            int defaultTopK,
+            double defaultMinScore,
+            Integer requestedTopK,
+            boolean exposeDiagnostics,
+            boolean metadataQuery) {
+        if (metadataQuery && objectType != null && objectId != null) {
+            List<RagSearchResult> metadata = metadataProviders.stream()
+                    .filter(provider -> provider.supports(objectType))
+                    .flatMap(provider -> provider.find(objectType, objectId).stream())
+                    .limit(Math.max(1, defaultTopK))
+                    .toList();
+            return new RetrievalResult(metadata, RetrievalDebug.disabled());
+        }
         RetrievalPlan plan = RetrievalPlan.from(request, properties, defaultTopK, defaultMinScore);
         MetadataFilter baseFilter = baseFilter(objectType, objectId);
         Strategy requestedStrategy = Strategy.from(plan.requestedStrategy());

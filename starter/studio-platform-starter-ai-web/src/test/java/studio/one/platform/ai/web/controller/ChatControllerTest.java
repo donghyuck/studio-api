@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.Principal;
+import java.time.Duration;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +40,8 @@ import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
+import studio.one.platform.ai.web.cache.CaffeineRagAnswerCache;
 import studio.one.platform.ai.web.dto.ChatMemoryOptionsDto;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
@@ -226,10 +230,7 @@ class ChatControllerTest {
 
         assertThat(expression).contains("services:ai_chat','write");
         assertThat(expression).contains("services:ai_rag','read");
-        assertThat(expression).contains("features:attachment','read");
-        assertThat(expression).contains("equalsIgnoreCase('attachment')");
-        assertThat(expression).contains("objects:' + #request.objectType().trim() + ':'");
-        assertThat(expression).contains("objects:' + #request.objectType().trim()");
+        assertThat(expression).contains("@ragObjectAuthorizationRouter.canRead(#request)");
         assertThat(streamExpression).isEqualTo(expression);
     }
 
@@ -461,7 +462,9 @@ class ChatControllerTest {
                 .contains("제공된 RAG 문서에서 확인할 수 없습니다.")
                 .contains("event: complete")
                 .contains("\"ragSkippedChat\":true")
-                .contains("\"ragSkipReason\":\"NO_RAG_RESULTS\"");
+                .contains("\"ragSkipReason\":\"NO_RAG_RESULTS\"")
+                .contains("\"canonicalContent\":\"제공된 RAG 문서에서 확인할 수 없습니다.\"")
+                .contains("\"citationValidationStatus\":\"NO_PACKED_EVIDENCE\"");
         verify(defaultChatPort, times(0)).stream(any(ChatRequest.class));
         verify(defaultChatPort, times(0)).chat(any(ChatRequest.class));
     }
@@ -628,6 +631,7 @@ class ChatControllerTest {
     void ragChatStoresOnlyConversationMessagesWhenMemoryIsEnabled() {
         controller = memoryController();
         ArgumentCaptor<ChatRequest> captor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(response("default [1]"));
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "file text", Map.of(), 0.9d)));
 
@@ -661,7 +665,7 @@ class ChatControllerTest {
         List<studio.one.platform.ai.core.chat.ChatMessage> secondMessages = captor.getAllValues().get(1).messages();
         assertThat(secondMessages)
                 .extracting(message -> message.role().name() + ":" + message.content())
-                .containsExactly("USER:summarize", "ASSISTANT:default", "USER:follow up");
+                .containsExactly("USER:summarize", "ASSISTANT:default [1]", "USER:follow up");
         assertThat(secondMessages)
                 .extracting(studio.one.platform.ai.core.chat.ChatMessage::content)
                 .doesNotContain("answer from file")
@@ -713,6 +717,7 @@ class ChatControllerTest {
     @Test
     @SuppressWarnings("unchecked")
     void ragChatReturnsReferencesForPromptContext() {
+        when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(response("default [1]"));
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult(
                         "doc-1",
@@ -720,7 +725,7 @@ class ChatControllerTest {
                         Map.of(
                                 "sourceName", "sample.pdf",
                                 "sourceFileName", "original-sample.pdf",
-                                "title", "Sample Document",
+                                "docTitle", "Sample Document",
                                 RagContextBuilder.KEY_CHUNK_ID, "chunk-1",
                                 ChunkMetadata.KEY_CHUNK_ORDER, 7,
                                 "page", 3,
@@ -745,8 +750,8 @@ class ChatControllerTest {
 
         List<Map<String, Object>> references = (List<Map<String, Object>>) response.metadata().get("ragReferences");
         assertThat(references).hasSize(1);
-        assertThat(response.answer()).isEqualTo("default");
-        assertThat(response.content()).isEqualTo("default");
+        assertThat(response.answer()).isEqualTo("default [1]");
+        assertThat(response.content()).isEqualTo("default [1]");
         assertThat(references.get(0))
                 .containsEntry("index", 1)
                 .containsEntry("documentId", "doc-1")
@@ -863,6 +868,8 @@ class ChatControllerTest {
         assertThat(response.metadata())
                 .containsEntry("ragSkippedChat", true)
                 .containsEntry("ragSkipReason", "NO_RAG_RESULTS")
+                .containsEntry("canonicalContent", "제공된 RAG 문서에서 확인할 수 없습니다.")
+                .containsEntry("citationValidationStatus", "NO_PACKED_EVIDENCE")
                 .containsEntry("ragReferences", List.of());
         Map<String, Object> summary = (Map<String, Object>) response.metadata().get("ragRetrievalSummary");
         assertThat(summary)
@@ -908,6 +915,111 @@ class ChatControllerTest {
         verify(ragPipelineService).search(ragCaptor.capture());
         assertThat(ragCaptor.getValue().metadataFilter().objectType()).isEqualTo("2001");
         assertThat(ragCaptor.getValue().metadataFilter().objectId()).isEqualTo("6");
+    }
+
+    @Test
+    void ragExactCacheSkipsSecondProviderCallAfterCurrentEvidenceMatches() {
+        when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(response("supported answer [1]"));
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult(
+                        "doc-1",
+                        "file text",
+                        Map.of("revisionId", "rev-1", "sourceRef", "page-1"),
+                        0.9d)));
+        controller = new ChatController(
+                providerRegistry,
+                ragPipelineService,
+                new RagChatRetrievalService(ragPipelineService),
+                RagContextBuilder.defaults(),
+                false,
+                null,
+                false,
+                null,
+                Jackson2ObjectMapperBuilder.json().build(),
+                4,
+                100,
+                RagPipelineOptions.defaults(),
+                null,
+                null,
+                AiModelUsageStore.noop(),
+                new CaffeineRagAnswerCache(Duration.ofMinutes(15)));
+        ChatRagRequestDto request = new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "question")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "question",
+                3,
+                "attachment",
+                "11");
+        Principal principal = () -> "cache-test-user";
+
+        ChatResponseDto first = controller.chatWithRag(request, principal).getBody().getData();
+        ChatResponseDto second = controller.chatWithRag(request, principal).getBody().getData();
+        ByteArrayOutputStream streamOutput = new ByteArrayOutputStream();
+        try {
+            controller.streamWithRag(request, principal).getBody().writeTo(streamOutput);
+        } catch (java.io.IOException ex) {
+            throw new AssertionError(ex);
+        }
+        String stream = streamOutput.toString(StandardCharsets.UTF_8);
+
+        assertThat(first.content()).isEqualTo("supported answer [1]");
+        assertThat(second.content()).isEqualTo(first.content());
+        assertThat(second.metadata()).containsEntry("ragAnswerCache", "HIT");
+        assertThat(stream).contains("event: delta", "event: complete", "\"ragAnswerCache\":\"HIT\"");
+        assertThat(stream).doesNotContain("event: usage");
+        verify(defaultChatPort, times(1)).chat(any(ChatRequest.class));
+    }
+
+    @Test
+    void ragExactCacheDoesNotShareAcrossPrincipals() {
+        when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(response("supported answer [1]"));
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("doc-1", "file text", Map.of(), 0.9d)));
+        controller = new ChatController(
+                providerRegistry,
+                ragPipelineService,
+                new RagChatRetrievalService(ragPipelineService),
+                RagContextBuilder.defaults(),
+                false,
+                null,
+                false,
+                null,
+                Jackson2ObjectMapperBuilder.json().build(),
+                4,
+                100,
+                RagPipelineOptions.defaults(),
+                null,
+                null,
+                AiModelUsageStore.noop(),
+                new CaffeineRagAnswerCache(Duration.ofMinutes(15)));
+        ChatRagRequestDto request = new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "question")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "question",
+                3,
+                "attachment",
+                "11");
+
+        controller.chatWithRag(request, () -> "user-a");
+        controller.chatWithRag(request, () -> "user-b");
+
+        verify(defaultChatPort, times(2)).chat(any(ChatRequest.class));
     }
 
     @Test
@@ -1586,7 +1698,8 @@ class ChatControllerTest {
 
         verify(defaultChatPort).chat(chatCaptor.capture());
         assertThat(chatCaptor.getValue().messages().get(0).content())
-                .contains("[truncated]")
+                .doesNotContain("[truncated]")
+                .contains("01234567890123456789")
                 .doesNotContain("0123456789".repeat(20));
     }
 
@@ -1635,7 +1748,8 @@ class ChatControllerTest {
         verify(defaultChatPort).chat(chatCaptor.capture());
         String promptContext = chatCaptor.getValue().messages().get(0).content();
         assertThat(promptContext)
-                .contains("[truncated]")
+                .doesNotContain("[truncated]")
+                .contains(rawContent.substring(0, 24))
                 .doesNotContain(rawContent)
                 .doesNotContain("doc-1", "chunk-1", "attachment", "123", "score=");
 
@@ -1646,7 +1760,7 @@ class ChatControllerTest {
                 .containsEntry("sourceName", "large.pdf")
                 .containsEntry("chunkId", "chunk-1");
         assertThat((String) references.get(0).get("content"))
-                .contains("[truncated]")
+                .isEqualTo(rawContent.substring(0, 24))
                 .doesNotContain(rawContent);
 
         Map<String, Object> contextDiagnostics = (Map<String, Object>) response.metadata()

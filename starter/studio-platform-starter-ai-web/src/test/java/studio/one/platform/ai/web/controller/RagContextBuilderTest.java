@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +37,7 @@ class RagContextBuilderTest {
                 "다항식 문제 본문",
                 Map.of(
                         "sourceFileName", "math-textbook.pdf",
-                        "title", "고등 수학",
+                        "docTitle", "고등 수학",
                         "page", 42,
                         "section", "다항식의 연산",
                         "sourceRef", "page[42]/block[7]"),
@@ -65,6 +66,24 @@ class RagContextBuilderTest {
 
         assertThat(context)
                 .contains("previous\nseed\nnext");
+    }
+
+    @Test
+    void expandedContextPreservesEveryIncludedChunkAsAnExactSourceSpan() {
+        RagContextBuilder builder = new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList());
+        List<RagSearchResult> candidates = List.of(
+                result("chunk-1", "previous", metadata("chunk-1", null, "chunk-2", 0)),
+                result("chunk-2", "seed", metadata("chunk-2", "chunk-1", "chunk-3", 1)),
+                result("chunk-3", "next", metadata("chunk-3", "chunk-2", null, 2)));
+
+        RagContextBuilder.BuildResult built = builder.buildWithDiagnostics(
+                List.of(candidates.get(1)), candidates);
+
+        assertThat(built.usedResults()).hasSize(1);
+        assertThat(((List<?>) built.usedResults().get(0).metadata().get("sourceSpans")).stream()
+                .map(value -> Objects.toString(((Map<?, ?>) value).get("chunkId")))
+                .toList())
+                .containsExactly("chunk-1", "chunk-2", "chunk-3");
     }
 
     @Test
@@ -244,10 +263,13 @@ class RagContextBuilderTest {
 
         assertThat(result.context())
                 .contains("[1]")
-                .contains("[truncated]")
+                .contains("A".repeat(24))
+                .doesNotContain("[truncated]")
                 .doesNotContain(longContent);
         assertThat(result.usedResults()).hasSize(1);
-        assertThat(result.usedResults().get(0).content()).hasSizeLessThan(longContent.length());
+        assertThat(result.usedResults().get(0).content())
+                .isEqualTo(longContent.substring(0, 24));
+        assertThat(longContent).contains(result.evidenceSet().evidence().get(0).sourceSpans().get(0).exactText());
         assertThat(result.diagnostics().toMetadata())
                 .containsEntry("includedCount", 1)
                 .containsEntry("compressedHitCount", 1)
@@ -270,7 +292,8 @@ class RagContextBuilderTest {
                 List.of(result("chunk-1", "body", metadata("chunk-1"))),
                 List.of());
 
-        assertThat(result.context()).isEqualTo("참고할 문서가 없습니다. 일반적으로 답변하세요.");
+        assertThat(result.context()).isEqualTo("제공된 문서에서 확인할 수 없습니다.");
+        assertThat(result.evidenceSet().evidence()).isEmpty();
         assertThat(result.diagnostics().toMetadata())
                 .containsEntry("includedCount", 0)
                 .containsEntry("skippedHitCount", 1)

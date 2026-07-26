@@ -22,15 +22,22 @@ import org.springframework.transaction.support.TransactionTemplate;
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagObjectMetadataContributor;
+import studio.one.platform.ai.service.pipeline.RagDocumentMetadataProvider;
+import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.artifact.ChunkSetStore;
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertJobListener;
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertDirectResultStore;
 import studio.one.platform.documentconvert.application.service.DocumentConvertService;
 import studio.one.platform.markdown.application.MarkdownDocumentService;
+import studio.one.platform.markdown.application.MarkdownDocumentMetadataService;
+import studio.one.platform.documentmetadata.BuiltInDocumentMetadataSchemaRegistry;
+import studio.one.platform.documentmetadata.DocumentMetadataSchemaRegistry;
+import studio.one.platform.markdown.application.port.MarkdownMetadataEnrichmentPort;
 import studio.one.platform.markdown.application.port.MarkdownConversionPort;
 import studio.one.platform.markdown.application.port.MarkdownNativeExtractorPort;
 import studio.one.platform.markdown.application.port.MarkdownNormalizationPort;
@@ -59,6 +66,72 @@ public class MarkdownAutoConfiguration {
     @ConditionalOnBean(NamedParameterJdbcTemplate.class)
     MarkdownRepository markdownRepository(NamedParameterJdbcTemplate jdbc) {
         return new JdbcMarkdownRepository(jdbc);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    DocumentMetadataSchemaRegistry documentMetadataSchemaRegistry() {
+        return new BuiltInDocumentMetadataSchemaRegistry();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    MarkdownDocumentMetadataService markdownDocumentMetadataService(
+            MarkdownRepository repository, ObjectMapper objectMapper) {
+        return new MarkdownDocumentMetadataService(repository, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "markdownRagDocumentMetadataProvider")
+    RagDocumentMetadataProvider markdownRagDocumentMetadataProvider(
+            MarkdownRepository repository, ObjectMapper objectMapper) {
+        return new MarkdownRagDocumentMetadataProvider(repository, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    MarkdownMetadataEnrichmentPort markdownMetadataEnrichmentPort(
+            MarkdownRepository repository,
+            ObjectMapper objectMapper,
+            DocumentMetadataSchemaRegistry schemas,
+            ObjectProvider<ModelDeploymentRegistry> deployments,
+            MarkdownProperties properties) {
+        return new DefaultMarkdownMetadataEnrichmentService(
+                repository, objectMapper, schemas, deployments.getIfAvailable(), properties.getMetadata());
+    }
+
+    @Bean(name = "markdownMetadataBackfillExecutor")
+    @ConditionalOnMissingBean(name = "markdownMetadataBackfillExecutor")
+    TaskExecutor markdownMetadataBackfillExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(10);
+        executor.setThreadNamePrefix("markdown-metadata-backfill-");
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnBean(NamedParameterJdbcTemplate.class)
+    MarkdownMetadataBackfillService markdownMetadataBackfillService(
+            NamedParameterJdbcTemplate jdbc,
+            MarkdownRepository repository,
+            MarkdownMetadataEnrichmentPort enrichment,
+            ObjectMapper objectMapper,
+            @Qualifier("markdownMetadataBackfillExecutor") TaskExecutor executor,
+            ObjectProvider<RagPipelineService> ragPipelineProvider) {
+        return new MarkdownMetadataBackfillService(
+                jdbc, repository, enrichment, objectMapper, executor, ragPipelineProvider);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnBean(MarkdownMetadataBackfillService.class)
+    MarkdownMetadataBackfillController markdownMetadataBackfillController(
+            MarkdownMetadataBackfillService service) {
+        return new MarkdownMetadataBackfillController(service);
     }
 
     @Bean
@@ -126,10 +199,11 @@ public class MarkdownAutoConfiguration {
             ObjectProvider<EmbeddingPort> embeddingPort,
             ObjectProvider<AiProviderRegistry> aiProviderRegistry,
             ObjectProvider<ChunkSetStore> chunkSetStore,
+            MarkdownMetadataEnrichmentPort metadataEnrichmentPort,
             MarkdownRepository repository,
             ObjectMapper objectMapper) {
         return new MarkdownDownstreamPipelineAdapter(ragIndexJobs, skillJobService, chunking, chunkStageStore,
-                embeddingPort, aiProviderRegistry, chunkSetStore, repository, objectMapper);
+                embeddingPort, aiProviderRegistry, chunkSetStore, metadataEnrichmentPort, repository, objectMapper);
     }
 
     @Bean(name = "markdownTaskExecutor")
@@ -154,8 +228,9 @@ public class MarkdownAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "markdownRagObjectMetadataContributor")
-    RagObjectMetadataContributor markdownRagObjectMetadataContributor(MarkdownRepository repository) {
-        return new MarkdownRagObjectMetadataContributor(repository);
+    RagObjectMetadataContributor markdownRagObjectMetadataContributor(
+            MarkdownRepository repository, ObjectMapper objectMapper) {
+        return new MarkdownRagObjectMetadataContributor(repository, objectMapper);
     }
 
     @Bean

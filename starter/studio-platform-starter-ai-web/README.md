@@ -111,6 +111,36 @@ studio:
 
 > `studio.ai.endpoints.enabled=false`이면 위 AI web endpoint 전체가 등록되지 않는다.
 
+### Exact RAG answer cache
+
+기본값은 `NONE`이며 기존 RAG 동작을 변경하지 않는다. Redis를 사용하려면 소비 애플리케이션에
+`spring-boot-starter-data-redis`와 Redis 연결 설정을 추가한 뒤 다음처럼 활성화한다.
+
+```yaml
+studio:
+  ai:
+    rag:
+      answer-cache:
+        type: redis
+        ttl: 15m
+        namespace: studio:ai:rag-answer:v1
+        fail-open: true
+```
+
+cache는 object authorization과 현재 검색·`PackedEvidenceSet` 생성 이후에 조회한다. 완전한
+`objectType`/`objectId`와 인증 principal이 없는 요청은 cache를 우회한다. key에는 principal scope,
+object scope, 질문·대화 이력, 검색 옵션, embedding/chat deployment와 현재 evidence fingerprint가
+포함된다. citation 검증 상태가 `INDEX_VALID`인 canonical answer만 저장하며 SSE draft, provider
+credential, 원문 전체, reference excerpt·locator는 저장하지 않는다. cache hit의 reference는
+현재 검색·패킹 결과에서 다시 구성한다.
+
+hit 응답은 sync와 SSE 모두 `metadata.ragAnswerCache=HIT`을 반환하고 provider를 호출하지 않는다.
+provider 호출이 없으므로 SSE cache hit은 `usage` 이벤트를 생성하지 않고 `delta → complete`로
+종료한다. chat memory가 활성화된 요청은 서버 측 history가 답변 입력에 포함되므로 exact cache를
+우회한다.
+Redis 장애는 기본적으로 miss로 처리한다. 초기 구현은 근거 검색을 건너뛰지 않고 생성 비용만
+줄이므로, 최신 evidence/reference가 cached payload와 일치하지 않으면 즉시 miss가 된다.
+
 ### Vector Projection Visualization
 
 `studio.ai.vector.projection.max-items`, `default-sample-size`, `default-sampling-strategy`,
@@ -487,9 +517,28 @@ Content-Type: application/json
 provider가 token usage를 반환하고 `studio.ai.usage.pricing`에 실제 모델 단가가 설정된 경우 응답 metadata의
 `estimatedCost`와 `GET {basePath}/usage/models` 집계에 추정 비용이 포함된다. 단가는 `model` 또는
 `provider/model` key로 설정할 수 있고, provider/model 설정이 우선한다. 이 값은 API 응답 token 기준
-추정치이며 세금, 무료 tier, batch 할인, caching, grounding 등 별도 과금 항목을 포함하지 않는다.
+추정치이며 세금, 무료 tier, batch 할인, grounding 등 별도 과금 항목을 포함하지 않는다. provider가
+prompt cache 사용량을 반환하면 `promptCacheUsage`에 uncached/read/write 입력 token을 분리하고,
+`cache-read-input-per-million-tokens`, `cache-write-input-per-million-tokens` 단가로 비용을 계산한다.
+세 bucket이 완전하지 않거나 사용된 bucket의 단가가 없으면 비용을 추정하지 않는다.
 YAML에서 모델명에 `.`이 포함되면 Spring map key가 분해되지 않도록 `"[gemini-2.5-pro]"`처럼 대괄호로
 감싼 key를 사용한다.
+
+```yaml
+studio:
+  ai:
+    usage:
+      pricing:
+        "[provider/model]":
+          input-per-million-tokens: 1.0
+          output-per-million-tokens: 4.0
+          cache-read-input-per-million-tokens: 0.1
+          cache-write-input-per-million-tokens: 1.25
+```
+
+현재 구현은 provider가 이미 반환한 cache usage를 관측할 뿐 request body에 cache key, breakpoint,
+cached-content resource를 추가하지 않는다. 일반 채팅과 RAG 사용량은 각각 `CHAT`, `RAG`로 분리 집계한다.
+`MeterRegistry` Bean이 있으면 prompt cache 요청 수와 read/write token을 저카디널리티 metric으로 기록한다.
 
 기본 `AiModelUsageStore`는 단일 인스턴스의 in-memory 집계다. 애플리케이션 재시작 시 초기화되며 장기 비용
 통계나 다중 인스턴스 합산이 필요하면 외부 저장소 기반 구현을 별도 Bean으로 등록한다.

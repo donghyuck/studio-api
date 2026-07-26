@@ -28,6 +28,8 @@ dependencies {
     compileOnly(project(":studio-application-modules:attachment-service"))
     compileOnly("org.springframework.boot:spring-boot-starter")
     compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-security")
+    compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework:spring-jdbc")
     compileOnly("org.springframework:spring-tx")
 

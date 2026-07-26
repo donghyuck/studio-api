@@ -221,4 +221,17 @@ public interface VectorStorePort {
     default Map<String, Object> getMetadata(String objectType, String objectId) {
         throw new UnsupportedOperationException("getMetadata is not implemented");
     }
+
+    /**
+     * Merges document-level metadata into every existing vector row for an object.
+     * Implementations must not alter text, embeddings, dimensions, or row identity.
+     *
+     * @return the number of vector rows whose metadata was patched
+     */
+    default int patchMetadataByObject(
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata) {
+        throw new UnsupportedOperationException("patchMetadataByObject is not implemented");
+    }
 }

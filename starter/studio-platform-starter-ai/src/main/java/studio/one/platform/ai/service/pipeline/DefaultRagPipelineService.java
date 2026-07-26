@@ -849,6 +849,15 @@ public class DefaultRagPipelineService implements RagPipelineService {
     }
 
     @Override
+    public int patchMetadataByObject(
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata) {
+        clearDiagnostics();
+        return vectorStorePort.patchMetadataByObject(objectType, objectId, metadata);
+    }
+
+    @Override
     public List<RagSearchResult> listByObject(String objectType, String objectId, int offset, int limit) {
         clearDiagnostics();
         List<VectorSearchResult> results = vectorStorePort.listByObject(

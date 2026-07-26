@@ -322,9 +322,46 @@ public class JdbcMarkdownRepository implements MarkdownRepository {
         return jdbc.query("""
                 SELECT * FROM tb_ai_markdown_resource
                 WHERE revision_id=:revisionId ORDER BY resource_id
-                """, Map.of("revisionId", revisionId), (rs, rowNum) -> new MarkdownResource(
-                rs.getString("resource_id"), rs.getString("revision_id"), rs.getString("resource_type"),
-                rs.getString("name"), longValue(rs, "attachment_id"), rs.getString("metadata_json")));
+                """, Map.of("revisionId", revisionId), (rs, rowNum) -> mapResource(rs));
+    }
+
+    @Override
+    public Optional<MarkdownResource> findResource(String revisionId, String resourceType) {
+        return jdbc.query("""
+                SELECT * FROM tb_ai_markdown_resource
+                WHERE revision_id=:revisionId AND resource_type=:resourceType
+                ORDER BY resource_id
+                LIMIT 1
+                """, new MapSqlParameterSource()
+                .addValue("revisionId", revisionId)
+                .addValue("resourceType", resourceType), (rs, rowNum) -> mapResource(rs))
+                .stream().findFirst();
+    }
+
+    @Override
+    public void upsertResource(MarkdownResource resource) {
+        var params = new MapSqlParameterSource()
+                .addValue("resourceId", resource.resourceId())
+                .addValue("revisionId", resource.revisionId())
+                .addValue("resourceType", resource.resourceType())
+                .addValue("name", resource.name())
+                .addValue("attachmentId", resource.attachmentId())
+                .addValue("metadataJson", resource.metadataJson());
+        int updated = jdbc.update("""
+                UPDATE tb_ai_markdown_resource
+                SET resource_type=:resourceType, name=:name,
+                    attachment_id=:attachmentId, metadata_json=:metadataJson
+                WHERE resource_id=:resourceId
+                """, params);
+        if (updated == 0) {
+            jdbc.update("""
+                    INSERT INTO tb_ai_markdown_resource (
+                        resource_id, revision_id, resource_type, name, attachment_id, metadata_json
+                    ) VALUES (
+                        :resourceId, :revisionId, :resourceType, :name, :attachmentId, :metadataJson
+                    )
+                    """, params);
+        }
     }
 
     @Override
@@ -339,6 +376,16 @@ public class JdbcMarkdownRepository implements MarkdownRepository {
         return new MarkdownDocument(rs.getString("document_id"), rs.getLong("source_attachment_id"),
                 rs.getString("current_revision_id"), instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")));
+    }
+
+    private MarkdownResource mapResource(ResultSet rs) throws SQLException {
+        return new MarkdownResource(
+                rs.getString("resource_id"),
+                rs.getString("revision_id"),
+                rs.getString("resource_type"),
+                rs.getString("name"),
+                longValue(rs, "attachment_id"),
+                rs.getString("metadata_json"));
     }
 
     private MarkdownRevision mapRevision(ResultSet rs, int rowNum) throws SQLException {

@@ -70,6 +70,46 @@ class EpubFileParserTest {
     }
 
     @Test
+    void extractsDublinCoreBookMetadataFromPackage() throws Exception {
+        Map<String, byte[]> entries = baseEntries("""
+                <manifest>
+                  <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/>
+                </manifest>
+                <spine><itemref idref="chapter"/></spine>
+                """);
+        entries.put("OPS/package.opf", """
+                <package xmlns="http://www.idpf.org/2007/opf"
+                         xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
+                  <metadata>
+                    <dc:title>인문학의 역사</dc:title>
+                    <dc:creator>홍길동</dc:creator>
+                    <dc:publisher>테스트 출판사</dc:publisher>
+                    <dc:date>2026-07-24</dc:date>
+                    <dc:language>ko</dc:language>
+                    <dc:identifier>ISBN 978-1-23456-789-0</dc:identifier>
+                    <dc:subject>인문학</dc:subject>
+                  </metadata>
+                  <manifest>
+                    <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/>
+                  </manifest>
+                  <spine><itemref idref="chapter"/></spine>
+                </package>
+                """.getBytes(UTF_8));
+        entries.put("OPS/chapter.xhtml", xhtml("인문학의 역사", "철학과 문학의 흐름", ""));
+
+        ParsedFile result = new EpubFileParser().parseStructured(
+                epub(entries), "application/epub+zip", "humanities.epub");
+
+        assertThat(result.metadata())
+                .containsEntry("title", "인문학의 역사")
+                .containsEntry("publisher", "테스트 출판사")
+                .containsEntry("publicationDate", "2026-07-24")
+                .containsEntry("language", "ko")
+                .containsEntry("isbn", "ISBN 978-1-23456-789-0");
+        assertThat(result.metadata().get("authors")).isEqualTo(List.of("홍길동"));
+    }
+
+    @Test
     void excludesNonTextResourcesFromExtractedBytesBudget() throws Exception {
         Map<String, byte[]> entries = baseEntries("""
                 <manifest>

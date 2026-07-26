@@ -21,10 +21,12 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
+import org.springframework.ai.google.genai.metadata.GoogleGenAiUsage;
 
 import reactor.core.publisher.Flux;
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatRequest;
+import studio.one.platform.ai.core.chat.ChatStreamEventType;
 
 class GoogleSpringAiChatAdapterTest {
 
@@ -67,6 +69,62 @@ class GoogleSpringAiChatAdapterTest {
         assertThat(options.getTopK()).isEqualTo(20);
         assertThat(options.getMaxOutputTokens()).isEqualTo(100);
         assertThat(options.getStopSequences()).containsExactly("STOP");
+    }
+
+    @Test
+    void mapsGoogleCachedContentUsageWithoutChangingRequestOptions() {
+        ChatModel model = mock(ChatModel.class);
+        GoogleGenAiUsage usage = mock(GoogleGenAiUsage.class);
+        when(usage.getPromptTokens()).thenReturn(100);
+        when(usage.getCompletionTokens()).thenReturn(20);
+        when(usage.getTotalTokens()).thenReturn(120);
+        when(usage.getCachedContentTokenCount()).thenReturn(40);
+        when(model.call(any(Prompt.class)))
+                .thenReturn(new ChatResponse(
+                        List.of(new Generation(new AssistantMessage("cached"))),
+                        ChatResponseMetadata.builder()
+                                .model("gemini-2.5-flash")
+                                .usage(usage)
+                                .build()));
+
+        var response = new GoogleSpringAiChatAdapter(model, "GOOGLE_AI_GEMINI", "gemini-2.5-flash")
+                .chat(ChatRequest.builder()
+                        .messages(List.of(ChatMessage.user("hello")))
+                        .build());
+
+        assertThat(response.typedMetadata().promptCacheUsage()).isNotNull();
+        assertThat(response.typedMetadata().promptCacheUsage().uncachedInputTokens()).isEqualTo(60);
+        assertThat(response.typedMetadata().promptCacheUsage().cacheReadInputTokens()).isEqualTo(40);
+        assertThat(response.typedMetadata().promptCacheUsage().cacheWriteInputTokens()).isZero();
+    }
+
+    @Test
+    void keepsGooglePromptCacheUsageEqualInStreamUsageAndCompleteEvents() {
+        ChatModel model = mock(ChatModel.class);
+        GoogleGenAiUsage usage = mock(GoogleGenAiUsage.class);
+        when(usage.getPromptTokens()).thenReturn(100);
+        when(usage.getCompletionTokens()).thenReturn(20);
+        when(usage.getTotalTokens()).thenReturn(120);
+        when(usage.getCachedContentTokenCount()).thenReturn(40);
+        when(model.stream(any(Prompt.class)))
+                .thenReturn(Flux.just(new ChatResponse(
+                        List.of(new Generation(new AssistantMessage("cached"))),
+                        ChatResponseMetadata.builder()
+                                .model("gemini-2.5-flash")
+                                .usage(usage)
+                                .build())));
+
+        var events = new GoogleSpringAiChatAdapter(model, "GOOGLE_AI_GEMINI", "gemini-2.5-flash")
+                .stream(ChatRequest.builder()
+                        .messages(List.of(ChatMessage.user("hello")))
+                        .build())
+                .toList();
+
+        var usageEvent = events.stream().filter(event -> event.type() == ChatStreamEventType.USAGE).findFirst().orElseThrow();
+        var completeEvent =
+                events.stream().filter(event -> event.type() == ChatStreamEventType.COMPLETE).findFirst().orElseThrow();
+        assertThat(usageEvent.metadata().promptCacheUsage())
+                .isEqualTo(completeEvent.metadata().promptCacheUsage());
     }
 
     @Test

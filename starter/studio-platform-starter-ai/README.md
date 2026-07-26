@@ -13,8 +13,9 @@ MyBatis가 없거나 애플리케이션의 custom `mybatis.mapper-locations` 설
 `starter:studio-platform-starter-chunking`이 있으면 `RagPipelineService`는 `ChunkingOrchestrator`를 우선 사용하고,
 없으면 기존 `TextChunker` fallback을 사용한다.
 
-> **중요** Spring AI BOM(`org.springframework.ai:spring-ai-bom:1.1.2`)이 `api(platform())` 으로
-> 노출되므로, 소비 앱에서 별도로 BOM을 선언하지 않아도 Spring AI 의존성 버전이 자동 관리된다.
+> **중요** Spring AI BOM은 `gradle.properties`의 `springAiVersion`으로 중앙 관리되며
+> `api(platform())` 으로 노출되므로, 소비 앱에서 별도로 BOM을 선언하지 않아도
+> Spring AI 의존성 버전이 자동 관리된다.
 
 ## 1) 의존성 추가
 

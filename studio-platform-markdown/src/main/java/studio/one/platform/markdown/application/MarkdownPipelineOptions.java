@@ -4,6 +4,9 @@ import java.util.Locale;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import studio.one.platform.documentmetadata.DocumentSemanticTypeSelection;
+import studio.one.platform.documentmetadata.MetadataEnrichmentMode;
+
 public record MarkdownPipelineOptions(
         boolean runChunking,
         boolean runRagIndex,
@@ -32,7 +35,25 @@ public record MarkdownPipelineOptions(
         @JsonInclude(JsonInclude.Include.NON_NULL) String requestedDocumentProfile,
         @JsonInclude(JsonInclude.Include.NON_NULL) String resolvedDocumentProfile,
         @JsonInclude(JsonInclude.Include.NON_NULL) String documentProfileVersion,
-        @JsonInclude(JsonInclude.Include.NON_NULL) String embeddingDeploymentId) {
+        @JsonInclude(JsonInclude.Include.NON_NULL) String embeddingDeploymentId,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String requestedDocumentSemanticType,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String metadataEnrichmentMode) {
+
+    public MarkdownPipelineOptions withMetadataOptions(
+            String documentSemanticType,
+            String enrichmentMode) {
+        return new MarkdownPipelineOptions(
+                runChunking, runRagIndex, runSkillExtraction, chunkingStrategy, chunkMaxSize, chunkOverlap,
+                chunkUnit, blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
+                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection,
+                requestedDocumentProfile, resolvedDocumentProfile, documentProfileVersion,
+                embeddingDeploymentId,
+                documentSemanticType == null ? requestedDocumentSemanticType : documentSemanticType,
+                enrichmentMode == null ? metadataEnrichmentMode : enrichmentMode);
+    }
 
     public MarkdownPipelineOptions {
         runRagIndex = runRagIndex || runSkillExtraction;
@@ -83,6 +104,10 @@ public record MarkdownPipelineOptions(
         embeddingProvider = normalize(embeddingProvider);
         embeddingModel = normalize(embeddingModel);
         embeddingDeploymentId = normalize(embeddingDeploymentId);
+        requestedDocumentSemanticType = enumName(requestedDocumentSemanticType,
+                DocumentSemanticTypeSelection.class, DocumentSemanticTypeSelection.AUTO.name());
+        metadataEnrichmentMode = enumName(metadataEnrichmentMode,
+                MetadataEnrichmentMode.class, MetadataEnrichmentMode.AUTO.name());
         skillEmbeddingProvider = normalize(skillEmbeddingProvider);
         skillEmbeddingModel = normalize(skillEmbeddingModel);
         skillExtractionMode = normalizeSkillExtractionMode(skillExtractionMode);
@@ -141,6 +166,54 @@ public record MarkdownPipelineOptions(
             throw new IllegalArgumentException(
                     "Skill embedding provider/model/dimension require generateSkillEmbeddings");
         }
+    }
+
+    public MarkdownPipelineOptions(
+            boolean runChunking,
+            boolean runRagIndex,
+            boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String blockifyLlmProvider,
+            String blockifyLlmModel,
+            Boolean blockifyPiiMaskingEnabled,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension,
+            Boolean ocrRequired,
+            String ocrLanguage,
+            String ocrMode,
+            Boolean mathVisionCorrection,
+            String requestedDocumentProfile,
+            String resolvedDocumentProfile,
+            String documentProfileVersion,
+            String embeddingDeploymentId) {
+        this(runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
+                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection,
+                requestedDocumentProfile, resolvedDocumentProfile, documentProfileVersion,
+                embeddingDeploymentId, null, null);
+    }
+
+    public DocumentSemanticTypeSelection semanticTypeSelection() {
+        return DocumentSemanticTypeSelection.valueOf(requestedDocumentSemanticType);
+    }
+
+    public MetadataEnrichmentMode enrichmentMode() {
+        return MetadataEnrichmentMode.valueOf(metadataEnrichmentMode);
     }
 
     public MarkdownPipelineOptions(
@@ -481,6 +554,18 @@ public record MarkdownPipelineOptions(
 
     private static String normalize(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static <E extends Enum<E>> String enumName(String value, Class<E> enumType, String defaultValue) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return defaultValue;
+        }
+        try {
+            return Enum.valueOf(enumType, normalized.toUpperCase(Locale.ROOT).replace('-', '_')).name();
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Unsupported " + enumType.getSimpleName() + ": " + value, ex);
+        }
     }
 
     private static String valueOrDefault(String value, String fallback) {

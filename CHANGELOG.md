@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+- Redis가 설치되지 않은 실행 서버에서도 RAG answer-cache 자동 구성을 안전하게 건너뛰도록 Redis 전용 구성을 클래스패스 조건부 중첩 구성으로 격리했습니다.
+
+- Spring Boot 3.5.16, Spring AI 1.1.8, Gradle 8.14.5로 패치 기준선을 갱신하고 Spring AI BOM을
+  공통 property로 중앙화했다. Boot 4.1/Spring AI 2.0 격리 스파이크에서 확인한 Boot 자동구성
+  모듈화와 Jackson 3 전환 blocker를 문서화했으며, 제품 전환은 compatibility gate 충족 전까지
+  보류한다.
+
+- 검증된 canonical RAG 답변을 저장하는 `NONE | CAFFEINE | REDIS` exact cache를 추가했다.
+  authorization과 최신 evidence packing 이후에만 조회하며 principal/object/model/retrieval/prompt/
+  evidence fingerprint가 일치할 때 provider 생성을 생략한다. citation이 `INDEX_VALID`인 답변만
+  versioned JSON으로 저장하고 Redis 장애는 기본 fail-open miss로 처리한다.
+
+- AI Web과 AI core starter의 개발 artifact 버전이 일시적으로 어긋난 환경에서도 선택적 JDBC vector
+  projection 구현 class가 없으면 해당 auto-configuration을 조건 평가 전에 건너뛰도록 classpath guard를
+  추가했다. 정상 배포에서는 모든 Studio AI artifact와 Spring Boot BOM 버전을 동일하게 맞춰야 한다.
+
+- provider가 반환한 prompt cache 사용량을 uncached/read/write token으로 정규화하고, 일반 채팅과 RAG를
+  분리해 모델별 hit ratio와 cache-aware 비용을 집계한다. Google GenAI와 OpenAI-compatible 응답의
+  cache token을 관측하되 request body와 RAG prompt는 변경하지 않는다. 모델 카탈로그에는 검증된
+  prompt cache capability를 추가하고, Micrometer가 있으면 원문이나 object 식별자를 포함하지 않는
+  저카디널리티 cache metric을 기록한다.
+
+- 문서 의미 유형과 유형별 메타데이터 스키마를 공통 `studio-platform-document-metadata` 모듈로
+  분리하고 Markdown 파이프라인에 `METADATA_ENRICHMENT` 단계를 추가했다. 네이티브·구조 기반 값을
+  우선 사용하며 신뢰도가 낮은 경우에만 등록된 `CHAT` structured-output deployment를 호출한다.
+  revision별 `DOCUMENT_METADATA` artifact, schema/detail API, 멱등 backfill job과 DRY_RUN/APPLY
+  절차를 추가했다.
+
+- RAG prompt와 API 근거를 동일한 `PackedEvidenceSet`에서 생성하도록 변경했다. packed evidence가
+  없으면 모델을 호출하지 않으며, sync/SSE가 공통 citation validation과 canonical finalization을
+  사용한다. SSE `complete` 이벤트는 canonical content와 검증된 reference를 제공하고, 확장된
+  previous/seed/next 컨텍스트도 각 원본 chunk ID와 exact source span을 보존한다. 프롬프트가 요구하는
+  복수 근거 형식 `[1, 2]`를 citation validator도 동일하게 인식하며, metadata enrichment에서 생성된
+  compact 문서 메타데이터를 같은 실행의 청크와 RAG 벡터에 투영한다.
+
 - Pandoc 제출 실패와 비동기 실패 callback이 동시에 native fallback을 요청해 동일 revision의 추출 작업이
   중복 예약되던 경쟁 조건을 제거했다. 먼저 예약된 fallback은 계속 실행하고 후속 요청은 현재 revision을
   반환하므로 `Markdown task is already running` 오류로 생성 API가 실패하지 않는다. 실패 callback이
