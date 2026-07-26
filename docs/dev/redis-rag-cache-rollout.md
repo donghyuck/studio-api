@@ -56,7 +56,7 @@ studio:
 
 | Server | Candidate artifact | Cache mode | Context | Chat | Embedding | RAG sync | RAG SSE | Redis fail-open | Owner |
 |---|---|---|---|---|---|---|---|---|---|
-| 개발 서버 | 미입력 | `none` → `redis` | 미검증 | 미검증 | 미검증 | 미검증 | 미검증 | 미검증 | 미입력 |
+| 개발 서버 | `2.1.0-rc.1` | `none` → `redis` | 미검증 | 미검증 | 미검증 | 미검증 | 미검증 | 미검증 | 미입력 |
 
 이 repository에는 실행 가능한 server instance와 해당 `application.yml`이 포함되어 있지 않다.
 따라서 위 matrix가 소비 서버에서 채워지기 전에는 candidate artifact를 정식 승격하지 않는다.
