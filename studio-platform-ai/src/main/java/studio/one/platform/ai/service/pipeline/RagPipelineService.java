@@ -1,6 +1,7 @@
 package studio.one.platform.ai.service.pipeline;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -62,6 +63,17 @@ public interface RagPipelineService {
 
     default List<RagSearchResult> listByChunkIds(String objectType, Set<String> chunkIds) {
         throw new UnsupportedOperationException("listByChunkIds is not implemented");
+    }
+
+    /**
+     * Applies an additive metadata-only patch to vectors already indexed for the object.
+     * No index is created when the object has no vectors.
+     */
+    default int patchMetadataByObject(
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata) {
+        throw new UnsupportedOperationException("patchMetadataByObject is not implemented");
     }
 
     /**

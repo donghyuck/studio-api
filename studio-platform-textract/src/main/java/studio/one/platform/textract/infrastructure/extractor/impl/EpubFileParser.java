@@ -111,6 +111,7 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
             }
 
             Map<String, Object> metadata = new LinkedHashMap<>(fileMetadata(contentType, filename));
+            metadata.putAll(packageDocument.metadata());
             metadata.put("packagePath", opfPath);
             metadata.put("contentDocumentCount", contentPaths.size());
             metadata.put("archiveEntryCount", archive.paths().size());
@@ -263,7 +264,49 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
                 .map(item -> item.getAttribute("idref"))
                 .filter(id -> !id.isBlank())
                 .toList();
-        return new PackageDocument(manifest, spine);
+        return new PackageDocument(manifest, spine, packageMetadata(document));
+    }
+
+    private Map<String, Object> packageMetadata(Document document) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        putFirst(metadata, "title", values(document, "title"));
+        putList(metadata, "authors", values(document, "creator"));
+        putList(metadata, "contributors", values(document, "contributor"));
+        putFirst(metadata, "publisher", values(document, "publisher"));
+        putFirst(metadata, "publicationDate", values(document, "date"));
+        putFirst(metadata, "language", values(document, "language"));
+        List<String> identifiers = values(document, "identifier");
+        putList(metadata, "identifiers", identifiers);
+        identifiers.stream()
+                .filter(value -> value.toLowerCase(Locale.ROOT).contains("isbn")
+                        || value.replaceAll("[^0-9Xx]", "").matches("(?:\\d{9}[0-9Xx]|\\d{13})"))
+                .findFirst()
+                .ifPresent(value -> metadata.put("isbn", value));
+        putList(metadata, "subjects", values(document, "subject"));
+        putFirst(metadata, "summary", values(document, "description"));
+        return Map.copyOf(metadata);
+    }
+
+    private List<String> values(Document document, String localName) {
+        return elements(document, localName).stream()
+                .map(org.w3c.dom.Element::getTextContent)
+                .map(this::cleanText)
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .limit(20)
+                .toList();
+    }
+
+    private void putFirst(Map<String, Object> target, String key, List<String> values) {
+        if (!values.isEmpty()) {
+            target.put(key, values.get(0));
+        }
+    }
+
+    private void putList(Map<String, Object> target, String key, List<String> values) {
+        if (!values.isEmpty()) {
+            target.put(key, values);
+        }
     }
 
     private List<String> contentPaths(PackageDocument epub, Set<String> archivePaths) {
@@ -400,7 +443,8 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
 
     private record PackageDocument(
             Map<String, ManifestItem> manifest,
-            List<String> spine) {
+            List<String> spine,
+            Map<String, Object> metadata) {
     }
 
     private static final class ExtractionBudget {

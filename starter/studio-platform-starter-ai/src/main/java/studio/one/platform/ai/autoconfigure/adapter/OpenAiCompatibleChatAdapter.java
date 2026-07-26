@@ -22,6 +22,7 @@ import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.core.chat.ChatResponseMetadata;
+import studio.one.platform.ai.core.chat.PromptCacheUsage;
 import studio.one.platform.ai.core.chat.TokenUsage;
 
 /**
@@ -153,6 +154,10 @@ public class OpenAiCompatibleChatAdapter implements ChatPort {
         if (!tokenUsage.isEmpty()) {
             metadata.put(ChatResponseMetadata.KEY_TOKEN_USAGE, tokenUsage);
         }
+        PromptCacheUsage promptCacheUsage = promptCacheUsage(root.path("usage"), tokenUsage);
+        if (promptCacheUsage != null && promptCacheUsage.reported()) {
+            metadata.put(ChatResponseMetadata.KEY_PROMPT_CACHE_USAGE, promptCacheUsage.toMap());
+        }
 
         return new ChatResponse(List.of(ChatMessage.assistant(content)), model, metadata);
     }
@@ -163,6 +168,33 @@ public class OpenAiCompatibleChatAdapter implements ChatPort {
         putIfPresent(values, TokenUsage.KEY_OUTPUT_TOKENS, usage.path("completion_tokens"));
         putIfPresent(values, TokenUsage.KEY_TOTAL_TOKENS, usage.path("total_tokens"));
         return values;
+    }
+
+    private PromptCacheUsage promptCacheUsage(JsonNode usage, Map<String, Integer> tokenUsage) {
+        JsonNode details = usage.path("prompt_tokens_details");
+        Integer cachedTokens = integer(details.path("cached_tokens"));
+        if (cachedTokens == null) {
+            cachedTokens = integer(usage.path("cache_read_input_tokens"));
+        }
+        Integer writeTokens = integer(details.path("cache_write_tokens"));
+        if (writeTokens == null) {
+            writeTokens = integer(usage.path("cache_write_tokens"));
+        }
+        if (writeTokens == null) {
+            writeTokens = integer(usage.path("cache_creation_input_tokens"));
+        }
+        if (cachedTokens == null && writeTokens == null) {
+            return null;
+        }
+        Integer inputTokens = tokenUsage.get(TokenUsage.KEY_INPUT_TOKENS);
+        if (inputTokens != null && cachedTokens != null && writeTokens != null) {
+            return PromptCacheUsage.complete(inputTokens, cachedTokens, writeTokens);
+        }
+        return PromptCacheUsage.partial(cachedTokens, writeTokens);
+    }
+
+    private static Integer integer(JsonNode node) {
+        return node != null && node.canConvertToInt() ? Math.max(0, node.asInt()) : null;
     }
 
     private static void putIfPresent(Map<String, Integer> values, String key, JsonNode node) {

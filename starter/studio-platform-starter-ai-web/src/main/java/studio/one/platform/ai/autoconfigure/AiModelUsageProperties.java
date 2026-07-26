@@ -39,6 +39,10 @@ public class AiModelUsageProperties {
         private Integer highContextThresholdTokens;
         private BigDecimal highContextInputPerMillionTokens;
         private BigDecimal highContextOutputPerMillionTokens;
+        private BigDecimal cacheReadInputPerMillionTokens;
+        private BigDecimal cacheWriteInputPerMillionTokens;
+        private BigDecimal highContextCacheReadInputPerMillionTokens;
+        private BigDecimal highContextCacheWriteInputPerMillionTokens;
 
         public BigDecimal getInputPerMillionTokens() {
             return inputPerMillionTokens;
@@ -81,6 +85,40 @@ public class AiModelUsageProperties {
 
         public void setHighContextOutputPerMillionTokens(BigDecimal value) {
             this.highContextOutputPerMillionTokens = nonNegative(value, "highContextOutputPerMillionTokens");
+        }
+
+        public BigDecimal getCacheReadInputPerMillionTokens() {
+            return cacheReadInputPerMillionTokens;
+        }
+
+        public void setCacheReadInputPerMillionTokens(BigDecimal value) {
+            this.cacheReadInputPerMillionTokens = nonNegative(value, "cacheReadInputPerMillionTokens");
+        }
+
+        public BigDecimal getCacheWriteInputPerMillionTokens() {
+            return cacheWriteInputPerMillionTokens;
+        }
+
+        public void setCacheWriteInputPerMillionTokens(BigDecimal value) {
+            this.cacheWriteInputPerMillionTokens = nonNegative(value, "cacheWriteInputPerMillionTokens");
+        }
+
+        public BigDecimal getHighContextCacheReadInputPerMillionTokens() {
+            return highContextCacheReadInputPerMillionTokens;
+        }
+
+        public void setHighContextCacheReadInputPerMillionTokens(BigDecimal value) {
+            this.highContextCacheReadInputPerMillionTokens =
+                    nonNegative(value, "highContextCacheReadInputPerMillionTokens");
+        }
+
+        public BigDecimal getHighContextCacheWriteInputPerMillionTokens() {
+            return highContextCacheWriteInputPerMillionTokens;
+        }
+
+        public void setHighContextCacheWriteInputPerMillionTokens(BigDecimal value) {
+            this.highContextCacheWriteInputPerMillionTokens =
+                    nonNegative(value, "highContextCacheWriteInputPerMillionTokens");
         }
 
         private static BigDecimal nonNegative(BigDecimal value, String name) {

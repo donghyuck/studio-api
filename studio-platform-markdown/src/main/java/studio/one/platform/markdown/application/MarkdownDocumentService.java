@@ -817,6 +817,12 @@ public class MarkdownDocumentService {
         Boolean mathVisionCorrection = request.mathVisionCorrection() != null
                 ? request.mathVisionCorrection()
                 : previous.mathVisionCorrection();
+        String requestedDocumentSemanticType = request.requestedDocumentSemanticType() != null
+                ? request.requestedDocumentSemanticType()
+                : previous.requestedDocumentSemanticType();
+        String metadataEnrichmentMode = request.metadataEnrichmentMode() != null
+                ? request.metadataEnrichmentMode()
+                : previous.metadataEnrichmentMode();
 
         if (request.embeddingProfileId() != null && !request.embeddingProfileId().isBlank()) {
             embeddingDeploymentId = null;
@@ -841,7 +847,9 @@ public class MarkdownDocumentService {
                 previous.requestedDocumentProfile(),
                 previous.resolvedDocumentProfile(),
                 previous.documentProfileVersion(),
-                embeddingDeploymentId);
+                embeddingDeploymentId,
+                requestedDocumentSemanticType,
+                metadataEnrichmentMode);
     }
 
     public MarkdownResumeResult reindexRag(
@@ -1039,7 +1047,8 @@ public class MarkdownDocumentService {
                         requested.skillEmbeddingModel(), requested.skillEmbeddingDimension(),
                         previous.ocrRequired(), previous.ocrLanguage(), previous.ocrMode(),
                         previous.mathVisionCorrection(), previous.requestedDocumentProfile(), null, null,
-                        requested.embeddingDeploymentId()))
+                        requested.embeddingDeploymentId(),
+                        previous.requestedDocumentSemanticType(), previous.metadataEnrichmentMode()))
                 .orElse(requested);
     }
 
@@ -1557,7 +1566,15 @@ public class MarkdownDocumentService {
     }
 
     private MarkdownRevision latestRevision(String documentId) {
-        requireDocument(documentId);
+        MarkdownDocument document = requireDocument(documentId);
+        if (document.currentRevisionId() != null && !document.currentRevisionId().isBlank()) {
+            return repository.findRevision(document.currentRevisionId())
+                    .orElseGet(() -> repository.findRevisions(documentId).stream()
+                            .filter(candidate -> document.currentRevisionId().equals(candidate.revisionId()))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalStateException(
+                                    "Current markdown revision not found: " + document.currentRevisionId())));
+        }
         return repository.findRevisions(documentId).stream().findFirst()
                 .orElseThrow(() -> new IllegalStateException("No markdown revision: " + documentId));
     }
@@ -1565,8 +1582,9 @@ public class MarkdownDocumentService {
     private MarkdownPipelineExecution pendingExecution(MarkdownRevision revision, MarkdownPipelineStage stage) {
         MarkdownPipelineExecution previous = repository.findPipelineExecution(revision.revisionId()).orElse(null);
         MarkdownPipelineStage lastCompleted = previous == null ? null : previous.lastCompletedStage();
-        if (lastCompleted != null && lastCompleted.ordinal() >= stage.ordinal()) {
-            lastCompleted = previousStage(stage);
+        MarkdownPipelinePlan plan = MarkdownPipelinePlan.of(readOptions(revision.optionsJson()));
+        if (lastCompleted != null && plan.isAtOrAfter(lastCompleted, stage)) {
+            lastCompleted = plan.previous(stage);
         }
         return new MarkdownPipelineExecution(revision.revisionId(), MarkdownPipelineExecutionStatus.PENDING,
                 stage, lastCompleted,
@@ -1595,15 +1613,6 @@ public class MarkdownDocumentService {
                 null, null, revision.updatedAt());
     }
 
-    private MarkdownPipelineStage previousStage(MarkdownPipelineStage stage) {
-        return switch (stage) {
-            case CHUNKING -> null;
-            case RAG_INDEX -> MarkdownPipelineStage.CHUNKING;
-            case SKILL_EXTRACTION -> MarkdownPipelineStage.RAG_INDEX;
-            case COMPLETED -> MarkdownPipelineStage.SKILL_EXTRACTION;
-        };
-    }
-
     private MarkdownPipelineStage resumeStage(MarkdownRevision revision, MarkdownPipelineOptions options) {
         return repository.findPipelineExecution(revision.revisionId())
                 .map(MarkdownPipelineExecution::currentStage)
@@ -1611,50 +1620,19 @@ public class MarkdownDocumentService {
     }
 
     private MarkdownPipelineStage firstStage(MarkdownPipelineOptions options) {
-        if (options.runChunking()) {
-            return MarkdownPipelineStage.CHUNKING;
-        }
-        if (options.runRagIndex()) {
-            return MarkdownPipelineStage.RAG_INDEX;
-        }
-        if (options.runSkillExtraction()) {
-            return MarkdownPipelineStage.SKILL_EXTRACTION;
-        }
-        return MarkdownPipelineStage.COMPLETED;
+        return MarkdownPipelinePlan.of(options).first();
     }
 
     private MarkdownPipelineStage nextStage(MarkdownPipelineStage completed, MarkdownPipelineOptions options) {
-        if (completed.ordinal() < MarkdownPipelineStage.RAG_INDEX.ordinal() && options.runRagIndex()) {
-            return MarkdownPipelineStage.RAG_INDEX;
-        }
-        if (completed.ordinal() < MarkdownPipelineStage.SKILL_EXTRACTION.ordinal()
-                && options.runSkillExtraction()) {
-            return MarkdownPipelineStage.SKILL_EXTRACTION;
-        }
-        return MarkdownPipelineStage.COMPLETED;
+        return MarkdownPipelinePlan.of(options).next(completed);
     }
 
     private MarkdownPipelineStage lastEnabledStage(MarkdownPipelineOptions options) {
-        if (options.runSkillExtraction()) {
-            return MarkdownPipelineStage.SKILL_EXTRACTION;
-        }
-        if (options.runRagIndex()) {
-            return MarkdownPipelineStage.RAG_INDEX;
-        }
-        if (options.runChunking()) {
-            return MarkdownPipelineStage.CHUNKING;
-        }
-        return MarkdownPipelineStage.COMPLETED;
+        return MarkdownPipelinePlan.of(options).lastEnabled();
     }
 
     private void validateEnabled(MarkdownPipelineStage stage, MarkdownPipelineOptions options) {
-        boolean enabled = switch (stage) {
-            case CHUNKING -> options.runChunking();
-            case RAG_INDEX -> options.runRagIndex();
-            case SKILL_EXTRACTION -> options.runSkillExtraction();
-            case COMPLETED -> true;
-        };
-        if (!enabled) {
+        if (!MarkdownPipelinePlan.of(options).enabled(stage)) {
             throw new IllegalArgumentException("Pipeline stage is not enabled: " + stage);
         }
     }

@@ -18,6 +18,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 
 dependencies {
     api(project(":studio-platform"))
+    api(project(":studio-platform-document-metadata"))
     compileOnly(project(":studio-platform-document-convert"))
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
@@ -28,6 +29,7 @@ dependencies {
 
     testImplementation("org.springframework:spring-jdbc")
     testImplementation("org.springframework:spring-tx")
+    testImplementation("org.springframework.boot:spring-boot-starter-security")
     testImplementation("com.fasterxml.jackson.core:jackson-databind")
     testRuntimeOnly("com.h2database:h2")
 }

@@ -229,6 +229,20 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         return Map.copyOf(Json.read(metadata));
     }
 
+    @Override
+    public int patchMetadataByObject(
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return 0;
+        }
+        return mapper.patchMetadataByObject(
+                Objects.requireNonNull(objectType, "objectType"),
+                Objects.requireNonNull(objectId, "objectId"),
+                Json.write(metadata));
+    }
+
     private static VectorSearchResult mapSearchRow(PgVectorSearchRow row) {
         double distance = row.getDistance() == null ? 0.0d : row.getDistance();
         return mapRow(row, 1.0d / (1.0d + distance));

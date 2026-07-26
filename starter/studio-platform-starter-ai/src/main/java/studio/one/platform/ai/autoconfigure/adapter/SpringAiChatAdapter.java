@@ -24,6 +24,7 @@ import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.core.chat.ChatResponseMetadata;
 import studio.one.platform.ai.core.chat.ChatStreamEvent;
+import studio.one.platform.ai.core.chat.PromptCacheUsage;
 import studio.one.platform.ai.core.chat.TokenUsage;
 
 /**
@@ -37,14 +38,27 @@ public class SpringAiChatAdapter implements ChatPort {
 
     private final String configuredModel;
 
+    private final PromptCacheUsageExtractor promptCacheUsageExtractor;
+
     public SpringAiChatAdapter(ChatModel chatModel) {
         this(chatModel, "", "");
     }
 
     public SpringAiChatAdapter(ChatModel chatModel, String provider, String configuredModel) {
+        this(chatModel, provider, configuredModel, PromptCacheUsageExtractor.none());
+    }
+
+    protected SpringAiChatAdapter(
+            ChatModel chatModel,
+            String provider,
+            String configuredModel,
+            PromptCacheUsageExtractor promptCacheUsageExtractor) {
         this.chatModel = chatModel;
         this.provider = normalize(provider);
         this.configuredModel = normalize(configuredModel);
+        this.promptCacheUsageExtractor = promptCacheUsageExtractor == null
+                ? PromptCacheUsageExtractor.none()
+                : promptCacheUsageExtractor;
     }
 
     @Override
@@ -142,6 +156,10 @@ public class SpringAiChatAdapter implements ChatPort {
         metadata.put(ChatResponseMetadata.KEY_LATENCY_MS, latencyMs);
         if (responseMetadata != null && responseMetadata.getUsage() != null) {
             metadata.put(ChatResponseMetadata.KEY_TOKEN_USAGE, toTokenUsageMap(responseMetadata.getUsage()));
+            PromptCacheUsage promptCacheUsage = promptCacheUsageExtractor.extract(responseMetadata.getUsage());
+            if (promptCacheUsage != null && promptCacheUsage.reported()) {
+                metadata.put(ChatResponseMetadata.KEY_PROMPT_CACHE_USAGE, promptCacheUsage.toMap());
+            }
         }
         if (responseMetadata != null) {
             metadata.put("chatResponseMetadata", responseMetadata);

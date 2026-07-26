@@ -35,6 +35,17 @@ class PgVectorJdbcMapperSqlContractTest {
     }
 
     @Test
+    void metadataPatchChangesOnlyMetadataWithinObjectScope() throws Exception {
+        assertThat(sql("PATCH_METADATA_BY_OBJECT_SQL"))
+                .contains("SET metadata =")
+                .contains("object_type = :objectType")
+                .contains("object_id = :objectId")
+                .doesNotContain("embedding =")
+                .doesNotContain("embedding_dimension =")
+                .doesNotContain("text =");
+    }
+
+    @Test
     void filteredSearchSqlSeparatesMetadataParametersFromOrderByClause() throws Exception {
         String filteredSql = filteredSql("SEARCH_BY_OBJECT_SQL", new PgVectorSearchParameter(
                 new PGvector(new float[] {0.1f, 0.2f}),

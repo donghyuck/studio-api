@@ -15,6 +15,16 @@ class RagQueryIntentClassifierTest {
     }
 
     @Test
+    void classifiesObjectMetadataQueriesWithoutCapturingAuthorArgumentQuestions() {
+        assertThat(classifier.classify("이 책의 저자는 누구인가?").intent())
+                .isEqualTo(RagQueryIntentClassifier.Intent.DOCUMENT_METADATA);
+        assertThat(classifier.classify("ISBN과 발간일을 알려줘").intent())
+                .isEqualTo(RagQueryIntentClassifier.Intent.DOCUMENT_METADATA);
+        assertThat(classifier.classify("저자의 핵심 논지를 설명해줘").intent())
+                .isEqualTo(RagQueryIntentClassifier.Intent.KEY_POINTS);
+    }
+
+    @Test
     void classifiesKeyPointQueriesBeforeGenericSummaryPhrases() {
         assertThat(classifier.classify("핵심 내용을 요약해줘").intent())
                 .isEqualTo(RagQueryIntentClassifier.Intent.KEY_POINTS);

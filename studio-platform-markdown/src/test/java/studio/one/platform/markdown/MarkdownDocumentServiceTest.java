@@ -34,6 +34,7 @@ import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeBatchApply
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergePreview;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergePreviewOptions;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
+import studio.one.platform.markdown.application.MarkdownPipelinePlan;
 import studio.one.platform.markdown.application.MarkdownResumeResult;
 import studio.one.platform.markdown.application.MarkdownResumeOptions;
 import studio.one.platform.markdown.application.port.MarkdownConversionPort;
@@ -93,7 +94,8 @@ class MarkdownDocumentServiceTest {
                 null, null, null, null,
                 false, null, false,
                 null, null, null,
-                true, "kor+eng", "FORCE", true);
+                true, "kor+eng", "FORCE", true)
+                .withMetadataOptions("BOOK", "REQUIRED");
 
         var initial = service.create(new MarkdownExtractionRequest(1L, qualityOptions, true, "tester"));
         var reextracted = service.reextract(
@@ -105,6 +107,8 @@ class MarkdownDocumentServiceTest {
         assertEquals("kor+eng", stored.get("ocrLanguage"));
         assertEquals("FORCE", stored.get("ocrMode"));
         assertEquals(Boolean.TRUE, stored.get("mathVisionCorrection"));
+        assertEquals("BOOK", stored.get("requestedDocumentSemanticType"));
+        assertEquals("REQUIRED", stored.get("metadataEnrichmentMode"));
     }
 
     @Test
@@ -480,7 +484,7 @@ class MarkdownDocumentServiceTest {
         tasks.runNext();
 
         assertEquals(MarkdownPipelineStage.RAG_INDEX, resumed.resumedFrom());
-        assertEquals(List.of(MarkdownPipelineStage.CHUNKING, MarkdownPipelineStage.RAG_INDEX),
+        assertEquals(List.of(MarkdownPipelineStage.METADATA_ENRICHMENT, MarkdownPipelineStage.RAG_INDEX),
                 pipeline.startedFrom);
         assertEquals(MarkdownPipelineExecutionStatus.COMPLETED,
                 service.getPipelineExecution(created.document().documentId()).status());
@@ -543,7 +547,7 @@ class MarkdownDocumentServiceTest {
                 .equals("mloc-source"));
         assertFalse(repository.findResources(reindexed.revision().revisionId()).get(0).resourceId()
                 .equals("mres-source"));
-        assertEquals(1, pipeline.processed.size());
+        assertEquals(2, pipeline.processed.size());
         assertEquals("retrieval-ko-kure", pipeline.options.embeddingProfileId());
     }
 
@@ -643,7 +647,7 @@ class MarkdownDocumentServiceTest {
         assertEquals("# Page 1\n\n## Page 101", result.revision().markdownText());
         assertEquals(revisionId, result.document().currentRevisionId());
         assertEquals(MarkdownPipelineExecutionStatus.COMPLETED, result.pipeline().status());
-        assertTrue(pipeline.processed.isEmpty());
+        assertEquals(1, pipeline.processed.size());
     }
 
     @Test
@@ -841,7 +845,8 @@ class MarkdownDocumentServiceTest {
         assertNotNull(result.pipelineResult());
         assertEquals("PIPELINE", result.pipelineResult().resumedPhase());
         assertEquals(MarkdownPipelineStage.RAG_INDEX, result.pipelineResult().resumedFrom());
-        assertEquals(List.of(MarkdownPipelineStage.RAG_INDEX), pipeline.startedFrom);
+        assertEquals(List.of(MarkdownPipelineStage.METADATA_ENRICHMENT, MarkdownPipelineStage.RAG_INDEX),
+                pipeline.startedFrom);
         assertTrue(pipeline.options.runChunking());
         assertTrue(pipeline.options.runRagIndex());
         assertTrue(pipeline.options.runSkillExtraction());
@@ -1292,8 +1297,6 @@ class MarkdownDocumentServiceTest {
         public void process(MarkdownRevision revision, boolean runChunking, boolean runRagIndex,
                 boolean runSkillExtraction) {
             processed.add(revision);
-            assertTrue(runChunking);
-            assertTrue(runRagIndex);
         }
 
         @Override
@@ -1316,10 +1319,14 @@ class MarkdownDocumentServiceTest {
         public void process(MarkdownRevision revision, MarkdownPipelineOptions options,
                 MarkdownPipelineStage fromStage, java.util.function.Consumer<MarkdownPipelineStage> completed) {
             startedFrom.add(fromStage);
-            if (fromStage.ordinal() <= MarkdownPipelineStage.CHUNKING.ordinal()) {
+            MarkdownPipelinePlan plan = MarkdownPipelinePlan.of(options);
+            if (plan.shouldRunFrom(fromStage, MarkdownPipelineStage.METADATA_ENRICHMENT)) {
+                completed.accept(MarkdownPipelineStage.METADATA_ENRICHMENT);
+            }
+            if (plan.shouldRunFrom(fromStage, MarkdownPipelineStage.CHUNKING)) {
                 completed.accept(MarkdownPipelineStage.CHUNKING);
             }
-            if (fromStage.ordinal() <= MarkdownPipelineStage.RAG_INDEX.ordinal()) {
+            if (plan.shouldRunFrom(fromStage, MarkdownPipelineStage.RAG_INDEX)) {
                 if (failRag) {
                     throw new IllegalStateException("rag failed");
                 }

@@ -20,6 +20,7 @@ public class MarkdownProperties {
     private Path resultCacheDir = Path.of("var/lib/app/markdown");
     private String textractVersion = "native";
     private final Web web = new Web();
+    private final Metadata metadata = new Metadata();
 
     public boolean isEnabled() {
         return enabled;
@@ -81,6 +82,10 @@ public class MarkdownProperties {
         return web;
     }
 
+    public Metadata getMetadata() {
+        return metadata;
+    }
+
     public static class Web {
         private String basePath = "/api/markdown-documents";
 
@@ -90,6 +95,86 @@ public class MarkdownProperties {
 
         public void setBasePath(String basePath) {
             this.basePath = basePath;
+        }
+    }
+
+    public static class Metadata {
+        private String llmDeploymentId = "chat-default";
+        private String promptResource = "classpath:prompts/document-metadata.v1.prompt";
+        private double typeConfidenceThreshold = 0.80d;
+        private double fieldConfidenceThreshold = 0.85d;
+        private int maxPages = 5;
+        private int maxBlocks = 40;
+        private int maxCharacters = 24_000;
+
+        public String getLlmDeploymentId() {
+            return llmDeploymentId;
+        }
+
+        public void setLlmDeploymentId(String llmDeploymentId) {
+            this.llmDeploymentId = llmDeploymentId;
+        }
+
+        public String getPromptResource() {
+            return promptResource;
+        }
+
+        public void setPromptResource(String promptResource) {
+            this.promptResource = promptResource;
+        }
+
+        public double getTypeConfidenceThreshold() {
+            return typeConfidenceThreshold;
+        }
+
+        public void setTypeConfidenceThreshold(double typeConfidenceThreshold) {
+            this.typeConfidenceThreshold = probability(typeConfidenceThreshold, "type-confidence-threshold");
+        }
+
+        public double getFieldConfidenceThreshold() {
+            return fieldConfidenceThreshold;
+        }
+
+        public void setFieldConfidenceThreshold(double fieldConfidenceThreshold) {
+            this.fieldConfidenceThreshold = probability(fieldConfidenceThreshold, "field-confidence-threshold");
+        }
+
+        public int getMaxPages() {
+            return maxPages;
+        }
+
+        public void setMaxPages(int maxPages) {
+            this.maxPages = positive(maxPages, "max-pages");
+        }
+
+        public int getMaxBlocks() {
+            return maxBlocks;
+        }
+
+        public void setMaxBlocks(int maxBlocks) {
+            this.maxBlocks = positive(maxBlocks, "max-blocks");
+        }
+
+        public int getMaxCharacters() {
+            return maxCharacters;
+        }
+
+        public void setMaxCharacters(int maxCharacters) {
+            this.maxCharacters = positive(maxCharacters, "max-characters");
+        }
+
+        private static double probability(double value, String name) {
+            if (value < 0.0d || value > 1.0d) {
+                throw new IllegalArgumentException("studio.markdown.metadata." + name + " must be between 0 and 1");
+            }
+            return value;
+        }
+
+        private static int positive(int value, String name) {
+            if (value <= 0) {
+                throw new IllegalArgumentException("studio.markdown.metadata." + name + " must be positive");
+            }
+            return value;
         }
     }
 

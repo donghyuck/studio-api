@@ -60,11 +60,13 @@ import studio.one.platform.ai.web.controller.AiWebExceptionHandler;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.AiModelUsageController;
 import studio.one.platform.ai.web.controller.AiModelUsageStore;
+import studio.one.platform.ai.web.controller.AiPromptCacheMetricsRecorder;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationStore;
 import studio.one.platform.ai.web.controller.InMemoryAiModelUsageStore;
 import studio.one.platform.ai.web.controller.ModelCatalogController;
+import studio.one.platform.ai.web.controller.MicrometerAiPromptCacheMetricsRecorder;
 import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationJobStore;
 import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationQuestionSetStore;
 import studio.one.platform.ai.web.controller.JdbcRagRetrievalEvaluationStore;
@@ -83,6 +85,7 @@ import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagChatRetrievalService;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
+import studio.one.platform.ai.web.controller.RagObjectAuthorizationRouter;
 import studio.one.platform.ai.web.controller.RagIndexJobEndpointSecurity;
 import studio.one.platform.ai.web.controller.RagRetrievalEvaluationController;
 import studio.one.platform.ai.web.controller.RagRetrievalEvaluationJobService;
@@ -97,12 +100,14 @@ import studio.one.platform.ai.web.controller.RagRetrievalEvaluationRunner;
 import studio.one.platform.ai.web.controller.RagRetrievalEvaluationStore;
 import studio.one.platform.ai.web.controller.VectorController;
 import studio.one.platform.ai.web.controller.VectorVisualizationMgmtController;
+import studio.one.platform.ai.web.cache.RagAnswerCache;
 import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryConversationRepository;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
 import studio.one.platform.ai.service.pipeline.RagObjectMetadataContributor;
+import studio.one.platform.ai.service.pipeline.RagDocumentMetadataProvider;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.chunking.core.Chunker;
@@ -126,6 +131,11 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 })
 public class AiWebAutoConfiguration {
 
+    @Bean(name = "ragObjectAuthorizationRouter")
+    RagObjectAuthorizationRouter ragObjectAuthorizationRouter(ApplicationContext applicationContext) {
+        return new RagObjectAuthorizationRouter(applicationContext);
+    }
+
     @Bean
     RagContextBuilder ragContextBuilder(
             AiWebRagProperties properties,
@@ -136,8 +146,10 @@ public class AiWebAutoConfiguration {
     @Bean
     RagChatRetrievalService ragChatRetrievalService(
             RagPipelineService ragPipelineService,
-            AiWebRagProperties properties) {
-        return new RagChatRetrievalService(ragPipelineService, properties.getRetrieval());
+            AiWebRagProperties properties,
+            ObjectProvider<RagDocumentMetadataProvider> metadataProviders) {
+        return new RagChatRetrievalService(
+                ragPipelineService, properties.getRetrieval(), metadataProviders.stream().toList());
     }
 
     @Bean
@@ -178,7 +190,8 @@ public class AiWebAutoConfiguration {
             RagPipelineProperties ragPipelineProperties,
             RagRetrievalPolicyStore ragRetrievalPolicyStore,
             RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore,
-            AiModelUsageStore modelUsageStore) {
+            AiModelUsageStore modelUsageStore,
+            ObjectProvider<RagAnswerCache> ragAnswerCacheProvider) {
         return new ChatController(providerRegistry, ragPipelineService, ragChatRetrievalService,
                 ragContextBuilder,
                 ragProperties.getDiagnostics().isAllowClientDebug(),
@@ -191,7 +204,8 @@ public class AiWebAutoConfiguration {
                 ragPipelineOptions(ragPipelineProperties),
                 ragRetrievalPolicyStore,
                 ragRetrievalPolicyUsageStore,
-                modelUsageStore);
+                modelUsageStore,
+                ragAnswerCacheProvider.getIfAvailable(RagAnswerCache::noop));
     }
 
     @Bean
@@ -205,8 +219,25 @@ public class AiWebAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    AiModelUsageStore aiModelUsageStore(AiModelUsageProperties properties) {
-        return new InMemoryAiModelUsageStore(properties);
+    AiModelUsageStore aiModelUsageStore(
+            AiModelUsageProperties properties,
+            AiPromptCacheMetricsRecorder metricsRecorder) {
+        return new InMemoryAiModelUsageStore(properties, metricsRecorder);
+    }
+
+    @Bean
+    @ConditionalOnClass(io.micrometer.core.instrument.MeterRegistry.class)
+    @ConditionalOnBean(io.micrometer.core.instrument.MeterRegistry.class)
+    @ConditionalOnMissingBean(AiPromptCacheMetricsRecorder.class)
+    AiPromptCacheMetricsRecorder micrometerAiPromptCacheMetricsRecorder(
+            io.micrometer.core.instrument.MeterRegistry meterRegistry) {
+        return new MicrometerAiPromptCacheMetricsRecorder(meterRegistry);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AiPromptCacheMetricsRecorder.class)
+    AiPromptCacheMetricsRecorder aiPromptCacheMetricsRecorder() {
+        return AiPromptCacheMetricsRecorder.noop();
     }
 
     @Bean
@@ -617,7 +648,15 @@ public class AiWebAutoConfiguration {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(NamedParameterJdbcTemplate.class)
+    @ConditionalOnClass(name = {
+            "org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate",
+            "studio.one.platform.ai.core.vector.visualization.ExistingVectorItemRepository",
+            "studio.one.platform.ai.core.vector.visualization.VectorProjectionRepository",
+            "studio.one.platform.ai.core.vector.visualization.VectorProjectionPointRepository",
+            "studio.one.platform.ai.service.visualization.JdbcExistingVectorItemRepository",
+            "studio.one.platform.ai.service.visualization.JdbcVectorProjectionRepository",
+            "studio.one.platform.ai.service.visualization.JdbcVectorProjectionPointRepository"
+    })
     static class VectorProjectionJdbcConfiguration {
 
         @Bean

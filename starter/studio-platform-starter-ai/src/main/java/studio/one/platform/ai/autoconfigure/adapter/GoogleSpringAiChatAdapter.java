@@ -14,11 +14,11 @@ import studio.one.platform.ai.core.chat.ChatRequest;
 public class GoogleSpringAiChatAdapter extends SpringAiChatAdapter {
 
     public GoogleSpringAiChatAdapter(ChatModel chatModel) {
-        super(chatModel);
+        super(chatModel, "", "", new GoogleGenAiPromptCacheUsageExtractor());
     }
 
     public GoogleSpringAiChatAdapter(ChatModel chatModel, String provider, String configuredModel) {
-        super(chatModel, provider, configuredModel);
+        super(chatModel, provider, configuredModel, new GoogleGenAiPromptCacheUsageExtractor());
     }
 
     @Override

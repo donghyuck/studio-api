@@ -16,7 +16,9 @@ class AiModelUsagePropertiesTest {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("test", Map.of(
                 "studio.ai.usage.pricing[gemini-2.5-pro].input-per-million-tokens", "1.25",
-                "studio.ai.usage.pricing[gemini-2.5-pro].output-per-million-tokens", "10.00")));
+                "studio.ai.usage.pricing[gemini-2.5-pro].output-per-million-tokens", "10.00",
+                "studio.ai.usage.pricing[gemini-2.5-pro].cache-read-input-per-million-tokens", "0.125",
+                "studio.ai.usage.pricing[gemini-2.5-pro].cache-write-input-per-million-tokens", "1.5625")));
 
         AiModelUsageProperties properties = Binder.get(environment)
                 .bind("studio.ai.usage", AiModelUsageProperties.class)
@@ -25,5 +27,9 @@ class AiModelUsagePropertiesTest {
         assertThat(properties.getPricing()).containsKey("gemini-2.5-pro");
         assertThat(properties.getPricing().get("gemini-2.5-pro").getInputPerMillionTokens())
                 .isEqualByComparingTo("1.25");
+        assertThat(properties.getPricing().get("gemini-2.5-pro").getCacheReadInputPerMillionTokens())
+                .isEqualByComparingTo("0.125");
+        assertThat(properties.getPricing().get("gemini-2.5-pro").getCacheWriteInputPerMillionTokens())
+                .isEqualByComparingTo("1.5625");
     }
 }

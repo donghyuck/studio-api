@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -20,6 +21,7 @@ import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.service.pipeline.RagDocumentMetadataProvider;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRagRetrievalOptionsDto;
@@ -61,6 +63,32 @@ class RagChatRetrievalServiceTest {
         assertThat(captor.getValue().metadataFilter().objectType()).isEqualTo("attachment");
         assertThat(captor.getValue().metadataFilter().objectId()).isEqualTo("1");
         assertThat(captor.getValue().metadataFilter().equalsCriteria()).doesNotContainKey(ChunkMetadata.KEY_STRATEGY);
+    }
+
+    @Test
+    void metadataIntentUsesArtifactProviderWithoutVectorSearch() {
+        RagDocumentMetadataProvider provider = new RagDocumentMetadataProvider() {
+            @Override
+            public boolean supports(String objectType) {
+                return "attachment".equals(objectType);
+            }
+
+            @Override
+            public List<RagSearchResult> find(String objectType, String objectId) {
+                return List.of(new RagSearchResult(
+                        "mdoc-1:metadata:authors", "J. D. Salinger", Map.of("evidenceKind", "DOCUMENT_METADATA"), 1.0d));
+            }
+        };
+        service = new RagChatRetrievalService(
+                ragPipelineService, new AiWebRagProperties.RetrievalProperties(), List.of(provider));
+
+        RagChatRetrievalService.RetrievalResult result = service.retrieve(
+                request(null, null), "저자는 누구인가", "attachment", "1",
+                5, 0.6d, 5, false, true);
+
+        assertThat(result.results()).singleElement()
+                .satisfies(evidence -> assertThat(evidence.content()).isEqualTo("J. D. Salinger"));
+        verifyNoInteractions(ragPipelineService);
     }
 
     @Test

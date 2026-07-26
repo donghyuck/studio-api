@@ -28,7 +28,46 @@ public record MarkdownResumeOptions(
         String ocrLanguage,
         String ocrMode,
         Boolean mathVisionCorrection,
-        String embeddingDeploymentId) {
+        String embeddingDeploymentId,
+        String requestedDocumentSemanticType,
+        String metadataEnrichmentMode) {
+
+    public MarkdownResumeOptions(
+            MarkdownPipelineStage fromStage,
+            Boolean runChunking,
+            Boolean runRagIndex,
+            Boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String blockifyLlmProvider,
+            String blockifyLlmModel,
+            Boolean blockifyPiiMaskingEnabled,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            Boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            Boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension,
+            Boolean ocrRequired,
+            String ocrLanguage,
+            String ocrMode,
+            Boolean mathVisionCorrection,
+            String embeddingDeploymentId) {
+        this(fromStage, runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
+                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, embeddingDeploymentId,
+                null, null);
+    }
 
     public MarkdownResumeOptions(
             MarkdownPipelineStage fromStage,

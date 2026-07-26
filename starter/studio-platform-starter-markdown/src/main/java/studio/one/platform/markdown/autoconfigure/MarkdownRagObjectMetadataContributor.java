@@ -3,7 +3,12 @@ package studio.one.platform.markdown.autoconfigure;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import studio.one.platform.ai.service.pipeline.RagObjectMetadataContributor;
+import studio.one.platform.documentmetadata.DocumentMetadataArtifact;
+import studio.one.platform.documentmetadata.DocumentMetadataProjectionPolicy;
+import studio.one.platform.markdown.application.MarkdownDocumentMetadataService;
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.domain.MarkdownDocument;
 import studio.one.platform.markdown.domain.MarkdownPipelineExecution;
@@ -11,9 +16,15 @@ import studio.one.platform.markdown.domain.MarkdownRevision;
 
 final class MarkdownRagObjectMetadataContributor implements RagObjectMetadataContributor {
     private final MarkdownRepository repository;
+    private final ObjectMapper objectMapper;
 
     MarkdownRagObjectMetadataContributor(MarkdownRepository repository) {
+        this(repository, new ObjectMapper());
+    }
+
+    MarkdownRagObjectMetadataContributor(MarkdownRepository repository, ObjectMapper objectMapper) {
         this.repository = repository;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -31,7 +42,13 @@ final class MarkdownRagObjectMetadataContributor implements RagObjectMetadataCon
         if (document == null) {
             return Map.of("markdown", Map.of("exists", false));
         }
-        MarkdownRevision revision = repository.findRevisions(document.documentId()).stream().findFirst().orElse(null);
+        MarkdownRevision revision = document.currentRevisionId() == null
+                ? null
+                : repository.findRevision(document.currentRevisionId())
+                        .orElseGet(() -> repository.findRevisions(document.documentId()).stream()
+                                .filter(candidate -> document.currentRevisionId().equals(candidate.revisionId()))
+                                .findFirst()
+                                .orElse(null));
         Map<String, Object> markdown = new LinkedHashMap<>();
         markdown.put("exists", true);
         markdown.put("documentId", document.documentId());
@@ -41,6 +58,17 @@ final class MarkdownRagObjectMetadataContributor implements RagObjectMetadataCon
             markdown.put("revisionStatus", revision.status().name());
             markdown.put("sourceFormat", revision.sourceFormat());
             markdown.put("updatedAt", revision.updatedAt());
+            repository.findResource(revision.revisionId(), MarkdownDocumentMetadataService.RESOURCE_TYPE)
+                    .ifPresent(resource -> {
+                        try {
+                            DocumentMetadataArtifact artifact = objectMapper.readValue(
+                                    resource.metadataJson(), DocumentMetadataArtifact.class);
+                            markdown.put("documentMetadata",
+                                    new DocumentMetadataProjectionPolicy().compact(artifact));
+                        } catch (Exception ignored) {
+                            markdown.put("documentMetadataStatus", "INVALID");
+                        }
+                    });
             MarkdownPipelineExecution pipeline =
                     repository.findPipelineExecution(revision.revisionId()).orElse(null);
             if (pipeline != null) {

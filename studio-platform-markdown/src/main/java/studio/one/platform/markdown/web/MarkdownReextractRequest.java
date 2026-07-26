@@ -27,7 +27,47 @@ public record MarkdownReextractRequest(
         String ocrLanguage,
         String ocrMode,
         Boolean mathVisionCorrection,
-        String documentProfile) {
+        String documentProfile,
+        String documentSemanticType,
+        String metadataEnrichmentMode) {
+
+    public MarkdownReextractRequest(
+            boolean runChunking,
+            boolean runRagIndex,
+            boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String blockifyLlmProvider,
+            String blockifyLlmModel,
+            Boolean blockifyPiiMaskingEnabled,
+            String embeddingDeploymentId,
+            String embeddingModelId,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension,
+            Boolean ocrRequired,
+            String ocrLanguage,
+            String ocrMode,
+            Boolean mathVisionCorrection,
+            String documentProfile) {
+        this(runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                embeddingDeploymentId, embeddingModelId,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
+                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, documentProfile, null, null);
+    }
 
     public MarkdownReextractRequest(
             boolean runChunking,
@@ -60,7 +100,7 @@ public record MarkdownReextractRequest(
                 null, null, embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
-                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, null);
+                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, null, null, null);
     }
 
     public MarkdownReextractRequest(
@@ -78,6 +118,6 @@ public record MarkdownReextractRequest(
                 null, null, embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
-                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, documentProfile);
+                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, documentProfile, null, null);
     }
 }

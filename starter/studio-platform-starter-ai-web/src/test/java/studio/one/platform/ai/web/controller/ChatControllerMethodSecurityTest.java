@@ -113,6 +113,8 @@ class ChatControllerMethodSecurityTest {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         context.register(MethodSecurityConfig.class);
         context.registerBean("endpointAuthz", EndpointAuthzStub.class, () -> new EndpointAuthzStub(permissions));
+        context.registerBean("ragObjectAuthorizationRouter", RagObjectAuthorizationRouter.class,
+                () -> new RagObjectAuthorizationRouter(context));
         context.registerBean(ChatController.class, this::controller);
         context.refresh();
         return new SecuredController(context, context.getBean(ChatController.class));

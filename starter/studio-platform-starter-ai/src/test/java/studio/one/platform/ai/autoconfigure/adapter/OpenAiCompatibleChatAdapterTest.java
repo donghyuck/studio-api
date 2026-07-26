@@ -54,7 +54,11 @@ class OpenAiCompatibleChatAdapterTest {
                   "usage": {
                     "prompt_tokens": 10,
                     "completion_tokens": 20,
-                    "total_tokens": 30
+                    "total_tokens": 30,
+                    "prompt_tokens_details": {
+                      "cached_tokens": 4,
+                      "cache_write_tokens": 2
+                    }
                   }
                 }
                 """, 200);
@@ -89,6 +93,12 @@ class OpenAiCompatibleChatAdapterTest {
                         TokenUsage.KEY_INPUT_TOKENS, 10,
                         TokenUsage.KEY_OUTPUT_TOKENS, 20,
                         TokenUsage.KEY_TOTAL_TOKENS, 30));
+        assertThat(response.typedMetadata().promptCacheUsage()).isNotNull();
+        assertThat(response.typedMetadata().promptCacheUsage().uncachedInputTokens()).isEqualTo(4);
+        assertThat(response.typedMetadata().promptCacheUsage().cacheReadInputTokens()).isEqualTo(4);
+        assertThat(response.typedMetadata().promptCacheUsage().cacheWriteInputTokens()).isEqualTo(2);
+        assertThat(capturedBody.get().has("prompt_cache_key")).isFalse();
+        assertThat(capturedBody.get().has("prompt_cache_options")).isFalse();
     }
 
     @Test

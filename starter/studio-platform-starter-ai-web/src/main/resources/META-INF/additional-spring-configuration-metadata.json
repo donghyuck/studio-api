@@ -1,6 +1,30 @@
 {
   "properties": [
     {
+      "name": "studio.ai.rag.answer-cache.type",
+      "type": "studio.one.platform.ai.autoconfigure.RagAnswerCacheProperties$Type",
+      "defaultValue": "NONE",
+      "description": "검증된 canonical RAG 답변의 exact cache backend입니다. NONE, CAFFEINE, REDIS를 지원합니다."
+    },
+    {
+      "name": "studio.ai.rag.answer-cache.ttl",
+      "type": "java.time.Duration",
+      "defaultValue": "15m",
+      "description": "exact RAG answer cache 항목의 보존 시간입니다."
+    },
+    {
+      "name": "studio.ai.rag.answer-cache.namespace",
+      "type": "java.lang.String",
+      "defaultValue": "studio:ai:rag-answer:v1",
+      "description": "Redis exact RAG answer cache의 versioned key prefix입니다."
+    },
+    {
+      "name": "studio.ai.rag.answer-cache.fail-open",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Redis read/write 오류를 cache miss로 처리해 provider 경로를 계속 사용할지 여부입니다."
+    },
+    {
       "name": "studio.ai.vector.projection.max-items",
       "type": "java.lang.Integer",
       "defaultValue": 1000,
@@ -96,6 +120,26 @@
       "name": "studio.ai.usage.pricing.*.high-context-output-per-million-tokens",
       "type": "java.math.BigDecimal",
       "description": "고용량 context의 출력 100만 token 단가입니다."
+    },
+    {
+      "name": "studio.ai.usage.pricing.*.cache-read-input-per-million-tokens",
+      "type": "java.math.BigDecimal",
+      "description": "provider cache에서 읽은 입력 100만 token 단가입니다."
+    },
+    {
+      "name": "studio.ai.usage.pricing.*.cache-write-input-per-million-tokens",
+      "type": "java.math.BigDecimal",
+      "description": "provider cache에 기록한 입력 100만 token 단가입니다."
+    },
+    {
+      "name": "studio.ai.usage.pricing.*.high-context-cache-read-input-per-million-tokens",
+      "type": "java.math.BigDecimal",
+      "description": "고용량 context의 cache read 입력 100만 token 단가입니다."
+    },
+    {
+      "name": "studio.ai.usage.pricing.*.high-context-cache-write-input-per-million-tokens",
+      "type": "java.math.BigDecimal",
+      "description": "고용량 context의 cache write 입력 100만 token 단가입니다."
     }
   ]
 }

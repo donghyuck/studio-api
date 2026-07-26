@@ -8,6 +8,7 @@ import java.util.Map;
  */
 public record ChatResponseMetadata(
         TokenUsage tokenUsage,
+        PromptCacheUsage promptCacheUsage,
         Long latencyMs,
         String provider,
         String resolvedModel,
@@ -16,6 +17,7 @@ public record ChatResponseMetadata(
         Map<String, Object> attributes) {
 
     public static final String KEY_TOKEN_USAGE = "tokenUsage";
+    public static final String KEY_PROMPT_CACHE_USAGE = "promptCacheUsage";
     public static final String KEY_LATENCY_MS = "latencyMs";
     public static final String KEY_PROVIDER = "provider";
     public static final String KEY_RESOLVED_MODEL = "resolvedModel";
@@ -24,14 +26,28 @@ public record ChatResponseMetadata(
 
     public ChatResponseMetadata {
         tokenUsage = tokenUsage == null ? TokenUsage.empty() : tokenUsage;
+        promptCacheUsage = promptCacheUsage == null
+                ? null
+                : promptCacheUsage.validatedAgainst(tokenUsage.inputTokens());
         provider = normalize(provider);
         resolvedModel = normalize(resolvedModel);
         conversationId = normalize(conversationId);
         attributes = ChatMetadataMaps.compact(attributes);
     }
 
+    public ChatResponseMetadata(
+            TokenUsage tokenUsage,
+            Long latencyMs,
+            String provider,
+            String resolvedModel,
+            Boolean memoryUsed,
+            String conversationId,
+            Map<String, Object> attributes) {
+        this(tokenUsage, null, latencyMs, provider, resolvedModel, memoryUsed, conversationId, attributes);
+    }
+
     public static ChatResponseMetadata empty() {
-        return new ChatResponseMetadata(TokenUsage.empty(), null, "", "", null, "", Map.of());
+        return new ChatResponseMetadata(TokenUsage.empty(), null, null, "", "", null, "", Map.of());
     }
 
     public static ChatResponseMetadata from(Map<String, Object> metadata) {
@@ -40,6 +56,7 @@ public record ChatResponseMetadata(
         }
         return new ChatResponseMetadata(
                 TokenUsage.from(metadata.get(KEY_TOKEN_USAGE)),
+                PromptCacheUsage.from(metadata.get(KEY_PROMPT_CACHE_USAGE)),
                 longValue(metadata.get(KEY_LATENCY_MS)),
                 stringValue(metadata.get(KEY_PROVIDER)),
                 firstNonBlank(stringValue(metadata.get(KEY_RESOLVED_MODEL)), stringValue(metadata.get("modelName"))),
@@ -52,6 +69,11 @@ public record ChatResponseMetadata(
         Map<String, Object> metadata = new LinkedHashMap<>(attributes);
         if (!tokenUsage.toMap().isEmpty()) {
             metadata.putIfAbsent(KEY_TOKEN_USAGE, tokenUsage.toMap());
+        }
+        if (promptCacheUsage != null && promptCacheUsage.reported()) {
+            metadata.put(KEY_PROMPT_CACHE_USAGE, promptCacheUsage.toMap());
+        } else {
+            metadata.remove(KEY_PROMPT_CACHE_USAGE);
         }
         putIfAbsent(metadata, KEY_LATENCY_MS, latencyMs);
         putIfAbsent(metadata, KEY_PROVIDER, provider);

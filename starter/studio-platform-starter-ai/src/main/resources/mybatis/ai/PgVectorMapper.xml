@@ -262,4 +262,14 @@
     ORDER BY chunk_index
     LIMIT 1
   </select>
+
+  <update id="patchMetadataByObject">
+    UPDATE tb_ai_document_chunk
+       SET metadata = (COALESCE(metadata, '{}'::jsonb)
+                       - ARRAY['docMetadataId', 'docSemanticType', 'docTitle',
+                               'docAuthors', 'docPublicationYear', 'docOrganization'])
+                    || CAST(#{metadata,jdbcType=VARCHAR} AS jsonb)
+     WHERE object_type = #{objectType,jdbcType=VARCHAR}
+       AND object_id = #{objectId,jdbcType=VARCHAR}
+  </update>
 </mapper>

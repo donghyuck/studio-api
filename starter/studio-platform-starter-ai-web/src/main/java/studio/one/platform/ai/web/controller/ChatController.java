@@ -29,8 +29,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.security.Principal;
+import java.time.Instant;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -82,6 +84,9 @@ import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRagRetrievalOptionsDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
+import studio.one.platform.ai.web.cache.RagAnswerCache;
+import studio.one.platform.ai.web.cache.RagAnswerCacheKey;
+import studio.one.platform.ai.web.cache.RagCachedAnswer;
 import studio.one.platform.ai.web.dto.ConversationActionRequestDto;
 import studio.one.platform.ai.web.dto.ConversationDetailDto;
 import studio.one.platform.ai.web.dto.ConversationMessageActionRequestDto;
@@ -111,6 +116,8 @@ public class ChatController {
     private static final int MAX_CONTEXT_EXPANSION_CANDIDATES = 500;
     private static final String RAG_NO_CONTEXT_MESSAGE = "제공된 RAG 문서에서 확인할 수 없습니다.";
     private static final String RAG_SKIP_REASON_NO_RESULTS = "NO_RAG_RESULTS";
+    private static final String RAG_SKIP_REASON_NO_PACKED_EVIDENCE = "NO_PACKED_EVIDENCE";
+    private static final RagAnswerFinalizer RAG_ANSWER_FINALIZER = new RagAnswerFinalizer();
     private static final int INTERPRETIVE_MIN_TOP_K = 8;
     private static final double INTERPRETIVE_MAX_MIN_SCORE = 0.55d;
     private static final int MAX_OVERVIEW_SOURCE_CHUNKS = 2_000;
@@ -158,6 +165,7 @@ public class ChatController {
     private final RagRetrievalPolicyStore ragRetrievalPolicyStore;
     private final RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore;
     private final AiModelUsageStore modelUsageStore;
+    private final RagAnswerCache ragAnswerCache;
     private final RagQueryIntentClassifier ragQueryIntentClassifier = RagQueryIntentClassifier.rules();
     private final RagDocumentOverviewAssembler documentOverviewAssembler = new RagDocumentOverviewAssembler();
     private final RagDocumentMapReduceOverview documentMapReduceOverview = new RagDocumentMapReduceOverview();
@@ -313,6 +321,29 @@ public class ChatController {
             RagRetrievalPolicyStore ragRetrievalPolicyStore,
             RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore,
             AiModelUsageStore modelUsageStore) {
+        this(providerRegistry, ragPipelineService, ragChatRetrievalService, ragContextBuilder,
+                allowClientDebug, chatMemoryStore, chatMemoryEnabled, conversationChatService, objectMapper,
+                ragContextCandidateMultiplier, ragContextMaxCandidates, ragPipelineOptions,
+                ragRetrievalPolicyStore, ragRetrievalPolicyUsageStore, modelUsageStore, RagAnswerCache.noop());
+    }
+
+    public ChatController(
+            ModelDeploymentRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagChatRetrievalService ragChatRetrievalService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper,
+            int ragContextCandidateMultiplier,
+            int ragContextMaxCandidates,
+            RagPipelineOptions ragPipelineOptions,
+            RagRetrievalPolicyStore ragRetrievalPolicyStore,
+            RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore,
+            AiModelUsageStore modelUsageStore,
+            RagAnswerCache ragAnswerCache) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.ragChatRetrievalService = Objects.requireNonNull(ragChatRetrievalService, "ragChatRetrievalService");
@@ -334,6 +365,7 @@ public class ChatController {
         this.ragRetrievalPolicyStore = ragRetrievalPolicyStore;
         this.ragRetrievalPolicyUsageStore = ragRetrievalPolicyUsageStore;
         this.modelUsageStore = modelUsageStore == null ? AiModelUsageStore.noop() : modelUsageStore;
+        this.ragAnswerCache = ragAnswerCache == null ? RagAnswerCache.noop() : ragAnswerCache;
     }
 
     public ChatController(
@@ -437,7 +469,8 @@ public class ChatController {
         ChatMemoryContext memory = resolveMemory(request, principal);
         List<ChatMessage> domainMessages = toDomainMessages(request, memory.history());
         ChatResponse response = executeChat(chatPort(deploymentOrProvider(request)),
-                toDomainChatRequest(request, domainMessages));
+                toDomainChatRequest(request, domainMessages),
+                AiModelUsageRequestKind.CHAT);
         int memoryMessageCount = appendMemory(memory, request.messages(), response);
         appendConversation(principal, memory, request.messages().stream().map(this::toDomainMessage).toList(), response);
         return ResponseEntity.ok(ApiResponse.ok(toDto(response, null, false, memoryMetadata(memory, memoryMessageCount))));
@@ -471,16 +504,8 @@ public class ChatController {
      */
     @PostMapping("/rag")
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','write') "
-            + "and @endpointAuthz.can('services:ai_rag','read') and "
-            + "(#request.objectType() == null or #request.objectType().trim().isEmpty() "
-            + "or #request.objectId() == null or #request.objectId().trim().isEmpty() "
-            + "or (#request.objectId() != null and !#request.objectId().trim().isEmpty() and "
-            + "((#request.objectType().trim().equalsIgnoreCase('attachment') "
-            + "and @endpointAuthz.can('features:attachment','read')) "
-            + "or (!#request.objectType().trim().equalsIgnoreCase('attachment') "
-            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' "
-            + "+ #request.objectId().trim(),'read') "
-            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))))))")
+            + "and @endpointAuthz.can('services:ai_rag','read') "
+            + "and @ragObjectAuthorizationRouter.canRead(#request)")
     public ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRag(
             @Valid @RequestBody ChatRagRequestDto request,
             Principal principal) {
@@ -489,16 +514,8 @@ public class ChatController {
 
     @PostMapping(value = "/rag/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','write') "
-            + "and @endpointAuthz.can('services:ai_rag','read') and "
-            + "(#request.objectType() == null or #request.objectType().trim().isEmpty() "
-            + "or #request.objectId() == null or #request.objectId().trim().isEmpty() "
-            + "or (#request.objectId() != null and !#request.objectId().trim().isEmpty() and "
-            + "((#request.objectType().trim().equalsIgnoreCase('attachment') "
-            + "and @endpointAuthz.can('features:attachment','read')) "
-            + "or (!#request.objectType().trim().equalsIgnoreCase('attachment') "
-            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' "
-            + "+ #request.objectId().trim(),'read') "
-            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))))))")
+            + "and @endpointAuthz.can('services:ai_rag','read') "
+            + "and @ragObjectAuthorizationRouter.canRead(#request)")
     public ResponseEntity<StreamingResponseBody> streamWithRag(
             @Valid @RequestBody ChatRagRequestDto request,
             Principal principal) {
@@ -523,7 +540,7 @@ public class ChatController {
                     List.of(new ChatMessage(ChatMessageRole.ASSISTANT, RAG_NO_CONTEXT_MESSAGE)),
                     prepared.chat().model(),
                     Map.of());
-            Map<String, Object> metadata = withRagTiming(prepared, 0L);
+            Map<String, Object> metadata = skippedRagMetadata(prepared);
             return ResponseEntity.ok(ApiResponse.ok(toDto(
                     response,
                     prepared.diagnostics(),
@@ -531,11 +548,41 @@ public class ChatController {
                     metadata)));
         }
 
+        Optional<CachedRagHit> cached = cachedRagAnswer(prepared, principal);
+        if (cached.isPresent()) {
+            CachedRagHit hit = cached.get();
+            ChatResponse response = new ChatResponse(
+                    List.of(ChatMessage.assistant(hit.answer().canonicalContent())),
+                    hit.answer().model(),
+                    Map.of());
+            int memoryMessageCount = appendMemory(
+                    prepared.memory(), prepared.chat().messages(), response);
+            appendConversation(
+                    principal,
+                    prepared.memory(),
+                    prepared.chat().messages().stream().map(this::toDomainMessage).toList(),
+                    response);
+            Map<String, Object> extraMetadata = new LinkedHashMap<>(
+                    memoryMetadata(prepared.memory(), memoryMessageCount));
+            extraMetadata.putAll(withRagTiming(prepared, 0L));
+            extraMetadata.put("canonicalContent", hit.answer().canonicalContent());
+            extraMetadata.put("citationValidationStatus", hit.answer().citationValidationStatus());
+            extraMetadata.put("ragAnswerCache", "HIT");
+            return ResponseEntity.ok(ApiResponse.ok(toDto(
+                    response,
+                    prepared.diagnostics(),
+                    prepared.exposeDiagnostics(),
+                    extraMetadata)));
+        }
+
         long generationStartedNanos = System.nanoTime();
         ChatResponse response = executeChat(
                 chatPort(deploymentOrProvider(prepared.chat())),
-                toDomainChatRequest(prepared.augmentedChat()));
+                toDomainChatRequest(prepared.augmentedChat()),
+                AiModelUsageRequestKind.RAG);
         long generationElapsedMs = elapsedMillis(generationStartedNanos);
+        RagAnswerFinalizer.FinalizedAnswer finalized = finalizeRagResponse(response, prepared.evidenceSet());
+        response = canonicalResponse(response, finalized.canonicalContent());
         int memoryMessageCount = appendMemory(
                 prepared.memory(),
                 prepared.chat().messages(),
@@ -548,6 +595,10 @@ public class ChatController {
         Map<String, Object> extraMetadata = new LinkedHashMap<>(
                 memoryMetadata(prepared.memory(), memoryMessageCount));
         extraMetadata.putAll(withRagTiming(prepared, generationElapsedMs));
+        extraMetadata.put("canonicalContent", finalized.canonicalContent());
+        extraMetadata.put("citationValidationStatus", finalized.validation().status().name());
+        extraMetadata.put("ragAnswerCache", ragAnswerCache.enabled() ? "MISS" : "BYPASS");
+        cacheRagAnswer(prepared, principal, response.model(), finalized);
         logSlowRagChat(prepared, generationElapsedMs);
         return ResponseEntity.ok(ApiResponse.ok(toDto(
                 response,
@@ -635,9 +686,13 @@ public class ChatController {
                     ragTopK,
                     minScore,
                     requestedTopK(request),
-                    shouldExposeDiagnostics(request));
+                    shouldExposeDiagnostics(request),
+                    queryIntent.intent() == RagQueryIntentClassifier.Intent.DOCUMENT_METADATA);
             ragResults = retrieval.results();
             retrievalDebug = retrieval.debug();
+            if (queryIntent.intent() == RagQueryIntentClassifier.Intent.DOCUMENT_METADATA) {
+                retrievalMode = "DOCUMENT_METADATA";
+            }
         }
         ragResults = filterEvidenceResults(ragResults);
         if (documentOverview != null) {
@@ -665,6 +720,8 @@ public class ChatController {
             putRetrievalPolicyMetadata(ragMetadata, appliedPolicy);
             return new PreparedRagChat(
                     requestStartedNanos,
+                    request,
+                    objectScope,
                     chat,
                     null,
                     null,
@@ -677,7 +734,8 @@ public class ChatController {
                     retrievalMode,
                     0,
                     false,
-                    true);
+                    true,
+                    PackedEvidenceSet.empty(RAG_NO_CONTEXT_MESSAGE, Map.of()));
         }
 
         List<RagSearchResult> expansionCandidates = contextExpansionCandidates(
@@ -702,10 +760,13 @@ public class ChatController {
                 context);
         long overviewReductionElapsedMs = elapsedMillis(overviewReductionStartedNanos);
         context = overviewReduction.context();
-        if (documentOverview != null) {
+        if (documentOverview != null || overviewReduction.applied()) {
+            List<RagSearchResult> citationResults = documentOverview == null
+                    ? contextResult.usedResults()
+                    : documentOverview.references();
             RagContextBuilder.BuildResult citationContext = ragContextBuilder.buildWithDiagnostics(
-                    documentOverview.references(),
-                    documentOverview.references());
+                    citationResults,
+                    citationResults);
             context = combineSystemPrompts(
                     context,
                     "다음은 최종 답변에서 인용할 수 있는 근거 목록입니다.\n" + citationContext.context());
@@ -713,6 +774,31 @@ public class ChatController {
                     context,
                     citationContext.diagnostics(),
                     citationContext.usedResults());
+        }
+        if (contextResult.evidenceSet().evidence().isEmpty()) {
+            ragMetadata.put("ragReferences", List.of());
+            ragMetadata.put("ragSkippedChat", true);
+            ragMetadata.put("ragSkipReason", RAG_SKIP_REASON_NO_PACKED_EVIDENCE);
+            putQueryIntentMetadata(ragMetadata, queryIntent, retrievalMode, ragTopK, minScore);
+            putRetrievalPolicyMetadata(ragMetadata, appliedPolicy);
+            return new PreparedRagChat(
+                    requestStartedNanos,
+                    request,
+                    objectScope,
+                    chat,
+                    null,
+                    null,
+                    diagnostics,
+                    exposeDiagnostics,
+                    Map.copyOf(ragMetadata),
+                    retrievalElapsedMs,
+                    overviewReductionElapsedMs,
+                    queryIntent,
+                    retrievalMode,
+                    ragResults.size(),
+                    overviewReduction.cacheHit(),
+                    true,
+                    contextResult.evidenceSet());
         }
 
         List<ChatMessageDto> augmentedMessages = new ArrayList<>();
@@ -736,7 +822,8 @@ public class ChatController {
                 chat.memory(),
                 chat.deploymentId());
 
-        ragMetadata.put("ragReferences", ragReferences(contextResult.usedResults(), exposeDiagnostics));
+        ragMetadata.put("ragReferences", contextResult.evidenceSet().toReferences(exposeDiagnostics));
+        ragMetadata.put("ragContextFingerprint", contextResult.evidenceSet().contextFingerprint());
         if (exposeDiagnostics && contextResult.diagnostics() != null) {
             ragMetadata.put("ragContextDiagnostics", contextResult.diagnostics().toMetadata());
         }
@@ -756,6 +843,8 @@ public class ChatController {
         putRetrievalPolicyMetadata(ragMetadata, appliedPolicy);
         return new PreparedRagChat(
                 requestStartedNanos,
+                request,
+                objectScope,
                 chat,
                 augmented,
                 memory,
@@ -768,7 +857,8 @@ public class ChatController {
                 retrievalMode,
                 ragResults.size(),
                 overviewReduction.cacheHit(),
-                false);
+                false,
+                contextResult.evidenceSet());
     }
 
     private Map<String, Object> withRagTiming(PreparedRagChat prepared, long generationElapsedMs) {
@@ -778,6 +868,14 @@ public class ChatController {
                 "overviewReductionMs", prepared.overviewReductionElapsedMs(),
                 "generationMs", generationElapsedMs,
                 "totalMs", elapsedMillis(prepared.requestStartedNanos())));
+        return metadata;
+    }
+
+    private Map<String, Object> skippedRagMetadata(PreparedRagChat prepared) {
+        Map<String, Object> metadata = withRagTiming(prepared, 0L);
+        metadata.put("canonicalContent", RAG_NO_CONTEXT_MESSAGE);
+        metadata.put("citationValidationStatus",
+                RagCitationValidator.Status.NO_PACKED_EVIDENCE.name());
         return metadata;
     }
 
@@ -948,10 +1046,17 @@ public class ChatController {
     }
 
     private ChatResponse executeChat(ChatPort port, ChatRequest request) {
+        return executeChat(port, request, AiModelUsageRequestKind.UNKNOWN);
+    }
+
+    private ChatResponse executeChat(
+            ChatPort port,
+            ChatRequest request,
+            AiModelUsageRequestKind requestKind) {
         try {
             ChatResponse response = port.chat(request);
             AiModelUsageStore.UsageEstimate estimate = modelUsageStore.record(
-                    response.typedMetadata(), response.model());
+                    response.typedMetadata(), response.model(), requestKind);
             Map<String, Object> metadata = new LinkedHashMap<>(response.metadata());
             metadata.put("estimatedCost", estimate.toMetadata());
             return new ChatResponse(response.messages(), response.model(), metadata);
@@ -1200,16 +1305,14 @@ public class ChatController {
             String context,
             String clientPrompt,
             RagQueryIntentClassifier.Classification classification) {
-        String prompt = combineSystemPrompts(
-                combineSystemPrompts(context, RAG_CITATION_PROMPT),
-                clientPrompt);
+        String prompt = combineSystemPrompts(context, clientPrompt);
         if (classification.intent() == RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS) {
-            return combineSystemPrompts(prompt, INTERPRETIVE_ANALYSIS_PROMPT);
+            prompt = combineSystemPrompts(prompt, INTERPRETIVE_ANALYSIS_PROMPT);
         }
         if (usesOverviewRetrieval(classification.intent())) {
-            return combineSystemPrompts(prompt, DOCUMENT_SUMMARY_PROMPT);
+            prompt = combineSystemPrompts(prompt, DOCUMENT_SUMMARY_PROMPT);
         }
-        return prompt;
+        return combineSystemPrompts(prompt, RAG_CITATION_PROMPT);
     }
 
     private List<ChatMessage> toDomainMessages(ChatRequestDto request) {
@@ -1241,6 +1344,25 @@ public class ChatController {
     private ChatMessage toDomainMessage(ChatMessageDto dto) {
         ChatMessageRole role = ChatMessageRole.valueOf(dto.role().trim().toUpperCase(Locale.ROOT));
         return new ChatMessage(role, dto.content());
+    }
+
+    private RagAnswerFinalizer.FinalizedAnswer finalizeRagResponse(
+            ChatResponse response,
+            PackedEvidenceSet evidenceSet) {
+        String draft = response.messages().stream()
+                .filter(message -> message.role() == ChatMessageRole.ASSISTANT)
+                .map(ChatMessage::content)
+                .filter(content -> content != null && !content.isBlank())
+                .findFirst()
+                .orElse("");
+        return RAG_ANSWER_FINALIZER.finalizeAnswer(draft, evidenceSet);
+    }
+
+    private ChatResponse canonicalResponse(ChatResponse response, String canonicalContent) {
+        return new ChatResponse(
+                List.of(ChatMessage.assistant(canonicalContent)),
+                response.model(),
+                response.metadata());
     }
 
     private ChatResponseDto toDto(
@@ -1746,7 +1868,7 @@ public class ChatController {
             appendConversation(principal, memory, requestMessages, response);
         }
         if (!streamFailed && last != null) {
-            modelUsageStore.record(last.metadata(), last.model());
+            modelUsageStore.record(last.metadata(), last.model(), AiModelUsageRequestKind.CHAT);
         }
     }
 
@@ -1757,7 +1879,8 @@ public class ChatController {
         String model = normalizeText(prepared.chat().model());
         writeSse(outputStream, requestId,
                 ChatStreamEvent.delta(RAG_NO_CONTEXT_MESSAGE, model, ChatResponseMetadata.empty()));
-        ChatResponseMetadata metadata = ChatResponseMetadata.from(withRagTiming(prepared, 0L));
+        Map<String, Object> values = skippedRagMetadata(prepared);
+        ChatResponseMetadata metadata = ChatResponseMetadata.from(values);
         writeSse(outputStream, requestId, ChatStreamEvent.complete(model, metadata));
     }
 
@@ -1774,6 +1897,12 @@ public class ChatController {
                     "resultCount", prepared.resultCount()));
             if (prepared.skippedChat()) {
                 writeSkippedRagStream(outputStream, requestId, prepared);
+                return;
+            }
+
+            Optional<CachedRagHit> cached = cachedRagAnswer(prepared, principal);
+            if (cached.isPresent()) {
+                writeCachedRagStream(outputStream, requestId, prepared, principal, cached.get().answer());
                 return;
             }
 
@@ -1873,8 +2002,11 @@ public class ChatController {
                 List.of(ChatMessage.assistant(assistant.toString())),
                 model,
                 terminal == null ? Map.of() : terminal.metadata().toMap());
+        RagAnswerFinalizer.FinalizedAnswer finalized =
+                RAG_ANSWER_FINALIZER.finalizeAnswer(assistant.toString(), prepared.evidenceSet());
+        response = canonicalResponse(response, finalized.canonicalContent());
         int memoryMessageCount = prepared.memory().history().size();
-        if (assistant.length() > 0) {
+        if (!finalized.canonicalContent().isBlank()) {
             memoryMessageCount = appendMemory(prepared.memory(), prepared.chat().messages(), response);
             appendConversation(
                     principal,
@@ -1887,8 +2019,12 @@ public class ChatController {
                 terminal == null ? Map.of() : terminal.metadata().toMap());
         metadata.putAll(memoryMetadata(prepared.memory(), memoryMessageCount));
         metadata.putAll(withRagTiming(prepared, generationElapsedMs));
+        metadata.put("canonicalContent", finalized.canonicalContent());
+        metadata.put("citationValidationStatus", finalized.validation().status().name());
+        metadata.put("ragAnswerCache", ragAnswerCache.enabled() ? "MISS" : "BYPASS");
+        cacheRagAnswer(prepared, principal, model, finalized);
         ChatResponseMetadata completedMetadata = ChatResponseMetadata.from(metadata);
-        modelUsageStore.record(completedMetadata, model);
+        modelUsageStore.record(completedMetadata, model, AiModelUsageRequestKind.RAG);
         logSlowRagChat(prepared, generationElapsedMs);
         return ChatStreamEvent.complete(model, completedMetadata);
     }
@@ -1921,6 +2057,8 @@ public class ChatController {
 
     private record PreparedRagChat(
             long requestStartedNanos,
+            ChatRagRequestDto request,
+            ObjectScope objectScope,
             ChatRequestDto chat,
             ChatRequestDto augmentedChat,
             ChatMemoryContext memory,
@@ -1933,7 +2071,96 @@ public class ChatController {
             String retrievalMode,
             int resultCount,
             boolean overviewCacheHit,
-            boolean skippedChat) {
+            boolean skippedChat,
+            PackedEvidenceSet evidenceSet) {
+    }
+
+    private Optional<CachedRagHit> cachedRagAnswer(PreparedRagChat prepared, Principal principal) {
+        Optional<RagAnswerCacheKey> key = ragAnswerCacheKey(prepared, principal);
+        if (key.isEmpty()) {
+            return Optional.empty();
+        }
+        String contextFingerprint = prepared.evidenceSet().contextFingerprint();
+        return ragAnswerCache.get(key.get())
+                .filter(answer -> answer.isValidFor(contextFingerprint, Instant.now()))
+                .map(answer -> new CachedRagHit(key.get(), answer));
+    }
+
+    private void cacheRagAnswer(
+            PreparedRagChat prepared,
+            Principal principal,
+            String model,
+            RagAnswerFinalizer.FinalizedAnswer finalized) {
+        if (!finalized.validation().valid() || finalized.canonicalContent().isBlank()) {
+            return;
+        }
+        Optional<RagAnswerCacheKey> key = ragAnswerCacheKey(prepared, principal);
+        if (key.isEmpty()) {
+            return;
+        }
+        Instant createdAt = Instant.now();
+        RagCachedAnswer answer = new RagCachedAnswer(
+                finalized.canonicalContent(),
+                model,
+                finalized.validation().status().name(),
+                prepared.evidenceSet().contextFingerprint(),
+                createdAt,
+                createdAt.plus(ragAnswerCache.ttl()));
+        ragAnswerCache.put(key.get(), answer);
+    }
+
+    private Optional<RagAnswerCacheKey> ragAnswerCacheKey(PreparedRagChat prepared, Principal principal) {
+        if (!ragAnswerCache.enabled()
+                || principal == null
+                || prepared.memory() == null
+                || prepared.memory().enabled()
+                || prepared.objectScope() == null
+                || prepared.objectScope().objectType() == null
+                || prepared.objectScope().objectId() == null
+                || prepared.evidenceSet().contextFingerprint().isBlank()) {
+            return Optional.empty();
+        }
+        String question = normalizeText(prepared.request().ragQuery());
+        if (question == null) {
+            question = lastUserMessage(prepared.chat());
+        }
+        return Optional.of(RagAnswerCacheKey.create(
+                currentPrincipalScope(principal),
+                prepared.request(),
+                question,
+                deploymentOrProvider(prepared.chat()),
+                prepared.evidenceSet().contextFingerprint()));
+    }
+
+    private void writeCachedRagStream(
+            OutputStream outputStream,
+            String requestId,
+            PreparedRagChat prepared,
+            Principal principal,
+            RagCachedAnswer answer) throws IOException {
+        ChatResponse response = new ChatResponse(
+                List.of(ChatMessage.assistant(answer.canonicalContent())),
+                answer.model(),
+                Map.of());
+        int memoryMessageCount = appendMemory(prepared.memory(), prepared.chat().messages(), response);
+        appendConversation(
+                principal,
+                prepared.memory(),
+                prepared.chat().messages().stream().map(this::toDomainMessage).toList(),
+                response);
+        writeSse(outputStream, requestId,
+                ChatStreamEvent.delta(answer.canonicalContent(), answer.model(), ChatResponseMetadata.empty()));
+        Map<String, Object> metadata = new LinkedHashMap<>(
+                memoryMetadata(prepared.memory(), memoryMessageCount));
+        metadata.putAll(withRagTiming(prepared, 0L));
+        metadata.put("canonicalContent", answer.canonicalContent());
+        metadata.put("citationValidationStatus", answer.citationValidationStatus());
+        metadata.put("ragAnswerCache", "HIT");
+        writeSse(outputStream, requestId,
+                ChatStreamEvent.complete(answer.model(), ChatResponseMetadata.from(metadata)));
+    }
+
+    private record CachedRagHit(RagAnswerCacheKey key, RagCachedAnswer answer) {
     }
 
     private String currentPrincipalScope(Principal principal) {

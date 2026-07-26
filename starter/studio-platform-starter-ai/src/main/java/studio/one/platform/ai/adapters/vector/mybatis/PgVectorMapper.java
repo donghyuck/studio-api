@@ -61,4 +61,9 @@ public interface PgVectorMapper {
     String metadataByObject(
             @Param("objectType") String objectType,
             @Param("objectId") String objectId);
+
+    int patchMetadataByObject(
+            @Param("objectType") String objectType,
+            @Param("objectId") String objectId,
+            @Param("metadata") String metadata);
 }

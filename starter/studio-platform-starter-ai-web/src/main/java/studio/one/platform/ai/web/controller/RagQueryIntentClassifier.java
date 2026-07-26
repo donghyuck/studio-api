@@ -15,6 +15,7 @@ public interface RagQueryIntentClassifier {
 
     enum Intent {
         CONTENT_QA,
+        DOCUMENT_METADATA,
         DOCUMENT_SUMMARY,
         KEY_POINTS,
         INTERPRETIVE_ANALYSIS
@@ -29,6 +30,15 @@ final class RuleBasedRagQueryIntentClassifier implements RagQueryIntentClassifie
     @Override
     public Classification classify(String query) {
         String normalized = query == null ? "" : query.strip().toLowerCase(Locale.ROOT);
+        if (containsAny(normalized,
+                "문서 제목", "책 제목", "제목이 무엇", "제목은 무엇",
+                "저자가 누구", "저자는 누구", "작가가 누구", "작가는 누구", "누가 쓴",
+                "편집자가 누구", "번역자가 누구", "출판사가 어디", "발행일", "발간일",
+                "제출일", "저자 소속", "발행 기관", "isbn", "doi",
+                "document title", "book title", "author of", "who wrote", "publisher",
+                "publication date", "author affiliation")) {
+            return new Classification(Intent.DOCUMENT_METADATA, 0.96d, "DOCUMENT_METADATA_PHRASE");
+        }
         if (containsAny(normalized,
                 "핵심 내용", "핵심내용", "핵심 요점", "핵심요점", "주요 내용", "주요내용",
                 "중요 내용", "중요내용", "핵심 주제", "핵심주제", "주요 주제", "주요주제",

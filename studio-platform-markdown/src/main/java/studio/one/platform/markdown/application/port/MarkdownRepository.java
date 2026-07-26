@@ -54,5 +54,19 @@ public interface MarkdownRepository {
 
     List<MarkdownResource> findResources(String revisionId);
 
+    default Optional<MarkdownResource> findResource(String revisionId, String resourceType) {
+        return findResources(revisionId).stream()
+                .filter(resource -> resourceType.equals(resource.resourceType()))
+                .findFirst();
+    }
+
+    default void upsertResource(MarkdownResource resource) {
+        List<MarkdownResource> resources = new java.util.ArrayList<>(findResources(resource.revisionId()));
+        resources.removeIf(existing -> existing.resourceId().equals(resource.resourceId())
+                || existing.resourceType().equals(resource.resourceType()));
+        resources.add(resource);
+        replaceResources(resource.revisionId(), resources);
+    }
+
     List<MarkdownExtractPart> findExtractParts(String revisionId);
 }
