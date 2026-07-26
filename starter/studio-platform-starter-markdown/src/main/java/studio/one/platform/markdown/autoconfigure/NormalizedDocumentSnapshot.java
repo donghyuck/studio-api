@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
@@ -80,7 +80,7 @@ final class NormalizedDocumentSnapshot {
             payload.put("document", documentMap(document));
             return new MarkdownResource(resource.resourceId(), resource.revisionId(), resource.resourceType(),
                     resource.name(), resource.attachmentId(), writeJson(objectMapper, payload));
-        } catch (RuntimeException | java.io.IOException ex) {
+        } catch (RuntimeException ex) {
             return resource;
         }
     }
@@ -105,7 +105,7 @@ final class NormalizedDocumentSnapshot {
                     stringList(payload.get("normalizationIssues")),
                     text(payload.get("normalizationSource"), SOURCE_FALLBACK),
                     qualityMetrics(payload)));
-        } catch (RuntimeException | java.io.IOException ex) {
+        } catch (RuntimeException ex) {
             return Optional.empty();
         }
     }
@@ -391,7 +391,7 @@ final class NormalizedDocumentSnapshot {
     private static String writeJson(ObjectMapper objectMapper, Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (java.io.IOException ex) {
+        } catch (RuntimeException ex) {
             return "{}";
         }
     }

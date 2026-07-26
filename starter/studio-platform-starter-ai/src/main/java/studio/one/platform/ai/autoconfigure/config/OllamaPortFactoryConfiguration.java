@@ -88,7 +88,7 @@ public class OllamaPortFactoryConfiguration {
             org.springframework.ai.ollama.OllamaEmbeddingModel embeddingModel =
                     org.springframework.ai.ollama.OllamaEmbeddingModel.builder()
                             .ollamaApi(ollamaApi)
-                            .defaultOptions(options)
+                            .options(options)
                             .build();
             return new SpringAiEmbeddingAdapter(embeddingModel, model);
         }

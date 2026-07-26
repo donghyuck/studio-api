@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import tools.jackson.databind.ObjectMapper;
+
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.adapters.vector.PgVectorJdbcMapper;
 import studio.one.platform.ai.adapters.vector.PgVectorStoreAdapterV2;
@@ -29,7 +31,10 @@ public class VectorStoreConfiguration {
     @Bean
     @ConditionalOnMissingBean(value = VectorStorePort.class, type = "org.mybatis.spring.SqlSessionTemplate")
     @ConditionalOnBean(JdbcTemplate.class)
-    public VectorStorePort jdbcVectorStorePort(JdbcTemplate jdbcTemplate, ObjectProvider<I18n> i18nProvider) {
+    public VectorStorePort jdbcVectorStorePort(
+            JdbcTemplate jdbcTemplate,
+            ObjectMapper objectMapper,
+            ObjectProvider<I18n> i18nProvider) {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
@@ -38,7 +43,7 @@ public class VectorStoreConfiguration {
                 LogUtils.green(PgVectorStoreAdapterV2.class, true),
                 LogUtils.red(State.CREATED.toString())));
 
-        return new PgVectorStoreAdapterV2(jdbcTemplate);
+        return new PgVectorStoreAdapterV2(jdbcTemplate, objectMapper);
     }
 
     @Configuration(proxyBeanMethods = false)
@@ -83,6 +88,7 @@ public class VectorStoreConfiguration {
         public VectorStorePort vectorStorePort(
                 PgVectorMapper mapper,
                 JdbcTemplate jdbcTemplate,
+                ObjectMapper objectMapper,
                 ObjectProvider<I18n> i18nProvider) {
 
             I18n i18n = I18nUtils.resolve(i18nProvider);
@@ -92,7 +98,7 @@ public class VectorStoreConfiguration {
                     LogUtils.green(PgVectorStoreAdapterV2.class, true),
                     LogUtils.red(State.CREATED.toString())));
 
-            return new PgVectorStoreAdapterV2(mapper, jdbcTemplate.getDataSource());
+            return new PgVectorStoreAdapterV2(mapper, jdbcTemplate.getDataSource(), objectMapper);
         }
     }
 }

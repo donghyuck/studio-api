@@ -6,6 +6,7 @@ import java.util.Map;
 
 import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.embedding.EmbeddingPurpose;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.vector.VectorRecord;
 
@@ -62,7 +63,11 @@ public record ResolvedRagEmbedding(
     }
 
     public EmbeddingRequest request(List<String> texts) {
-        return new EmbeddingRequest(texts, provider, model, inputType, metadata());
+        return request(texts, EmbeddingPurpose.UNSPECIFIED);
+    }
+
+    public EmbeddingRequest request(List<String> texts, EmbeddingPurpose purpose) {
+        return new EmbeddingRequest(texts, provider, model, inputType, purpose, metadata());
     }
 
     public Map<String, Object> metadata() {

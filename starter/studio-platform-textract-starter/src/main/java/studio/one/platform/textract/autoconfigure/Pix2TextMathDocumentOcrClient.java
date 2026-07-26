@@ -12,10 +12,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.textract.domain.error.FileParseException;
 import studio.one.platform.textract.domain.model.BlockType;
@@ -57,7 +58,7 @@ class Pix2TextMathDocumentOcrClient implements MathDocumentOcrClient {
         this.language = language == null || language.isBlank() ? "ko,en" : language;
         this.pageByPage = pageByPage;
         this.batchSize = Math.max(1, batchSize);
-        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(this.timeout)

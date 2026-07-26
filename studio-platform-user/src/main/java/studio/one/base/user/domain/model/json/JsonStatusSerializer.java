@@ -14,6 +14,10 @@
 
 package studio.one.base.user.domain.model.json;
 
+import tools.jackson.core.JsonGenerator;
+import tools.jackson.databind.SerializationContext;
+import tools.jackson.databind.ValueSerializer;
+
 import studio.one.base.user.domain.model.Status;
 
 /**
@@ -30,17 +34,16 @@ import studio.one.base.user.domain.model.Status;
  * </pre>
  */
 
-public class JsonStatusSerializer extends com.fasterxml.jackson.databind.JsonSerializer<Status> {
+public class JsonStatusSerializer extends ValueSerializer<Status> {
 
     @Override
     public void serialize(Status value,
-            com.fasterxml.jackson.core.JsonGenerator gen,
-            com.fasterxml.jackson.databind.SerializerProvider serializers)
-            throws java.io.IOException {
+            JsonGenerator generator,
+            SerializationContext context) {
         if (value == null) {
-            gen.writeNull();
+            generator.writeNull();
             return;
         }
-        gen.writeString(value.toJson());
+        generator.writeString(value.toJson());
     }
 }

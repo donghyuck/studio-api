@@ -4,8 +4,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.chat.ChatMessage;
@@ -30,19 +30,24 @@ public class LlmKeywordExtractor implements KeywordExtractor {
     private final PromptRenderer promptRenderer;
     private final ChatPort chatPort;
     private final int maxInputChars;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public LlmKeywordExtractor(PromptRenderer promptRenderer, ChatPort chatPort) {
-        this(promptRenderer, chatPort, 4_000);
+    public LlmKeywordExtractor(PromptRenderer promptRenderer, ChatPort chatPort, ObjectMapper objectMapper) {
+        this(promptRenderer, chatPort, 4_000, objectMapper);
     }
 
-    public LlmKeywordExtractor(PromptRenderer promptRenderer, ChatPort chatPort, int maxInputChars) {
+    public LlmKeywordExtractor(
+            PromptRenderer promptRenderer,
+            ChatPort chatPort,
+            int maxInputChars,
+            ObjectMapper objectMapper) {
         if (maxInputChars < 1) {
             throw new IllegalArgumentException("maxInputChars must be greater than 0");
         }
         this.promptRenderer = Objects.requireNonNull(promptRenderer, "promptRenderer");
         this.chatPort = Objects.requireNonNull(chatPort, "chatPort");
         this.maxInputChars = maxInputChars;
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }
 
     @Override

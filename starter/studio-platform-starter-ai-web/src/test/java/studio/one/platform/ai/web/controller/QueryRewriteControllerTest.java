@@ -11,6 +11,8 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import tools.jackson.databind.json.JsonMapper;
+
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatResponse;
@@ -29,7 +31,7 @@ class QueryRewriteControllerTest {
     void setUp() {
         promptRenderer = mock(PromptRenderer.class);
         chatPort = mock(ChatPort.class);
-        controller = new QueryRewriteController(promptRenderer, chatPort);
+        controller = new QueryRewriteController(promptRenderer, chatPort, JsonMapper.builder().build());
         when(promptRenderer.render(any(), any())).thenReturn("prompt");
     }
 

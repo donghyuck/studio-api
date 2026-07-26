@@ -1,7 +1,7 @@
 package studio.one.platform.ai.adapters.vector;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.pgvector.PGvector;
 import java.util.HashMap;
 import java.util.List;
@@ -35,9 +35,10 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
 
     private final PgVectorMapper mapper;
     private final TransactionTemplate transactionTemplate;
+    private final ObjectMapper objectMapper;
 
-    public PgVectorStoreAdapterV2(PgVectorMapper mapper) {
-        this(mapper, null);
+    public PgVectorStoreAdapterV2(PgVectorMapper mapper, ObjectMapper objectMapper) {
+        this(mapper, null, objectMapper);
     }
 
     /**
@@ -47,12 +48,13 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
      * external SQL mapper injection.
      */
     @Deprecated(forRemoval = false)
-    public PgVectorStoreAdapterV2(JdbcTemplate jdbcTemplate) {
-        this(new PgVectorJdbcMapper(jdbcTemplate), jdbcTemplate.getDataSource());
+    public PgVectorStoreAdapterV2(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
+        this(new PgVectorJdbcMapper(jdbcTemplate), jdbcTemplate.getDataSource(), objectMapper);
     }
 
-    public PgVectorStoreAdapterV2(PgVectorMapper mapper, DataSource dataSource) {
+    public PgVectorStoreAdapterV2(PgVectorMapper mapper, DataSource dataSource, ObjectMapper objectMapper) {
         this.mapper = Objects.requireNonNull(mapper, "mapper");
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.transactionTemplate = dataSource == null
                 ? null
                 : new TransactionTemplate(new DataSourceTransactionManager(dataSource));
@@ -84,7 +86,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 resolveObjectId(metadata, document.id()),
                 resolveChunkIndex(metadata),
                 document.content(),
-                Json.write(metadata),
+                writeMetadata(metadata),
                 toPgVector(document.embedding()),
                 document.embedding().size());
     }
@@ -92,7 +94,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     @Override
     public List<VectorSearchResult> search(VectorSearchRequest request) {
         return mapper.search(searchParameter(request, true, null, null)).stream()
-                .map(PgVectorStoreAdapterV2::mapSearchRow)
+                .map(this::mapSearchRow)
                 .toList();
     }
 
@@ -119,7 +121,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     @Override
     public List<VectorSearchResult> searchByObject(String objectType, String objectId, VectorSearchRequest request) {
         return mapper.searchByObject(searchParameter(request, false, normalize(objectType), normalize(objectId))).stream()
-                .map(PgVectorStoreAdapterV2::mapSearchRow)
+                .map(this::mapSearchRow)
                 .toList();
     }
 
@@ -137,7 +139,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 true,
                 null,
                 null)).stream()
-                .map(PgVectorStoreAdapterV2::mapSearchRow)
+                .map(this::mapSearchRow)
                 .toList();
     }
 
@@ -157,7 +159,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 false,
                 normalize(objectType),
                 normalize(objectId))).stream()
-                .map(PgVectorStoreAdapterV2::mapSearchRow)
+                .map(this::mapSearchRow)
                 .toList();
     }
 
@@ -170,7 +172,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     public List<VectorSearchResult> listByObject(String objectType, String objectId, Integer limit) {
         int rowLimit = limit == null || limit <= 0 ? Integer.MAX_VALUE : limit;
         return mapper.listByObject(objectType, objectId, rowLimit).stream()
-                .map(PgVectorStoreAdapterV2::mapListRow)
+                .map(this::mapListRow)
                 .toList();
     }
 
@@ -179,7 +181,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         int rowOffset = Math.max(0, offset);
         int rowLimit = limit <= 0 ? 50 : limit;
         return mapper.listByObjectPage(objectType, objectId, rowOffset, rowLimit).stream()
-                .map(PgVectorStoreAdapterV2::mapListRow)
+                .map(this::mapListRow)
                 .toList();
     }
 
@@ -199,14 +201,14 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                         rowOffset,
                         rowLimit)
                 .stream()
-                .map(PgVectorStoreAdapterV2::mapListRow)
+                .map(this::mapListRow)
                 .toList();
     }
 
     @Override
     public List<VectorSearchResult> listByChunkIds(String objectType, Set<String> chunkIds) {
         return mapper.listByChunkIds(objectType, chunkIds).stream()
-                .map(PgVectorStoreAdapterV2::mapListRow)
+                .map(this::mapListRow)
                 .toList();
     }
 
@@ -226,7 +228,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         if (metadata == null || metadata.isBlank()) {
             return Map.of();
         }
-        return Map.copyOf(Json.read(metadata));
+        return Map.copyOf(readMetadata(metadata));
     }
 
     @Override
@@ -240,21 +242,21 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         return mapper.patchMetadataByObject(
                 Objects.requireNonNull(objectType, "objectType"),
                 Objects.requireNonNull(objectId, "objectId"),
-                Json.write(metadata));
+                writeMetadata(metadata));
     }
 
-    private static VectorSearchResult mapSearchRow(PgVectorSearchRow row) {
+    private VectorSearchResult mapSearchRow(PgVectorSearchRow row) {
         double distance = row.getDistance() == null ? 0.0d : row.getDistance();
         return mapRow(row, 1.0d / (1.0d + distance));
     }
 
-    private static VectorSearchResult mapListRow(PgVectorSearchRow row) {
+    private VectorSearchResult mapListRow(PgVectorSearchRow row) {
         return mapRow(row, 1.0d);
     }
 
-    private static VectorSearchResult mapRow(PgVectorSearchRow row, double score) {
+    private VectorSearchResult mapRow(PgVectorSearchRow row, double score) {
         String objectId = row.getObjectId();
-        Map<String, Object> metadata = new HashMap<>(Json.read(row.getMetadata()));
+        Map<String, Object> metadata = new HashMap<>(readMetadata(row.getMetadata()));
         if (row.getId() != null) {
             metadata.putIfAbsent("_vectorRowId", "row-" + row.getId());
         }
@@ -391,30 +393,23 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         return (value == null || value.isBlank()) ? null : value;
     }
 
-    private static final class Json {
-        private static final ObjectMapper objectMapper = new ObjectMapper();
-
-        private Json() {
+    private String writeMetadata(Map<String, Object> metadata) {
+        try {
+            return objectMapper.writeValueAsString(metadata);
+        } catch (JacksonException e) {
+            throw new IllegalStateException("Failed to serialize metadata", e);
         }
+    }
 
-        private static String write(Map<String, Object> metadata) {
-            try {
-                return objectMapper.writeValueAsString(metadata);
-            } catch (JsonProcessingException e) {
-                throw new IllegalStateException("Failed to serialize metadata", e);
-            }
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> readMetadata(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
         }
-
-        @SuppressWarnings("unchecked")
-        private static Map<String, Object> read(String json) {
-            if (json == null || json.isBlank()) {
-                return Map.of();
-            }
-            try {
-                return objectMapper.readValue(json, Map.class);
-            } catch (JsonProcessingException e) {
-                throw new IllegalStateException("Failed to deserialize metadata", e);
-            }
+        try {
+            return objectMapper.readValue(json, Map.class);
+        } catch (JacksonException e) {
+            throw new IllegalStateException("Failed to deserialize metadata", e);
         }
     }
 }

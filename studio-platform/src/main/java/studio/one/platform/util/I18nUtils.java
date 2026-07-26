@@ -3,7 +3,7 @@ package studio.one.platform.util;
 import java.util.Locale;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import lombok.NoArgsConstructor;
 import studio.one.platform.service.I18n;

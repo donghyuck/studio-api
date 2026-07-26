@@ -14,8 +14,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.chunking.autoconfigure.ChunkingProperties;
 import studio.one.platform.chunking.core.NormalizedBlock;
@@ -35,10 +35,12 @@ public class PresidioPiiMaskingClient implements BlockifyPiiMaskingPort {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
-    public PresidioPiiMaskingClient(ChunkingProperties.BlockifyPiiMaskingProperties properties) {
+    public PresidioPiiMaskingClient(
+            ChunkingProperties.BlockifyPiiMaskingProperties properties,
+            ObjectMapper objectMapper) {
         this(properties, HttpClient.newBuilder()
                 .connectTimeout(properties.getTimeout())
-                .build(), new ObjectMapper());
+                .build(), objectMapper);
     }
 
     PresidioPiiMaskingClient(

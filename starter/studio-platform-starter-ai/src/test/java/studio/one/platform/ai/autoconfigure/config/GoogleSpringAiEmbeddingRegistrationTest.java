@@ -9,9 +9,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.mock.env.MockEnvironment;
 
-import studio.one.platform.ai.autoconfigure.adapter.SpringAiEmbeddingAdapter;
+import studio.one.platform.ai.autoconfigure.adapter.GoogleGenAiEmbeddingAdapter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.embedding.EmbeddingSpaceContract;
 
 class GoogleSpringAiEmbeddingRegistrationTest {
 
@@ -39,7 +40,7 @@ class GoogleSpringAiEmbeddingRegistrationTest {
                 List.of(new GoogleGenAiEmbeddingPortFactoryConfiguration().googleGenAiEmbeddingPortFactory()));
 
         assertThat(embeddingPorts).containsOnlyKeys("google");
-        assertThat(embeddingPorts.get("google")).isInstanceOf(SpringAiEmbeddingAdapter.class);
+        assertThat(embeddingPorts.get("google")).isInstanceOf(GoogleGenAiEmbeddingAdapter.class);
 
         AiProviderRegistry registry = new AiProviderRegistry("google", Map.of(), embeddingPorts);
         assertThat(registry.defaultProvider()).isEqualTo("google");
@@ -70,14 +71,11 @@ class GoogleSpringAiEmbeddingRegistrationTest {
                 List.of(new GoogleGenAiEmbeddingPortFactoryConfiguration().googleGenAiEmbeddingPortFactory()))
                 .get("google");
 
-        java.lang.reflect.Field modelField = SpringAiEmbeddingAdapter.class.getDeclaredField("embeddingModel");
-        modelField.setAccessible(true);
-
-        assertThat(modelField.get(port)).isNotSameAs(injected);
+        assertThat(port).isInstanceOf(GoogleGenAiEmbeddingAdapter.class);
     }
 
     @Test
-    void preservesGoogleEmbeddingTaskTypeInSpringAiOptions() throws Exception {
+    void preservesLegacyGoogleEmbeddingTaskTypeAsAdapterDefault() throws Exception {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setDefaultProvider("google");
 
@@ -100,23 +98,9 @@ class GoogleSpringAiEmbeddingRegistrationTest {
                 List.of(new GoogleGenAiEmbeddingPortFactoryConfiguration().googleGenAiEmbeddingPortFactory()))
                 .get("google");
 
-        assertThat(port).isInstanceOf(SpringAiEmbeddingAdapter.class);
-
-        java.lang.reflect.Field modelField = SpringAiEmbeddingAdapter.class.getDeclaredField("embeddingModel");
-        modelField.setAccessible(true);
-        Object model = modelField.get(port);
-
-        java.lang.reflect.Field optionsField = model.getClass().getDeclaredField("defaultOptions");
-        optionsField.setAccessible(true);
-        Object options = optionsField.get(model);
-
-        java.lang.reflect.Method taskTypeMethod = options.getClass().getMethod("getTaskType");
-        Object taskType = taskTypeMethod.invoke(options);
-        java.lang.reflect.Method dimensionsMethod = options.getClass().getMethod("getDimensions");
-        Object dimensions = dimensionsMethod.invoke(options);
-
-        assertThat(String.valueOf(taskType)).isEqualTo("RETRIEVAL_QUERY");
-        assertThat(dimensions).isEqualTo(768);
+        assertThat(port).isInstanceOf(GoogleGenAiEmbeddingAdapter.class);
+        assertThat(field(port, "defaultTaskType")).isEqualTo("RETRIEVAL_QUERY");
+        assertThat(field(port, "configuredDimension")).isEqualTo(768);
     }
 
     @Test
@@ -142,17 +126,67 @@ class GoogleSpringAiEmbeddingRegistrationTest {
                 List.of(new GoogleGenAiEmbeddingPortFactoryConfiguration().googleGenAiEmbeddingPortFactory()))
                 .get("google-embedding-2");
 
-        java.lang.reflect.Field configuredModelField = SpringAiEmbeddingAdapter.class.getDeclaredField("configuredModel");
-        configuredModelField.setAccessible(true);
-        assertThat(configuredModelField.get(port)).isEqualTo("gemini-embedding-2");
+        assertThat(port).isInstanceOf(GoogleGenAiEmbeddingAdapter.class);
+        assertThat(field(port, "configuredModel")).isEqualTo("gemini-embedding-2");
+        assertThat(field(port, "configuredDimension")).isEqualTo(768);
+        assertThat(field(port, "taskTypeSupported")).isEqualTo(false);
+    }
 
-        java.lang.reflect.Field modelField = SpringAiEmbeddingAdapter.class.getDeclaredField("embeddingModel");
-        modelField.setAccessible(true);
-        Object model = modelField.get(port);
-        java.lang.reflect.Field optionsField = model.getClass().getDeclaredField("defaultOptions");
-        optionsField.setAccessible(true);
-        Object options = optionsField.get(model);
-        assertThat(options.getClass().getMethod("getDimensions").invoke(options)).isEqualTo(768);
-        assertThat(options.getClass().getMethod("getTaskType").invoke(options)).isNull();
+    @Test
+    void preservesDeploymentIndexAndQueryTaskContract() throws Exception {
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        EmbeddingSpaceContract contract = new EmbeddingSpaceContract(
+                "v1", "google", "gemini-embedding-001", 768,
+                "provider-default", "retrieval_document", "retrieval_query",
+                "text", "1", Map.of());
+
+        EmbeddingPort port = new GoogleGenAiEmbeddingPortFactoryConfiguration.GoogleGenAiEmbeddingPortFactory()
+                .createForDeployment(
+                        "google",
+                        provider,
+                        "gemini-embedding-001",
+                        768,
+                        contract,
+                        new MockEnvironment()
+                                .withProperty("spring.ai.google.genai.embedding.api-key", "spring-key"),
+                        new StaticListableBeanFactory()
+                                .getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+
+        assertThat(field(port, "indexTaskType")).isEqualTo("RETRIEVAL_DOCUMENT");
+        assertThat(field(port, "queryTaskType")).isEqualTo("RETRIEVAL_QUERY");
+    }
+
+    @Test
+    void rejectsExplicitTaskContractForGeminiEmbedding2() {
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        EmbeddingSpaceContract contract = new EmbeddingSpaceContract(
+                "v1", "google", "gemini-embedding-2", 768,
+                "provider-default", "retrieval_document", "retrieval_query",
+                "text", "1", Map.of());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        new GoogleGenAiEmbeddingPortFactoryConfiguration.GoogleGenAiEmbeddingPortFactory()
+                                .createForDeployment(
+                                        "google",
+                                        provider,
+                                        "gemini-embedding-2",
+                                        768,
+                                        contract,
+                                        new MockEnvironment().withProperty(
+                                                "spring.ai.google.genai.embedding.api-key", "spring-key"),
+                                        new StaticListableBeanFactory().getBeanProvider(
+                                                org.springframework.ai.embedding.EmbeddingModel.class)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("does not support");
+    }
+
+    private static Object field(Object target, String name) throws Exception {
+        java.lang.reflect.Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(target);
     }
 }

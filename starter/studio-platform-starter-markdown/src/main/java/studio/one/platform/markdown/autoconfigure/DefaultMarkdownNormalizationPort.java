@@ -3,7 +3,7 @@ package studio.one.platform.markdown.autoconfigure;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.markdown.application.port.MarkdownNormalizationPort;

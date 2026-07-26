@@ -256,7 +256,7 @@ public class ModelDeploymentRegistryConfiguration {
                     + " has no embedding port factory for provider type " + provider.getType());
         }
         return factory.createForDeployment(candidate.providerRef(), provider,
-                candidate.definition().apiModel(), candidate.dimension(), environment,
+                candidate.definition().apiModel(), candidate.dimension(), candidate.embeddingContract(), environment,
                 springAiEmbeddingModelProvider);
     }
 

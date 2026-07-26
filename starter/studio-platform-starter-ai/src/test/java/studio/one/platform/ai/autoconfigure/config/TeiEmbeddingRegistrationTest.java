@@ -8,6 +8,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.mock.env.MockEnvironment;
+import tools.jackson.databind.json.JsonMapper;
 
 import studio.one.platform.ai.autoconfigure.adapter.TeiEmbeddingAdapter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
@@ -30,7 +31,8 @@ class TeiEmbeddingRegistrationTest {
                 properties,
                 new MockEnvironment(),
                 beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class),
-                List.of(new TeiPortFactoryConfiguration().teiEmbeddingPortFactory()));
+                List.of(new TeiPortFactoryConfiguration()
+                        .teiEmbeddingPortFactory(JsonMapper.builder().build())));
 
         assertThat(embeddingPorts).containsOnlyKeys("kure");
         assertThat(embeddingPorts.get("kure")).isInstanceOf(TeiEmbeddingAdapter.class);

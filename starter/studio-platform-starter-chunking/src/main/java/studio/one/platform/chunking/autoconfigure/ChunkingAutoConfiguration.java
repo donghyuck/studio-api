@@ -162,14 +162,15 @@ public class ChunkingAutoConfiguration {
         @ConditionalOnProperty(prefix = "studio.chunking.blockify", name = "generator-type", havingValue = "llm")
         BlockifyGenerator llmBlockifyGenerator(
                 ChunkingProperties properties,
-                studio.one.platform.ai.model.ModelDeploymentRegistry providerRegistry) {
-            BlockifyGenerator generator = new LlmBlockifyGenerator(providerRegistry);
+                studio.one.platform.ai.model.ModelDeploymentRegistry providerRegistry,
+                tools.jackson.databind.ObjectMapper objectMapper) {
+            BlockifyGenerator generator = new LlmBlockifyGenerator(providerRegistry, objectMapper);
             if (!properties.getBlockify().getPiiMasking().isEnabled()) {
                 return generator;
             }
             return new PiiMaskingBlockifyGenerator(
                     generator,
-                    new PresidioPiiMaskingClient(properties.getBlockify().getPiiMasking()),
+                    new PresidioPiiMaskingClient(properties.getBlockify().getPiiMasking(), objectMapper),
                     properties.getBlockify().getPiiMasking());
         }
     }

@@ -1,21 +1,21 @@
 ALTER TABLE tb_skill_dictionary
-    ADD COLUMN IF NOT EXISTS skill_type VARCHAR(40) NOT NULL DEFAULT 'UNKNOWN';
+    ADD COLUMN skill_type VARCHAR(40) NOT NULL DEFAULT 'UNKNOWN';
 
 ALTER TABLE tb_skill_projection
-    ADD COLUMN IF NOT EXISTS skill_type VARCHAR(40),
-    ADD COLUMN IF NOT EXISTS job_id VARCHAR(120),
-    ADD COLUMN IF NOT EXISTS projection_type VARCHAR(40),
-    ADD COLUMN IF NOT EXISTS projection_dimension INT,
-    ADD COLUMN IF NOT EXISTS metadata TEXT;
+    ADD COLUMN skill_type VARCHAR(40),
+    ADD COLUMN job_id VARCHAR(120),
+    ADD COLUMN projection_type VARCHAR(40),
+    ADD COLUMN projection_dimension INT,
+    ADD COLUMN metadata TEXT;
 
 ALTER TABLE tb_skill_cluster
-    ADD COLUMN IF NOT EXISTS skill_type VARCHAR(40),
-    ADD COLUMN IF NOT EXISTS job_id VARCHAR(120),
-    ADD COLUMN IF NOT EXISTS cluster_label INT,
-    ADD COLUMN IF NOT EXISTS representative_skill_ids TEXT,
-    ADD COLUMN IF NOT EXISTS centroid_projection_id VARCHAR(120),
-    ADD COLUMN IF NOT EXISTS confidence DECIMAL(5, 4),
-    ADD COLUMN IF NOT EXISTS metadata TEXT;
+    ADD COLUMN skill_type VARCHAR(40),
+    ADD COLUMN job_id VARCHAR(120),
+    ADD COLUMN cluster_label INT,
+    ADD COLUMN representative_skill_ids TEXT,
+    ADD COLUMN centroid_projection_id VARCHAR(120),
+    ADD COLUMN confidence DECIMAL(5, 4),
+    ADD COLUMN metadata TEXT;
 
 CREATE TABLE IF NOT EXISTS tb_skill_cluster_member (
     cluster_id VARCHAR(100) NOT NULL,

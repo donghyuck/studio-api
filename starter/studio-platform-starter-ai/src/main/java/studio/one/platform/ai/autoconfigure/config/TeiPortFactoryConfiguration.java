@@ -5,6 +5,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.autoconfigure.adapter.TeiEmbeddingAdapter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
@@ -16,11 +17,17 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 public class TeiPortFactoryConfiguration {
 
     @Bean
-    public ProviderEmbeddingPortFactory teiEmbeddingPortFactory() {
-        return new TeiEmbeddingPortFactory();
+    public ProviderEmbeddingPortFactory teiEmbeddingPortFactory(ObjectMapper objectMapper) {
+        return new TeiEmbeddingPortFactory(objectMapper);
     }
 
     static final class TeiEmbeddingPortFactory implements ProviderEmbeddingPortFactory {
+
+        private final ObjectMapper objectMapper;
+
+        private TeiEmbeddingPortFactory(ObjectMapper objectMapper) {
+            this.objectMapper = objectMapper;
+        }
 
         @Override
         public AiAdapterProperties.ProviderType supportedType() {
@@ -56,7 +63,11 @@ public class TeiPortFactoryConfiguration {
                     + ".base-url must be configured for TEI embedding provider");
             String model = requireText(apiModel,
                     "Catalog-resolved model must be configured for TEI embedding deployment");
-            return new TeiEmbeddingAdapter(baseUrl, model, provider.getEmbedding().getRequestTimeout());
+            return new TeiEmbeddingAdapter(
+                    baseUrl,
+                    model,
+                    provider.getEmbedding().getRequestTimeout(),
+                    objectMapper);
         }
 
         private static String requireText(String value, String message) {

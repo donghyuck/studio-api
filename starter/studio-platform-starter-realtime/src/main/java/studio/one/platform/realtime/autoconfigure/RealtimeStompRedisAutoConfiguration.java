@@ -31,10 +31,10 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
-import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
@@ -55,14 +55,12 @@ public class RealtimeStompRedisAutoConfiguration {
     @Bean
     @ConditionalOnBean(RedisConnectionFactory.class)
     public RedisTemplate<String, RealtimeEnvelope> realtimeRedisTemplate(
-            RedisConnectionFactory connectionFactory) {
+            RedisConnectionFactory connectionFactory,
+            ObjectMapper objectMapper) {
         RedisTemplate<String, RealtimeEnvelope> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
-        Jackson2JsonRedisSerializer<RealtimeEnvelope> serializer =
-                new Jackson2JsonRedisSerializer<>(RealtimeEnvelope.class);
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.findAndRegisterModules();
-        serializer.setObjectMapper(mapper);
+        JacksonJsonRedisSerializer<RealtimeEnvelope> serializer =
+                new JacksonJsonRedisSerializer<>(objectMapper, RealtimeEnvelope.class);
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(serializer);
         template.afterPropertiesSet();

@@ -21,6 +21,7 @@ import studio.one.platform.ai.core.chunk.TextChunk;
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.embedding.EmbeddingPurpose;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
@@ -227,6 +228,7 @@ class RagPipelineServiceTest {
         ArgumentCaptor<EmbeddingRequest> embeddingRequest = ArgumentCaptor.forClass(EmbeddingRequest.class);
         verify(embeddingPort).embed(embeddingRequest.capture());
         assertThat(embeddingRequest.getValue().inputType()).isEqualTo(EmbeddingInputType.TABLE_TEXT);
+        assertThat(embeddingRequest.getValue().purpose()).isEqualTo(EmbeddingPurpose.INDEX);
         verify(vectorStorePort).upsertAll(recordsCaptor.capture());
         VectorRecord record = recordsCaptor.getValue().get(0);
         assertThat(record.metadata())
@@ -844,6 +846,9 @@ class RagPipelineServiceTest {
         List<RagSearchResult> results = ragPipelineService.search(request);
 
         assertThat(results).hasSize(1);
+        ArgumentCaptor<EmbeddingRequest> embeddingRequest = ArgumentCaptor.forClass(EmbeddingRequest.class);
+        verify(embeddingPort).embed(embeddingRequest.capture());
+        assertThat(embeddingRequest.getValue().purpose()).isEqualTo(EmbeddingPurpose.QUERY);
         RagSearchResult result = results.get(0);
         assertThat(result.documentId()).isEqualTo("doc-1");
         assertThat(result.metadata()).containsEntry("author", "test");

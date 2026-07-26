@@ -1,7 +1,7 @@
 package studio.one.platform.ai.service.pipeline;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -36,7 +36,7 @@ public class JdbcRagChunkStageStore implements RagChunkStageStore {
             int insertBatchSize,
             TransactionOperations transactionOperations) {
         this.template = Objects.requireNonNull(template, "template");
-        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.insertBatchSize = normalizeBatchSize(insertBatchSize);
         this.transactionOperations = transactionOperations;
     }

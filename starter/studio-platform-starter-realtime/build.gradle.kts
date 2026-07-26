@@ -19,7 +19,7 @@ dependencies {
     api(project(":studio-platform-realtime")) 
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-security"))
-    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
     compileOnly("org.springframework.boot:spring-boot-starter-websocket")
     testImplementation("org.springframework.boot:spring-boot-starter-websocket")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")

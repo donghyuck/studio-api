@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,36 +109,6 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
             ObjectProvider<SkillRagExtractionJobService> skillJobServiceProvider,
             ObjectProvider<ChunkingOrchestrator> chunkingProvider,
             ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
-            MarkdownRepository repository) {
-        this(ragJobServiceProvider, skillJobServiceProvider, chunkingProvider, chunkStageStoreProvider, null,
-                null, repository);
-    }
-
-    public MarkdownDownstreamPipelineAdapter(ObjectProvider<RagIndexJobService> ragJobServiceProvider,
-            ObjectProvider<SkillRagExtractionJobService> skillJobServiceProvider,
-            ObjectProvider<ChunkingOrchestrator> chunkingProvider,
-            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
-            ObjectProvider<EmbeddingPort> embeddingPortProvider,
-            MarkdownRepository repository) {
-        this(ragJobServiceProvider, skillJobServiceProvider, chunkingProvider, chunkStageStoreProvider,
-                embeddingPortProvider, null, repository);
-    }
-
-    public MarkdownDownstreamPipelineAdapter(ObjectProvider<RagIndexJobService> ragJobServiceProvider,
-            ObjectProvider<SkillRagExtractionJobService> skillJobServiceProvider,
-            ObjectProvider<ChunkingOrchestrator> chunkingProvider,
-            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
-            ObjectProvider<EmbeddingPort> embeddingPortProvider,
-            ObjectProvider<AiProviderRegistry> aiProviderRegistryProvider,
-            MarkdownRepository repository) {
-        this(ragJobServiceProvider, skillJobServiceProvider, chunkingProvider, chunkStageStoreProvider,
-                embeddingPortProvider, aiProviderRegistryProvider, null, repository, new ObjectMapper());
-    }
-
-    public MarkdownDownstreamPipelineAdapter(ObjectProvider<RagIndexJobService> ragJobServiceProvider,
-            ObjectProvider<SkillRagExtractionJobService> skillJobServiceProvider,
-            ObjectProvider<ChunkingOrchestrator> chunkingProvider,
-            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
             ObjectProvider<EmbeddingPort> embeddingPortProvider,
             ObjectProvider<AiProviderRegistry> aiProviderRegistryProvider,
             MarkdownRepository repository,
@@ -181,7 +151,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         this.metadataEnrichmentPort = metadataEnrichmentPort == null
                 ? MarkdownMetadataEnrichmentPort.noop() : metadataEnrichmentPort;
         this.repository = repository;
-        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }
 
     @Override

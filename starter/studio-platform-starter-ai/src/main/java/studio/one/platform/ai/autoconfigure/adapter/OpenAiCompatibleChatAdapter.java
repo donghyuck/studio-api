@@ -14,8 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -39,11 +39,11 @@ public class OpenAiCompatibleChatAdapter implements ChatPort {
     private final Duration requestTimeout;
 
     public OpenAiCompatibleChatAdapter(String baseUrl, String apiKey, String provider, String configuredModel,
-            Duration requestTimeout) {
+            Duration requestTimeout, ObjectMapper objectMapper) {
         this(HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build(),
-                new ObjectMapper(),
+                objectMapper,
                 baseUrl,
                 apiKey,
                 provider,

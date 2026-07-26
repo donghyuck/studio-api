@@ -21,6 +21,11 @@
 
 package studio.one.platform.ai.web.controller;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.Principal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -31,23 +36,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.security.Principal;
-import java.time.Instant;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 
 import jakarta.validation.Valid;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -170,23 +168,19 @@ public class ChatController {
     private final RagDocumentOverviewAssembler documentOverviewAssembler = new RagDocumentOverviewAssembler();
     private final RagDocumentMapReduceOverview documentMapReduceOverview = new RagDocumentMapReduceOverview();
 
-    public ChatController(AiProviderRegistry providerRegistry, RagPipelineService ragPipelineService) {
-        this(providerRegistry, ragPipelineService, RagContextBuilder.defaults());
-    }
-
     public ChatController(
             AiProviderRegistry providerRegistry,
             RagPipelineService ragPipelineService,
-            RagContextBuilder ragContextBuilder) {
-        this(providerRegistry, ragPipelineService, ragContextBuilder, false);
+            ObjectMapper objectMapper) {
+        this(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), objectMapper);
     }
 
     public ChatController(
             AiProviderRegistry providerRegistry,
             RagPipelineService ragPipelineService,
             RagContextBuilder ragContextBuilder,
-            boolean allowClientDebug) {
-        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug, null, false);
+            ObjectMapper objectMapper) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, false, objectMapper);
     }
 
     public ChatController(
@@ -194,10 +188,8 @@ public class ChatController {
             RagPipelineService ragPipelineService,
             RagContextBuilder ragContextBuilder,
             boolean allowClientDebug,
-            ChatMemoryStore chatMemoryStore,
-            boolean chatMemoryEnabled) {
-        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug,
-                chatMemoryStore, chatMemoryEnabled, null);
+            ObjectMapper objectMapper) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug, null, false, objectMapper);
     }
 
     public ChatController(
@@ -207,10 +199,24 @@ public class ChatController {
             boolean allowClientDebug,
             ChatMemoryStore chatMemoryStore,
             boolean chatMemoryEnabled,
-            ConversationChatService conversationChatService) {
+            ObjectMapper objectMapper) {
         this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug,
-                chatMemoryStore, chatMemoryEnabled, conversationChatService,
-                Jackson2ObjectMapperBuilder.json().build());
+                chatMemoryStore, chatMemoryEnabled, null, objectMapper);
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug,
+                chatMemoryStore, chatMemoryEnabled, conversationChatService, objectMapper,
+                DEFAULT_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER,
+                DEFAULT_CONTEXT_EXPANSION_MAX_CANDIDATES);
     }
 
     public ChatController(
@@ -406,20 +412,6 @@ public class ChatController {
                 ragContextExpansion == null
                         ? DEFAULT_CONTEXT_EXPANSION_MAX_CANDIDATES
                         : ragContextExpansion.getMaxCandidates());
-    }
-
-    public ChatController(
-            AiProviderRegistry providerRegistry,
-            RagPipelineService ragPipelineService,
-            RagContextBuilder ragContextBuilder,
-            boolean allowClientDebug,
-            ChatMemoryStore chatMemoryStore,
-            boolean chatMemoryEnabled,
-            ConversationChatService conversationChatService,
-            ObjectMapper objectMapper) {
-        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug, chatMemoryStore,
-                chatMemoryEnabled, conversationChatService, objectMapper,
-                DEFAULT_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER);
     }
 
     /**
@@ -1697,7 +1689,7 @@ public class ChatController {
         }
         try {
             return normalizeText(objectMapper.writeValueAsString(value));
-        } catch (IOException ex) {
+        } catch (RuntimeException ex) {
             return normalizeText(Objects.toString(value, null));
         }
     }
@@ -2083,7 +2075,19 @@ public class ChatController {
         String contextFingerprint = prepared.evidenceSet().contextFingerprint();
         return ragAnswerCache.get(key.get())
                 .filter(answer -> answer.isValidFor(contextFingerprint, Instant.now()))
+                .filter(answer -> cachedAnswerIsCanonical(answer, prepared.evidenceSet()))
                 .map(answer -> new CachedRagHit(key.get(), answer));
+    }
+
+    private boolean cachedAnswerIsCanonical(RagCachedAnswer answer, PackedEvidenceSet evidenceSet) {
+        if (!RagCitationValidator.Status.INDEX_VALID.name()
+                .equals(answer.citationValidationStatus())) {
+            return false;
+        }
+        RagAnswerFinalizer.FinalizedAnswer finalized =
+                RAG_ANSWER_FINALIZER.finalizeAnswer(answer.canonicalContent(), evidenceSet);
+        return finalized.validation().valid()
+                && finalized.canonicalContent().equals(answer.canonicalContent());
     }
 
     private void cacheRagAnswer(

@@ -23,7 +23,7 @@ dependencies {
     compileOnly(project(":studio-platform-storage"))
     compileOnly(project(":studio-application-modules:attachment-service"))
     compileOnly("org.springframework.boot:spring-boot-starter")
-    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework:spring-jdbc")
 
