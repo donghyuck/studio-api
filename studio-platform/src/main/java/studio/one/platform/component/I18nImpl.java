@@ -24,7 +24,7 @@ package studio.one.platform.component;
 import java.util.Locale;
 
 import org.springframework.context.support.MessageSourceAccessor;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

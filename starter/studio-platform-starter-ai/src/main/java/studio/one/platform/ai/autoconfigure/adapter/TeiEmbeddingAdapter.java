@@ -14,8 +14,8 @@ import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
@@ -36,15 +36,19 @@ public class TeiEmbeddingAdapter implements EmbeddingPort {
     private final String configuredModel;
     private final Duration requestTimeout;
 
-    public TeiEmbeddingAdapter(String baseUrl, String configuredModel) {
-        this(baseUrl, configuredModel, Duration.ofMinutes(2));
+    public TeiEmbeddingAdapter(String baseUrl, String configuredModel, ObjectMapper objectMapper) {
+        this(baseUrl, configuredModel, Duration.ofMinutes(2), objectMapper);
     }
 
-    public TeiEmbeddingAdapter(String baseUrl, String configuredModel, Duration requestTimeout) {
+    public TeiEmbeddingAdapter(
+            String baseUrl,
+            String configuredModel,
+            Duration requestTimeout,
+            ObjectMapper objectMapper) {
         this(HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build(),
-                new ObjectMapper(),
+                objectMapper,
                 baseUrl,
                 configuredModel,
                 requestTimeout);

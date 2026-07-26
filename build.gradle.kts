@@ -84,13 +84,6 @@ subprojects {
             extendsFrom(configurations.annotationProcessor.get())
         }
     }	
-    configurations.all {
-        resolutionStrategy.force(
-            "com.nimbusds:nimbus-jose-jwt:${property("nimbusJoseJwtVersion")}",
-            "net.minidev:json-smart:${property("jsonSmartVersion")}",
-            "org.postgresql:postgresql:${property("postgresqlVersion")}"
-        )
-    }
 	tasks.named<Jar>("jar") {
     	enabled = true
     	manifest {
@@ -127,7 +120,8 @@ subprojects {
                 "**/ApplicationCompanyPermissionPolicyJpaRepositoryTest.class",
                 "**/ApplicationGroupRoleJpaRepositoryNullSearchTest.class",
                 "**/ApplicationCompanyJoinRequestJpaRepositoryTest.class",
-                "**/ApplicationCompanyServiceImplJpaTest.class"
+                "**/ApplicationCompanyServiceImplJpaTest.class",
+                "**/DatabaseSchemaCompatibilityTest.class"
             )
         }
     }
@@ -181,4 +175,50 @@ subprojects {
             }
         }
     }
+}
+
+val verify3xRuntimeClasspath by tasks.registering {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Rejects Boot classic and Jackson 2 runtime bridges from 3.x published modules."
+
+    doLast {
+        val violations = mutableListOf<String>()
+        val jackson2RuntimeAllowlist = setOf(
+            // OCI SDK/Jersey owns this isolated serialization stack. The module has no
+            // application ObjectMapper boundary and does not expose Jackson 2 APIs.
+            ":starter:studio-platform-starter-objectstorage-oci"
+        )
+        subprojects.sortedBy { it.path }.forEach projectLoop@{ candidate ->
+            val runtimeClasspath = candidate.configurations.findByName("runtimeClasspath")
+            if (runtimeClasspath == null || !runtimeClasspath.isCanBeResolved) {
+                return@projectLoop
+            }
+            runtimeClasspath.incoming.resolutionResult.allComponents.forEach componentLoop@{ component ->
+                val id = component.id as? org.gradle.api.artifacts.component.ModuleComponentIdentifier
+                    ?: return@componentLoop
+                val bootBridge = id.group == "org.springframework.boot" && id.module in setOf(
+                    "spring-boot-starter-classic",
+                    "spring-boot-starter-test-classic",
+                    "spring-boot-jackson2"
+                )
+                val jackson2Runtime = id.group.startsWith("com.fasterxml.jackson")
+                        && !(id.group == "com.fasterxml.jackson.core"
+                        && id.module == "jackson-annotations")
+                        && candidate.path !in jackson2RuntimeAllowlist
+                if (bootBridge || jackson2Runtime) {
+                    violations += "${candidate.path}: ${id.group}:${id.module}:${id.version}"
+                }
+            }
+        }
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                "3.x runtime compatibility bridge violations:\n" +
+                        violations.distinct().sorted().joinToString("\n")
+            )
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(verify3xRuntimeClasspath)
 }

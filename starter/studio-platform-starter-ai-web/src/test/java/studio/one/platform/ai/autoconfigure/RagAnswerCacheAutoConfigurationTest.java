@@ -3,7 +3,7 @@ package studio.one.platform.ai.autoconfigure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -27,6 +27,9 @@ class RagAnswerCacheAutoConfigurationTest {
         runner.run(context -> {
             assertThat(context).hasSingleBean(RagAnswerCache.class);
             assertThat(context.getBean(RagAnswerCache.class).enabled()).isFalse();
+            RagAnswerCacheProperties properties = context.getBean(RagAnswerCacheProperties.class);
+            assertThat(properties.getTtl()).hasMinutes(5);
+            assertThat(properties.getNamespace()).isEqualTo("studio:ai:rag-answer:v2");
         });
     }
 

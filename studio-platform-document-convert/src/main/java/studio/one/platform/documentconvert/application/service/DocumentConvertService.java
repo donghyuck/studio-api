@@ -10,8 +10,8 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.UUID;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertJobRepository;
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertJobListener;

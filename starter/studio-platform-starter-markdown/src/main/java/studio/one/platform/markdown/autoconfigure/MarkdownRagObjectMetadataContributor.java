@@ -3,7 +3,7 @@ package studio.one.platform.markdown.autoconfigure;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.service.pipeline.RagObjectMetadataContributor;
 import studio.one.platform.documentmetadata.DocumentMetadataArtifact;
@@ -18,13 +18,9 @@ final class MarkdownRagObjectMetadataContributor implements RagObjectMetadataCon
     private final MarkdownRepository repository;
     private final ObjectMapper objectMapper;
 
-    MarkdownRagObjectMetadataContributor(MarkdownRepository repository) {
-        this(repository, new ObjectMapper());
-    }
-
     MarkdownRagObjectMetadataContributor(MarkdownRepository repository, ObjectMapper objectMapper) {
         this.repository = repository;
-        this.objectMapper = objectMapper;
+        this.objectMapper = java.util.Objects.requireNonNull(objectMapper, "objectMapper");
     }
 
     @Override

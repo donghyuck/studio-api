@@ -13,10 +13,11 @@ import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import tools.jackson.databind.json.JsonMapper;
 import studio.one.platform.ai.adapters.vector.mybatis.PgVectorMapper;
 import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.vector.VectorDocument;
@@ -27,7 +28,7 @@ import studio.one.platform.ai.core.vector.VectorSearchResult;
 class PgVectorStoreAdapterV2PostgresTest {
 
     @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
             DockerImageName.parse("pgvector/pgvector:pg16").asCompatibleSubstituteFor("postgres"));
 
     private PgVectorStoreAdapterV2 adapter;
@@ -56,7 +57,7 @@ class PgVectorStoreAdapterV2PostgresTest {
                 )
                 """);
         PgVectorMapper mapper = mapper(dataSource);
-        adapter = new PgVectorStoreAdapterV2(mapper, dataSource);
+        adapter = new PgVectorStoreAdapterV2(mapper, dataSource, JsonMapper.builder().build());
         adapter.upsert(List.of(
                 document("chunk-1", "attachment", "6", 0, "java backend", List.of(0.1, 0.2),
                         Map.of("topic", "backend", "embeddingInputType", "TEXT")),
@@ -127,7 +128,8 @@ class PgVectorStoreAdapterV2PostgresTest {
     @Test
     @SuppressWarnings("deprecation")
     void legacyJdbcConstructorUsesDirectJdbcFallbackMapper() {
-        PgVectorStoreAdapterV2 jdbcAdapter = new PgVectorStoreAdapterV2(jdbcTemplate);
+        PgVectorStoreAdapterV2 jdbcAdapter =
+                new PgVectorStoreAdapterV2(jdbcTemplate, JsonMapper.builder().build());
 
         List<VectorSearchResult> results = jdbcAdapter.searchByObject(
                 "attachment",

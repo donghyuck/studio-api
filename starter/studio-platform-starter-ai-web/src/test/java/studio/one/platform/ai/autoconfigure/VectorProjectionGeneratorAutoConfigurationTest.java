@@ -8,6 +8,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -32,7 +33,9 @@ import studio.one.platform.ai.service.prompt.PromptRenderer;
 class VectorProjectionGeneratorAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(ConfigurationPropertiesAutoConfiguration.class))
+            .withConfiguration(AutoConfigurations.of(
+                    JacksonAutoConfiguration.class,
+                    ConfigurationPropertiesAutoConfiguration.class))
             .withUserConfiguration(AiWebAutoConfiguration.class)
             .withBean(AiProviderRegistry.class, () -> mock(AiProviderRegistry.class))
             .withBean(RagPipelineService.class, () -> mock(RagPipelineService.class))

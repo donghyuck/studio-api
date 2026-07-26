@@ -22,6 +22,7 @@ import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.embedding.EmbeddingPurpose;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
@@ -588,7 +589,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
         List<String> texts = batch.stream()
                 .map(pending -> pending.chunk().content())
                 .toList();
-        EmbeddingResponse response = executeEmbedding(texts, resolvedEmbedding);
+        EmbeddingResponse response = executeEmbedding(texts, resolvedEmbedding, EmbeddingPurpose.INDEX);
         if (response.vectors().size() != batch.size()) {
             throw new IllegalStateException(
                     "Embedding response size mismatch: requested=%d, actual=%d"
@@ -933,15 +934,20 @@ public class DefaultRagPipelineService implements RagPipelineService {
         if (cached != null) {
             return cached;
         }
-        EmbeddingResponse response = executeEmbedding(List.of(text), resolvedEmbedding);
+        EmbeddingResponse response = executeEmbedding(
+                List.of(text), resolvedEmbedding, EmbeddingPurpose.QUERY);
         EmbeddingVector vector = response.vectors().get(0);
         List<Double> values = List.copyOf(vector.values());
         embeddingCache.put(cacheKey, values);
         return values;
     }
 
-    private EmbeddingResponse executeEmbedding(List<String> texts, ResolvedRagEmbedding resolvedEmbedding) {
-        Supplier<EmbeddingResponse> supplier = () -> resolvedEmbedding.embeddingPort().embed(resolvedEmbedding.request(texts));
+    private EmbeddingResponse executeEmbedding(
+            List<String> texts,
+            ResolvedRagEmbedding resolvedEmbedding,
+            EmbeddingPurpose purpose) {
+        Supplier<EmbeddingResponse> supplier = () -> resolvedEmbedding.embeddingPort()
+                .embed(resolvedEmbedding.request(texts, purpose));
         try {
             return Retry.decorateSupplier(retry, supplier).get();
         } catch (RuntimeException ex) {

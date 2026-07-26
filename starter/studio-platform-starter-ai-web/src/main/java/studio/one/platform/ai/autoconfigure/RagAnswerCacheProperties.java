@@ -14,8 +14,10 @@ public class RagAnswerCacheProperties {
     }
 
     private Type type = Type.NONE;
-    private Duration ttl = Duration.ofMinutes(15);
-    private String namespace = "studio:ai:rag-answer:v1";
+    private static final Duration DEFAULT_TTL = Duration.ofMinutes(5);
+
+    private Duration ttl = DEFAULT_TTL;
+    private String namespace = "studio:ai:rag-answer:v2";
     private boolean failOpen = true;
 
     public Type getType() {
@@ -31,7 +33,7 @@ public class RagAnswerCacheProperties {
     }
 
     public void setTtl(Duration ttl) {
-        this.ttl = ttl == null || ttl.isNegative() || ttl.isZero() ? Duration.ofMinutes(15) : ttl;
+        this.ttl = ttl == null || ttl.isNegative() || ttl.isZero() ? DEFAULT_TTL : ttl;
     }
 
     public String getNamespace() {

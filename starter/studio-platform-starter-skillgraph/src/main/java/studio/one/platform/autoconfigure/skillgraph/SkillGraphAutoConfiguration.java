@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
@@ -151,7 +151,8 @@ public class SkillGraphAutoConfiguration {
             SkillMatchPolicy matchPolicy,
             SkillGraphProperties properties,
             ObjectProvider<PromptRenderer> promptRendererProvider,
-            ObjectProvider<ChatPort> chatPortProvider) {
+            ObjectProvider<ChatPort> chatPortProvider,
+            ObjectMapper objectMapper) {
         SkillGraphProperties.Extraction extraction = properties.getExtraction();
         String defaultMode = extraction.getMode().name();
         SkillExtractionService regexService = extraction.getMode() == SkillGraphProperties.Mode.regex
@@ -171,7 +172,8 @@ public class SkillGraphAutoConfiguration {
                         matchPolicy,
                         promptRendererProvider.getIfAvailable(),
                         chatPortProvider.getIfAvailable(),
-                        properties);
+                        properties,
+                        objectMapper);
         return new DefaultSkillExtractionServiceResolver(defaultMode, regexService, llmService);
     }
 
@@ -182,7 +184,8 @@ public class SkillGraphAutoConfiguration {
             SkillMatchPolicy matchPolicy,
             PromptRenderer promptRenderer,
             ChatPort chatPort,
-            SkillGraphProperties properties) {
+            SkillGraphProperties properties,
+            ObjectMapper objectMapper) {
         if (promptRenderer == null || chatPort == null) {
             return null;
         }
@@ -195,7 +198,7 @@ public class SkillGraphAutoConfiguration {
                 matchPolicy,
                 promptRenderer,
                 chatPort,
-                new ObjectMapper(),
+                objectMapper,
                 llm.getPrompt(),
                 extraction.getMaxTerms(),
                 llm.getMaxInputChars(),
@@ -270,14 +273,16 @@ public class SkillGraphAutoConfiguration {
             SkillClusterer clusterer,
             SkillGraphBatchJobStore batchJobStore,
             ObjectProvider<SkillGraphBatchJobNotifier> batchJobNotifierProvider,
-            @Qualifier("skillRagExtractionJobExecutor") Executor jobExecutor) {
+            @Qualifier("skillRagExtractionJobExecutor") Executor jobExecutor,
+            ObjectMapper objectMapper) {
         return new DefaultSkillVisualizationService(
                 dictionaryStore,
                 projectionStore,
                 clusterer,
                 jobExecutor,
                 batchJobStore,
-                batchJobNotifierProvider.getIfAvailable(() -> SkillGraphBatchJobNotifier.NOOP));
+                batchJobNotifierProvider.getIfAvailable(() -> SkillGraphBatchJobNotifier.NOOP),
+                objectMapper);
     }
 
     @Bean(name = SkillTaxonomyService.SERVICE_NAME)
@@ -296,14 +301,15 @@ public class SkillGraphAutoConfiguration {
             SkillDictionaryStore dictionaryStore,
             SkillCategoryRelationStore relationStore,
             ObjectProvider<PromptRenderer> promptRenderer,
-            ObjectProvider<ChatPort> chatPort) {
+            ObjectProvider<ChatPort> chatPort,
+            ObjectMapper objectMapper) {
         return new DefaultSkillCategoryRelationService(
                 taxonomyStore,
                 dictionaryStore,
                 relationStore,
                 promptRenderer.getIfAvailable(),
                 chatPort.getIfAvailable(),
-                new ObjectMapper());
+                objectMapper);
     }
 
     @Bean(name = SkillCategoryDraftService.SERVICE_NAME)
@@ -314,7 +320,8 @@ public class SkillGraphAutoConfiguration {
             SkillTaxonomyStore taxonomyStore,
             SkillCandidateStore candidateStore,
             ObjectProvider<PromptRenderer> promptRenderer,
-            ObjectProvider<ChatPort> chatPort) {
+            ObjectProvider<ChatPort> chatPort,
+            ObjectMapper objectMapper) {
         return new DefaultSkillCategoryDraftService(
                 projectionStore,
                 dictionaryStore,
@@ -322,7 +329,7 @@ public class SkillGraphAutoConfiguration {
                 candidateStore,
                 promptRenderer.getIfAvailable(),
                 chatPort.getIfAvailable(),
-                new ObjectMapper());
+                objectMapper);
     }
 
     @Bean(name = SkillGraphService.SERVICE_NAME)
@@ -452,7 +459,8 @@ public class SkillGraphAutoConfiguration {
                 SkillMatchPolicy matchPolicy,
                 PromptRenderer promptRenderer,
                 ChatPort chatPort,
-                SkillGraphProperties properties) {
+                SkillGraphProperties properties,
+                ObjectMapper objectMapper) {
             SkillGraphProperties.Extraction extraction = properties.getExtraction();
             SkillGraphProperties.Llm llm = extraction.getLlm();
             SkillCandidateExtractor extractor = new LlmSkillCandidateExtractor(
@@ -462,7 +470,7 @@ public class SkillGraphAutoConfiguration {
                     matchPolicy,
                     promptRenderer,
                     chatPort,
-                    new ObjectMapper(),
+                    objectMapper,
                     llm.getPrompt(),
                     extraction.getMaxTerms(),
                     llm.getMaxInputChars(),
@@ -568,8 +576,10 @@ public class SkillGraphAutoConfiguration {
 
         @Bean(name = SkillCandidateStore.SERVICE_NAME)
         @ConditionalOnMissingBean
-        public SkillCandidateStore skillCandidateStore(NamedParameterJdbcTemplate template) {
-            return new JdbcSkillCandidateStore(template);
+        public SkillCandidateStore skillCandidateStore(
+                NamedParameterJdbcTemplate template,
+                ObjectMapper objectMapper) {
+            return new JdbcSkillCandidateStore(template, objectMapper);
         }
 
         @Bean(name = SkillDictionaryStore.SERVICE_NAME)

@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import studio.one.platform.markdown.web.MarkdownDocumentRequest;
 
@@ -12,7 +14,7 @@ class MarkdownDocumentRequestTest {
 
     @Test
     void keepsLegacyEmbeddingModelIdSeparateFromProfileSelection() throws Exception {
-        MarkdownDocumentRequest request = new ObjectMapper().readValue("""
+        MarkdownDocumentRequest request = requestMapper().readValue("""
                 {
                   "attachmentId": 7,
                   "runChunking": true,
@@ -29,7 +31,7 @@ class MarkdownDocumentRequestTest {
 
     @Test
     void acceptsEmbeddingDeploymentIdAsCanonicalSelection() throws Exception {
-        MarkdownDocumentRequest request = new ObjectMapper().readValue("""
+        MarkdownDocumentRequest request = requestMapper().readValue("""
                 {
                   "attachmentId": 7,
                   "runChunking": true,
@@ -41,5 +43,11 @@ class MarkdownDocumentRequestTest {
         assertThat(request.embeddingDeploymentId()).isEqualTo("document-multimodal-v1");
         assertThat(request.embeddingModelId()).isNull();
         assertThat(request.embeddingProfileId()).isNull();
+    }
+
+    private ObjectMapper requestMapper() {
+        return JsonMapper.builder()
+                .disable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+                .build();
     }
 }

@@ -25,7 +25,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An interface for supporting internationalization (i18n).

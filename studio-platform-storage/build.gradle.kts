@@ -15,7 +15,7 @@ val awssdkS3Version: String = project.findProperty("awssdkS3Version") as String?
 val oracleOciSdkVersion: String = project.findProperty("oracleOciSdkVersion") as String? ?: "3.44.1"
 dependencies {
     compileOnly(project(":studio-platform")) 
-    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa") 
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
@@ -26,7 +26,7 @@ dependencies {
     compileOnly("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey:$oracleOciSdkVersion")  
 
     testImplementation("org.mockito:mockito-core")
-    testImplementation("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc")
     testImplementation("org.springframework.security:spring-security-core")
     testImplementation(project(":studio-platform"))
 } 

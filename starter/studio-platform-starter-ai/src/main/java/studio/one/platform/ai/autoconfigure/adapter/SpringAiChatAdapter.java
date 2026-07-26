@@ -148,8 +148,8 @@ public class SpringAiChatAdapter implements ChatPort {
         Map<String, Object> metadata = new LinkedHashMap<>();
         org.springframework.ai.chat.metadata.ChatResponseMetadata responseMetadata = response.getMetadata();
         if (responseMetadata != null) {
-            metadata.put("responseId", responseMetadata.getId());
-            metadata.put("modelName", responseMetadata.getModel());
+            putIfNotBlank(metadata, "responseId", responseMetadata.getId());
+            putIfNotBlank(metadata, "modelName", responseMetadata.getModel());
         }
         metadata.put(ChatResponseMetadata.KEY_PROVIDER, provider);
         metadata.put(ChatResponseMetadata.KEY_RESOLVED_MODEL, resolvedModel(response, requestedModel));
@@ -161,10 +161,39 @@ public class SpringAiChatAdapter implements ChatPort {
                 metadata.put(ChatResponseMetadata.KEY_PROMPT_CACHE_USAGE, promptCacheUsage.toMap());
             }
         }
-        if (responseMetadata != null) {
+        if (hasMeaningfulMetadata(responseMetadata)) {
             metadata.put("chatResponseMetadata", responseMetadata);
         }
         return metadata;
+    }
+
+    private boolean hasMeaningfulMetadata(
+            org.springframework.ai.chat.metadata.ChatResponseMetadata responseMetadata) {
+        return responseMetadata != null
+                && (isNotBlank(responseMetadata.getId())
+                        || isNotBlank(responseMetadata.getModel())
+                        || hasTokenUsage(responseMetadata.getUsage()));
+    }
+
+    private boolean hasTokenUsage(Usage usage) {
+        return usage != null
+                && (positive(usage.getPromptTokens())
+                        || positive(usage.getCompletionTokens())
+                        || positive(usage.getTotalTokens()));
+    }
+
+    private boolean positive(Integer value) {
+        return value != null && value > 0;
+    }
+
+    private void putIfNotBlank(Map<String, Object> target, String key, String value) {
+        if (isNotBlank(value)) {
+            target.put(key, value);
+        }
+    }
+
+    private boolean isNotBlank(String value) {
+        return value != null && !value.isBlank();
     }
 
     private String resolvedModel(org.springframework.ai.chat.model.ChatResponse response, String requestedModel) {

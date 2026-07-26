@@ -5,10 +5,12 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import studio.one.platform.ai.model.Modality;
 import studio.one.platform.ai.model.ModelCatalogTier;
@@ -24,11 +26,13 @@ public final class CatalogResourceLoader {
     private final ObjectMapper objectMapper;
 
     public CatalogResourceLoader() {
-        this(new ObjectMapper());
+        // This mapper only reads the versioned, bundled catalog resource. It is not
+        // used for HTTP, Redis, database, or other application payload contracts.
+        this(JsonMapper.builder().build());
     }
 
     CatalogResourceLoader(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }
 
     public DefaultModelCatalog load(InputStream input) {

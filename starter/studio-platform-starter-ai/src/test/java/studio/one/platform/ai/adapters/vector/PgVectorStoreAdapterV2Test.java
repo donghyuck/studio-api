@@ -15,6 +15,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import tools.jackson.databind.json.JsonMapper;
 import studio.one.platform.ai.adapters.vector.mybatis.PgVectorChunkParameter;
 import studio.one.platform.ai.adapters.vector.mybatis.PgVectorHybridSearchParameter;
 import studio.one.platform.ai.adapters.vector.mybatis.PgVectorMapper;
@@ -34,7 +35,7 @@ class PgVectorStoreAdapterV2Test {
     @BeforeEach
     void setUp() {
         mapper = mock(PgVectorMapper.class);
-        adapter = new PgVectorStoreAdapterV2(mapper);
+        adapter = new PgVectorStoreAdapterV2(mapper, JsonMapper.builder().build());
     }
 
     @Test

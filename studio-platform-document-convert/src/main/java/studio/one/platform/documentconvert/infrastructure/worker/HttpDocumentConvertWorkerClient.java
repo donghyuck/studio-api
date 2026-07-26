@@ -9,7 +9,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertWorkerClient;
 import studio.one.platform.documentconvert.domain.model.DocumentConvertJob;

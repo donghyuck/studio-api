@@ -17,8 +17,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.textract.domain.error.FileParseException;
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionRequest;
@@ -74,7 +74,7 @@ class PyMuPdf4LlmHttpClient implements PyMuPdf4LlmClient {
             }
             try {
                 return objectMapper.readValue(response.body(), PyMuPdf4LlmResponse.class);
-            } catch (JsonProcessingException ex) {
+            } catch (JacksonException ex) {
                 throw new FileParseException("Failed to parse PyMuPDF4LLM worker response after "
                         + elapsedMillis(startedNanos) + "ms"
                         + " bodyLength=" + bodyLength(response.body())

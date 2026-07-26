@@ -73,8 +73,10 @@ public class SkillGraphWebAutoConfiguration {
         @Bean
         @ConditionalOnBean(RagPipelineService.class)
         @ConditionalOnMissingBean(SkillGraphRagChunkResolver.class)
-        SkillGraphRagChunkResolver skillGraphRagChunkResolver(RagPipelineService ragPipelineService) {
-            return new RagPipelineSkillGraphRagChunkResolver(ragPipelineService);
+        SkillGraphRagChunkResolver skillGraphRagChunkResolver(
+                RagPipelineService ragPipelineService,
+                tools.jackson.databind.ObjectMapper objectMapper) {
+            return new RagPipelineSkillGraphRagChunkResolver(ragPipelineService, objectMapper);
         }
 
         @Bean(name = SkillRagExtractionJobService.SERVICE_NAME)

@@ -18,7 +18,7 @@ dependencies {
     compileOnly(project(":studio-platform"))
     compileOnly(project(":studio-platform-data"))
     api(project(":studio-platform-objecttype"))
-    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.mybatis.spring.boot:mybatis-spring-boot-starter:${property("mybatisSpringBootStarterVersion")}")
