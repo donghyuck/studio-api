@@ -12,12 +12,14 @@ import java.util.List;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.json.JsonMapper;
 
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 
 class TeiEmbeddingAdapterTest {
 
     private HttpServer server;
+    private final JsonMapper objectMapper = JsonMapper.builder().build();
 
     @AfterEach
     void stopServer() {
@@ -29,7 +31,8 @@ class TeiEmbeddingAdapterTest {
     @Test
     void mapsTeiEmbeddingResponseToEmbeddingVectors() throws IOException {
         server = startServer("[[0.1,0.2],[0.3,0.4]]", 200);
-        TeiEmbeddingAdapter adapter = new TeiEmbeddingAdapter(baseUrl(), "nlpai-lab/KURE-v1");
+        TeiEmbeddingAdapter adapter =
+                new TeiEmbeddingAdapter(baseUrl(), "nlpai-lab/KURE-v1", objectMapper);
 
         var response = adapter.embed(new EmbeddingRequest(
                 List.of("첫 번째 문장", "두 번째 문장"),
@@ -48,7 +51,8 @@ class TeiEmbeddingAdapterTest {
     @Test
     void rejectsDifferentRequestedModelWhenConfiguredModelExists() throws IOException {
         server = startServer("[[0.1]]", 200);
-        TeiEmbeddingAdapter adapter = new TeiEmbeddingAdapter(baseUrl(), "nlpai-lab/KURE-v1");
+        TeiEmbeddingAdapter adapter =
+                new TeiEmbeddingAdapter(baseUrl(), "nlpai-lab/KURE-v1", objectMapper);
 
         assertThatThrownBy(() -> adapter.embed(new EmbeddingRequest(
                 List.of("text"),

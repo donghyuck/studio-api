@@ -12,8 +12,8 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -87,22 +87,24 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
         this.candidateStore = candidateStore;
         this.promptRenderer = promptRenderer;
         this.chatPort = chatPort;
-        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }
 
     public DefaultSkillCategoryDraftService(
             SkillProjectionStore projectionStore,
             SkillDictionaryStore dictionaryStore,
             SkillTaxonomyStore taxonomyStore,
-            SkillCandidateStore candidateStore) {
-        this(projectionStore, dictionaryStore, taxonomyStore, candidateStore, null, null, null);
+            SkillCandidateStore candidateStore,
+            ObjectMapper objectMapper) {
+        this(projectionStore, dictionaryStore, taxonomyStore, candidateStore, null, null, objectMapper);
     }
 
     public DefaultSkillCategoryDraftService(
             SkillProjectionStore projectionStore,
             SkillDictionaryStore dictionaryStore,
-            SkillTaxonomyStore taxonomyStore) {
-        this(projectionStore, dictionaryStore, taxonomyStore, null, null, null, null);
+            SkillTaxonomyStore taxonomyStore,
+            ObjectMapper objectMapper) {
+        this(projectionStore, dictionaryStore, taxonomyStore, null, null, null, objectMapper);
     }
 
     @Override

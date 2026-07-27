@@ -7,6 +7,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import tools.jackson.databind.ObjectMapper;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -32,13 +34,18 @@ public class KeywordExtractorConfiguration {
     @ConditionalOnMissingBean(KeywordExtractor.class)
     public KeywordExtractor keywordExtractor(PromptRenderer promptRenderer,
             ChatPort chatPort,
-            RagPipelineProperties properties) {
+            RagPipelineProperties properties,
+            ObjectMapper objectMapper) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
                 LogUtils.blue(LlmKeywordExtractor.class, true),
                 LogUtils.green(ChatPort.class, true),
                 LogUtils.red(State.CREATED.toString())));
-        return new LlmKeywordExtractor(promptRenderer, chatPort, properties.getKeywords().getMaxInputChars());
+        return new LlmKeywordExtractor(
+                promptRenderer,
+                chatPort,
+                properties.getKeywords().getMaxInputChars(),
+                objectMapper);
     }
 }

@@ -17,6 +17,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.model.ModelCatalog;
 import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.ai.model.ModelWorkload;
+import studio.one.platform.ai.model.embedding.EmbeddingSpaceContract;
 
 class ModelDeploymentRegistryConfigurationTest {
 
@@ -94,8 +95,11 @@ class ModelDeploymentRegistryConfigurationTest {
                 deployment("google-ai", "google/gemini-2.5-flash", ModelWorkload.CHAT, null));
         properties.getModelDeployments().put("chat-pro",
                 deployment("google-ai", "google/gemini-2.5-pro", ModelWorkload.CHAT, null));
-        properties.getModelDeployments().put("text-embedding",
-                deployment("google-ai", "google/gemini-embedding-001", ModelWorkload.EMBEDDING, null));
+        ModelDeploymentProperties.Deployment textEmbedding =
+                deployment("google-ai", "google/gemini-embedding-001", ModelWorkload.EMBEDDING, null);
+        textEmbedding.setIndexTaskType("retrieval_document");
+        textEmbedding.setQueryTaskType("retrieval_query");
+        properties.getModelDeployments().put("text-embedding", textEmbedding);
         properties.getModelDeployments().put("multimodal-embedding",
                 deployment("google-ai", "google/gemini-embedding-2", ModelWorkload.EMBEDDING, null));
         properties.getRouting().setDefaultChatDeployment("chat-default");
@@ -103,8 +107,10 @@ class ModelDeploymentRegistryConfigurationTest {
 
         List<String> chatModels = new ArrayList<>();
         List<String> embeddingModels = new ArrayList<>();
+        List<String> embeddingContracts = new ArrayList<>();
         ProviderChatPortFactory chatFactory = deploymentAwareChatFactory(chatModels);
-        ProviderEmbeddingPortFactory embeddingFactory = deploymentAwareEmbeddingFactory(embeddingModels);
+        ProviderEmbeddingPortFactory embeddingFactory =
+                deploymentAwareEmbeddingFactory(embeddingModels, embeddingContracts);
 
         ModelDeploymentRegistry registry = configuration.modelDeploymentRegistry(
                 catalog, properties, adapters, new MockEnvironment(), Map.of(), Map.of(),
@@ -115,6 +121,9 @@ class ModelDeploymentRegistryConfigurationTest {
         assertThat(chatModels).containsExactly("gemini-2.5-flash", "gemini-2.5-pro");
         assertThat(embeddingModels).containsExactly(
                 "gemini-embedding-001@768", "gemini-embedding-2@768");
+        assertThat(embeddingContracts).containsExactly(
+                "retrieval_document/retrieval_query",
+                "provider-default/provider-default");
         assertThat(registry.chatPort("chat-default")).isNotSameAs(registry.chatPort("chat-pro"));
         assertThat(registry.embeddingPort("text-embedding"))
                 .isNotSameAs(registry.embeddingPort("multimodal-embedding"));
@@ -150,7 +159,9 @@ class ModelDeploymentRegistryConfigurationTest {
         };
     }
 
-    private ProviderEmbeddingPortFactory deploymentAwareEmbeddingFactory(List<String> models) {
+    private ProviderEmbeddingPortFactory deploymentAwareEmbeddingFactory(
+            List<String> models,
+            List<String> contracts) {
         return new ProviderEmbeddingPortFactory() {
             @Override
             public AiAdapterProperties.ProviderType supportedType() {
@@ -176,6 +187,16 @@ class ModelDeploymentRegistryConfigurationTest {
                         return null;
                     }
                 };
+            }
+
+            @Override
+            public EmbeddingPort createForDeployment(String providerId, AiAdapterProperties.Provider provider,
+                    String apiModel, Integer dimension, EmbeddingSpaceContract embeddingContract,
+                    org.springframework.core.env.Environment environment,
+                    ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> modelProvider) {
+                contracts.add(embeddingContract.indexTaskType() + "/" + embeddingContract.queryTaskType());
+                return createForDeployment(
+                        providerId, provider, apiModel, dimension, environment, modelProvider);
             }
         };
     }

@@ -1,6 +1,22 @@
 # Changelog
 
-## Unreleased
+## 3.0.0-rc.1
+
+- `3.x` 첫 release candidate를 Java 17, Gradle 8.14.5, Spring Boot 4.1.0,
+  Spring AI 2.0.0, MyBatis Spring Boot Starter 4.0.1, Boot 관리형 Jackson 3으로
+  전환했다. Boot 4의 분리된 WebMVC·AspectJ·Flyway starter를 적용하고 classic/Jackson 2
+  application runtime 유입을 검증하는 build gate를 추가했다. 개발 실행 서버에서 빈 PostgreSQL
+  migration, 인증, chat/embedding deployment, RAG sync/SSE, Redis exact-cache
+  `MISS/HIT`, 근거 변경 miss와 Redis 장애 fail-open까지 검증했다. 같은 3.x schema에서
+  `v2.1.0-rc.1` 플랫폼과 2.x 소비 서버를 다시 기동해 artifact rollback도 확인했다.
+
+- RAG exact-answer cache의 기본 TTL을 5분, Jackson 3 namespace를
+  `studio:ai:rag-answer:v2`로 확정했다. Redis payload의 실제 round-trip/TTL 통합 테스트와
+  손상 payload fail-open, 캐시 hit 재인용 검증, sync/SSE canonical parity 회귀 테스트를
+  추가했다.
+
+- Apache POI를 5.5.1로 갱신해 문서 처리 모듈의 Commons Compress가 1.28.0으로 수렴하도록
+  했으며 dependency-check에서 확인된 Commons Compress CVE 2건을 제거했다.
 
 - `2.1.0-rc.1` release candidate로 artifact version을 갱신했다. 이 candidate는 Java 17,
   Gradle 8.14.5, Spring Boot 3.5.16, Spring AI 1.1.8 호환 기준선을 보존하며, 개발 실행

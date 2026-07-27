@@ -16,7 +16,7 @@ val jsonwebtokenVersion: String = project.findProperty("jsonwebtokenVersion") as
 dependencies {
 
     compileOnly("org.springframework.boot:spring-boot-starter") 
-    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
@@ -27,13 +27,13 @@ dependencies {
     compileOnly(project(":studio-platform-user")) 
     compileOnly(project(":studio-platform-user-default"))
     testImplementation(project(":studio-platform"))
-    testImplementation("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc")
     testImplementation("org.springframework.boot:spring-boot-starter-security")
     testImplementation("org.springframework:spring-jdbc")
     testImplementation("org.springframework.data:spring-data-commons")
     testImplementation("org.mockito:mockito-core")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter:${property("testcontainersVersion")}")
+    testImplementation("org.testcontainers:testcontainers-postgresql:${property("testcontainersVersion")}")
     testRuntimeOnly("org.postgresql:postgresql")
 
     compileOnly ("org.mapstruct:mapstruct:$mapstructVersion")
@@ -42,7 +42,7 @@ dependencies {
 
     compileOnly("org.postgresql:postgresql")    
     api("io.jsonwebtoken:jjwt-api:$jsonwebtokenVersion")
-    api("io.jsonwebtoken:jjwt-impl:$jsonwebtokenVersion")
-    api("io.jsonwebtoken:jjwt-jackson:$jsonwebtokenVersion")    
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:$jsonwebtokenVersion")
+    runtimeOnly("io.jsonwebtoken:jjwt-gson:$jsonwebtokenVersion")
 
 }

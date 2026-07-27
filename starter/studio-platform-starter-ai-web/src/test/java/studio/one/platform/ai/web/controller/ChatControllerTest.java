@@ -15,6 +15,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -24,8 +25,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.web.server.ResponseStatusException;
+
+import tools.jackson.databind.json.JsonMapper;
 
 import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
 import studio.one.platform.ai.autoconfigure.AiWebChatProperties;
@@ -42,6 +44,9 @@ import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.web.cache.CaffeineRagAnswerCache;
+import studio.one.platform.ai.web.cache.RagAnswerCache;
+import studio.one.platform.ai.web.cache.RagAnswerCacheKey;
+import studio.one.platform.ai.web.cache.RagCachedAnswer;
 import studio.one.platform.ai.web.dto.ChatMemoryOptionsDto;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
@@ -77,7 +82,8 @@ class ChatControllerTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        controller = new ChatController(providerRegistry, ragPipelineService);
+        controller = new ChatController(providerRegistry, ragPipelineService,
+                JsonMapper.builder().build());
         when(providerRegistry.chatPort(null)).thenReturn(defaultChatPort);
         when(providerRegistry.chatPort("google")).thenReturn(googleChatPort);
         when(defaultChatPort.chat(any())).thenReturn(response("default"));
@@ -430,9 +436,67 @@ class ChatControllerTest {
                 .contains("\"retrievalMs\"")
                 .contains("\"generationMs\"")
                 .contains("\"totalMs\"")
+                .contains("\"canonicalContent\":\"제공된 문서 근거만으로는 답변을 확정할 수 없습니다.\"")
+                .contains("\"citationValidationStatus\":\"MISSING_CITATION\"")
                 .contains("\"requestId\"");
         verify(defaultChatPort).stream(any(ChatRequest.class));
         verify(defaultChatPort, times(0)).chat(any(ChatRequest.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void ragSyncAndSseCompleteShareCanonicalContentAndPackedReferences() throws Exception {
+        RagSearchResult evidence = new RagSearchResult(
+                "doc-1",
+                "exact indexed excerpt",
+                Map.of(
+                        "revisionId", "revision-1",
+                        "chunkId", "chunk-1",
+                        "sourceRef", "page-7"),
+                0.9d);
+        when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of(evidence));
+        when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(response("grounded answer [1]"));
+        when(defaultChatPort.stream(any(ChatRequest.class))).thenReturn(Stream.of(
+                ChatStreamEvent.delta("grounded answer [1]", "model", ChatResponseMetadata.empty()),
+                ChatStreamEvent.complete("model", ChatResponseMetadata.empty())));
+        ChatRagRequestDto request = new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "question")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "question",
+                3,
+                "attachment",
+                "11");
+
+        ChatResponseDto sync = controller.chatWithRag(request).getBody().getData();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        controller.streamWithRag(request, null).getBody().writeTo(output);
+        String sse = output.toString(StandardCharsets.UTF_8);
+        List<Map<String, Object>> references =
+                (List<Map<String, Object>>) sync.metadata().get("ragReferences");
+        String evidenceId = references.get(0).get("evidenceId").toString();
+
+        assertThat(sync.content()).isEqualTo("grounded answer [1]");
+        assertThat(sync.metadata())
+                .containsEntry("canonicalContent", "grounded answer [1]")
+                .containsEntry("citationValidationStatus", "INDEX_VALID");
+        assertThat(references).singleElement().satisfies(reference -> assertThat(reference)
+                .containsEntry("revisionId", "revision-1")
+                .containsEntry("chunkId", "chunk-1"));
+        assertThat(sse)
+                .contains("event: delta")
+                .contains("event: complete")
+                .contains("\"canonicalContent\":\"grounded answer [1]\"")
+                .contains("\"citationValidationStatus\":\"INDEX_VALID\"")
+                .contains("\"evidenceId\":\"" + evidenceId + "\"")
+                .contains("\"exactText\":\"exact indexed excerpt\"");
     }
 
     @Test
@@ -592,7 +656,8 @@ class ChatControllerTest {
     void chatDoesNotAppendMemoryWhenProviderFails() {
         ChatMemoryStore memoryStore = memoryStore();
         controller = new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(),
-                false, memoryStore, true);
+                false, memoryStore, true,
+                JsonMapper.builder().build());
         when(defaultChatPort.chat(any())).thenThrow(new IllegalStateException("provider failed"));
 
         assertThrows(IllegalStateException.class, () -> controller.chat(memoryChat("chat-1", "hello")));
@@ -935,7 +1000,7 @@ class ChatControllerTest {
                 null,
                 false,
                 null,
-                Jackson2ObjectMapperBuilder.json().build(),
+                JsonMapper.builder().build(),
                 4,
                 100,
                 RagPipelineOptions.defaults(),
@@ -979,6 +1044,84 @@ class ChatControllerTest {
     }
 
     @Test
+    void ragExactCacheRejectsStructurallyInvalidCanonicalPayload() {
+        RagSearchResult evidence = new RagSearchResult(
+                "doc-1",
+                "file text",
+                Map.of("revisionId", "rev-1", "sourceRef", "page-1"),
+                0.9d);
+        when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of(evidence));
+        when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(response("supported answer [1]"));
+        String fingerprint = RagContextBuilder.defaults()
+                .buildWithDiagnostics(List.of(evidence), List.of(evidence))
+                .evidenceSet()
+                .contextFingerprint();
+        Instant createdAt = Instant.now();
+        RagCachedAnswer invalidAnswer = new RagCachedAnswer(
+                "corrupt answer [999]",
+                "cached-model",
+                "INDEX_VALID",
+                fingerprint,
+                createdAt,
+                createdAt.plus(Duration.ofDays(1)));
+        RagAnswerCache invalidCache = new RagAnswerCache() {
+            @Override
+            public Optional<RagCachedAnswer> get(RagAnswerCacheKey key) {
+                return Optional.of(invalidAnswer);
+            }
+
+            @Override
+            public void put(RagAnswerCacheKey key, RagCachedAnswer answer) {
+            }
+
+            @Override
+            public Duration ttl() {
+                return Duration.ofMinutes(5);
+            }
+        };
+        controller = new ChatController(
+                providerRegistry,
+                ragPipelineService,
+                new RagChatRetrievalService(ragPipelineService),
+                RagContextBuilder.defaults(),
+                false,
+                null,
+                false,
+                null,
+                JsonMapper.builder().build(),
+                4,
+                100,
+                RagPipelineOptions.defaults(),
+                null,
+                null,
+                AiModelUsageStore.noop(),
+                invalidCache);
+        ChatRagRequestDto request = new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "question")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "question",
+                3,
+                "attachment",
+                "11");
+
+        ChatResponseDto response = controller.chatWithRag(request, () -> "cache-test-user")
+                .getBody()
+                .getData();
+
+        assertThat(response.content()).isEqualTo("supported answer [1]");
+        assertThat(response.metadata()).containsEntry("ragAnswerCache", "MISS");
+        verify(defaultChatPort).chat(any(ChatRequest.class));
+    }
+
+    @Test
     void ragExactCacheDoesNotShareAcrossPrincipals() {
         when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(response("supported answer [1]"));
         when(ragPipelineService.search(any(RagSearchRequest.class)))
@@ -992,7 +1135,7 @@ class ChatControllerTest {
                 null,
                 false,
                 null,
-                Jackson2ObjectMapperBuilder.json().build(),
+                JsonMapper.builder().build(),
                 4,
                 100,
                 RagPipelineOptions.defaults(),
@@ -1061,7 +1204,7 @@ class ChatControllerTest {
 
     @Test
     void ragChatRequestDeserializesRetrievalStrategyOptions() throws Exception {
-        com.fasterxml.jackson.databind.ObjectMapper mapper = Jackson2ObjectMapperBuilder.json().build();
+        tools.jackson.databind.ObjectMapper mapper = JsonMapper.builder().build();
 
         ChatRagRequestDto request = mapper.readValue("""
                 {
@@ -1118,7 +1261,7 @@ class ChatControllerTest {
                 null,
                 false,
                 null,
-                Jackson2ObjectMapperBuilder.json().build(),
+                JsonMapper.builder().build(),
                 4,
                 100,
                 studio.one.platform.ai.service.pipeline.RagPipelineOptions.defaults(),
@@ -1179,7 +1322,8 @@ class ChatControllerTest {
     @Test
     @SuppressWarnings("unchecked")
     void ragChatReturnsRetrievalDebugMetadataWhenEnabled() {
-        controller = new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), true);
+        controller = new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), true,
+                JsonMapper.builder().build());
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("structure", "structure text",
                         Map.of(RagContextBuilder.KEY_CHUNK_ID, "chunk-1", "strategy", "structure-based"), 0.8d)))
@@ -1224,7 +1368,8 @@ class ChatControllerTest {
     @Test
     void ragChatUsesObjectScopedCandidatesForContextExpansion() {
         controller = new ChatController(providerRegistry, ragPipelineService,
-                new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()));
+                new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()),
+                JsonMapper.builder().build());
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
@@ -1466,7 +1611,8 @@ class ChatControllerTest {
     @Test
     void ragChatUsesNonAttachmentObjectScopedCandidatesForContextExpansion() {
         controller = new ChatController(providerRegistry, ragPipelineService,
-                new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()));
+                new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()),
+                JsonMapper.builder().build());
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
         when(ragPipelineService.listByObject("2001", "6", 12))
@@ -1501,7 +1647,7 @@ class ChatControllerTest {
                 null,
                 false,
                 new ConversationChatService(new InMemoryConversationRepository()),
-                Jackson2ObjectMapperBuilder.json().build(),
+                JsonMapper.builder().build(),
                 expansion.getCandidateMultiplier());
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
@@ -1536,7 +1682,7 @@ class ChatControllerTest {
                 null,
                 false,
                 new ConversationChatService(new InMemoryConversationRepository()),
-                Jackson2ObjectMapperBuilder.json().build(),
+                JsonMapper.builder().build(),
                 1_000,
                 25);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
@@ -1572,7 +1718,7 @@ class ChatControllerTest {
                 null,
                 false,
                 new ConversationChatService(new InMemoryConversationRepository()),
-                Jackson2ObjectMapperBuilder.json().build(),
+                JsonMapper.builder().build(),
                 Integer.MAX_VALUE,
                 Integer.MAX_VALUE);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
@@ -1611,7 +1757,7 @@ class ChatControllerTest {
                 null,
                 false,
                 new ConversationChatService(new InMemoryConversationRepository()),
-                Jackson2ObjectMapperBuilder.json().build(),
+                JsonMapper.builder().build(),
                 expansion);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
@@ -1639,7 +1785,8 @@ class ChatControllerTest {
 
     @Test
     void ragChatLimitsContextChunks() {
-        controller = new ChatController(providerRegistry, ragPipelineService, new RagContextBuilder(2, 12_000, true));
+        controller = new ChatController(providerRegistry, ragPipelineService, new RagContextBuilder(2, 12_000, true),
+                JsonMapper.builder().build());
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(
@@ -1671,7 +1818,8 @@ class ChatControllerTest {
 
     @Test
     void ragChatLimitsContextCharacters() {
-        controller = new ChatController(providerRegistry, ragPipelineService, new RagContextBuilder(8, 80, true));
+        controller = new ChatController(providerRegistry, ragPipelineService, new RagContextBuilder(8, 80, true),
+                JsonMapper.builder().build());
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult(
@@ -1714,7 +1862,8 @@ class ChatControllerTest {
                         true,
                         new AiWebRagProperties.ExpansionProperties(),
                         List.of()),
-                true);
+                true,
+                JsonMapper.builder().build());
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
         String rawContent = "A".repeat(80) + "B".repeat(80);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
@@ -1776,7 +1925,8 @@ class ChatControllerTest {
 
     @Test
     void ragChatCanOmitScoresFromContext() {
-        controller = new ChatController(providerRegistry, ragPipelineService, new RagContextBuilder(8, 12_000, false));
+        controller = new ChatController(providerRegistry, ragPipelineService, new RagContextBuilder(8, 12_000, false),
+                JsonMapper.builder().build());
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "first", Map.of(), 0.9d)));
@@ -1804,7 +1954,8 @@ class ChatControllerTest {
 
     @Test
     void ragChatDoesNotExposeDiagnosticsWhenClientDebugIsDisabled() {
-        controller = new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), true);
+        controller = new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), true,
+                JsonMapper.builder().build());
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "sensitive file body", Map.of(), 0.9d)));
         when(ragPipelineService.latestDiagnostics()).thenReturn(Optional.of(diagnostics()));
@@ -1861,7 +2012,8 @@ class ChatControllerTest {
     @Test
     @SuppressWarnings("unchecked")
     void ragChatExposesSafeDiagnosticsWhenClientAndServerDebugAreEnabled() {
-        controller = new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), true);
+        controller = new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), true,
+                JsonMapper.builder().build());
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "sensitive file body", Map.of(), 0.9d)));
         when(ragPipelineService.latestDiagnostics()).thenReturn(Optional.of(diagnostics()));
@@ -1904,7 +2056,8 @@ class ChatControllerTest {
     @SuppressWarnings("unchecked")
     void ragChatExposesSafeContextExpansionDiagnosticsWhenDebugIsAllowed() {
         controller = new ChatController(providerRegistry, ragPipelineService,
-                new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()), true);
+                new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()), true,
+                JsonMapper.builder().build());
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("chunk-2", "seed sensitive body",
                         chunkMetadata("chunk-2"), 0.9d)));
@@ -1951,7 +2104,8 @@ class ChatControllerTest {
     @SuppressWarnings("unchecked")
     void ragChatFallsBackToSearchChunkWhenExpandedContextExceedsLimit() {
         controller = new ChatController(providerRegistry, ragPipelineService,
-                new RagContextBuilder(8, 80, true, TestWindowChunkContextExpander.asList()), true);
+                new RagContextBuilder(8, 80, true, TestWindowChunkContextExpander.asList()), true,
+                JsonMapper.builder().build());
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("chunk-2", "seed body",
@@ -2134,12 +2288,14 @@ class ChatControllerTest {
 
     private ChatController memoryController() {
         return new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), false,
-                memoryStore(), true);
+                memoryStore(), true,
+                JsonMapper.builder().build());
     }
 
     private ChatController conversationController() {
         return new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), false,
-                memoryStore(), true, new ConversationChatService(new InMemoryConversationRepository()));
+                memoryStore(), true, new ConversationChatService(new InMemoryConversationRepository()),
+                JsonMapper.builder().build());
     }
 
     private ChatMemoryStore memoryStore() {

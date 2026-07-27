@@ -64,7 +64,8 @@ class GlobalExceptionHandlerTest {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/mgmt/attachments/6/rag/index");
 
         var response = handler.handleNoResource(
-                new NoResourceFoundException(HttpMethod.POST, "/api/mgmt/attachments/6/rag/index"),
+                new NoResourceFoundException(
+                        HttpMethod.POST, "", "/api/mgmt/attachments/6/rag/index"),
                 request);
 
         assertThat(response.getStatusCode().value()).isEqualTo(404);

@@ -19,7 +19,7 @@ import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 import studio.one.platform.autoconfigure.I18nKeys;

@@ -2,7 +2,7 @@ package studio.one.platform.markdown.application;
 
 import java.util.Objects;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.documentmetadata.DocumentMetadataArtifact;
 import studio.one.platform.markdown.application.port.MarkdownRepository;

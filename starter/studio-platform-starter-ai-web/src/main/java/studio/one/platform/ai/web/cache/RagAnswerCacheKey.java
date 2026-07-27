@@ -11,7 +11,8 @@ import studio.one.platform.ai.web.dto.ChatRagRetrievalOptionsDto;
 
 public record RagAnswerCacheKey(String digest) {
 
-    private static final String SCHEMA_VERSION = "v1";
+    private static final String SCHEMA_VERSION = "v2";
+    private static final String RAG_PROMPT_CONTRACT_VERSION = "rag-grounding-v2";
 
     public RagAnswerCacheKey {
         if (digest == null || digest.isBlank()) {
@@ -52,7 +53,7 @@ public record RagAnswerCacheKey(String digest) {
         append(canonical, raw(request.chat().systemPrompt()));
         append(canonical, raw(String.valueOf(request.chat().messages())));
         append(canonical, raw(contextFingerprint));
-        append(canonical, "rag-prompt-v1");
+        append(canonical, RAG_PROMPT_CONTRACT_VERSION);
         return new RagAnswerCacheKey(sha256(canonical.toString()));
     }
 

@@ -17,7 +17,7 @@ dependencies {
     compileOnly(project(":studio-platform-autoconfigure")) 
     compileOnly(project(":starter:studio-platform-starter")) 
     api(project(":studio-platform-security-acl")) 
-    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-security")

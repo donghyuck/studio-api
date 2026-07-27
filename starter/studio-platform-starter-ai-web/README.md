@@ -122,8 +122,8 @@ studio:
     rag:
       answer-cache:
         type: redis
-        ttl: 15m
-        namespace: studio:ai:rag-answer:v1
+        ttl: 5m
+        namespace: studio:ai:rag-answer:v2
         fail-open: true
 ```
 
@@ -132,7 +132,8 @@ cache는 object authorization과 현재 검색·`PackedEvidenceSet` 생성 이�
 object scope, 질문·대화 이력, 검색 옵션, embedding/chat deployment와 현재 evidence fingerprint가
 포함된다. citation 검증 상태가 `INDEX_VALID`인 canonical answer만 저장하며 SSE draft, provider
 credential, 원문 전체, reference excerpt·locator는 저장하지 않는다. cache hit의 reference는
-현재 검색·패킹 결과에서 다시 구성한다.
+현재 검색·패킹 결과에서 다시 구성하고 cached canonical content의 citation을 현재
+`PackedEvidenceSet`으로 다시 검증한다.
 
 hit 응답은 sync와 SSE 모두 `metadata.ragAnswerCache=HIT`을 반환하고 provider를 호출하지 않는다.
 provider 호출이 없으므로 SSE cache hit은 `usage` 이벤트를 생성하지 않고 `delta → complete`로

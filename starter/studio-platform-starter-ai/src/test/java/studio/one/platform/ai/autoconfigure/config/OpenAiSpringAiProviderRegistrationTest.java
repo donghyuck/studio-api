@@ -8,6 +8,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.mock.env.MockEnvironment;
+import tools.jackson.databind.json.JsonMapper;
 
 import studio.one.platform.ai.autoconfigure.adapter.OpenAiCompatibleChatAdapter;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -35,7 +36,8 @@ class OpenAiSpringAiProviderRegistrationTest {
                 .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini")
                 .withProperty("spring.ai.openai.embedding.options.model", "text-embedding-3-small");
 
-        ProviderChatPortFactory chatFactory = new OpenAiPortFactoryConfiguration().openAiChatPortFactory();
+        ProviderChatPortFactory chatFactory = new OpenAiPortFactoryConfiguration()
+                .openAiChatPortFactory(JsonMapper.builder().build());
         ProviderEmbeddingPortFactory embeddingFactory = new OpenAiPortFactoryConfiguration().openAiEmbeddingPortFactory();
 
         Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
@@ -82,7 +84,7 @@ class OpenAiSpringAiProviderRegistrationTest {
                 .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
 
         List<ProviderChatPortFactory> factories = List.of(
-                new OpenAiPortFactoryConfiguration().openAiChatPortFactory(),
+                new OpenAiPortFactoryConfiguration().openAiChatPortFactory(JsonMapper.builder().build()),
                 new GoogleGenAiChatPortFactoryConfiguration().googleGenAiChatPortFactory());
 
         Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
@@ -112,7 +114,8 @@ class OpenAiSpringAiProviderRegistrationTest {
                 .withProperty("spring.ai.openai.api-key", "test-key")
                 .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
 
-        ProviderChatPortFactory chatFactory = new OpenAiPortFactoryConfiguration().openAiChatPortFactory();
+        ProviderChatPortFactory chatFactory = new OpenAiPortFactoryConfiguration()
+                .openAiChatPortFactory(JsonMapper.builder().build());
         Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
                 properties,
                 environment,

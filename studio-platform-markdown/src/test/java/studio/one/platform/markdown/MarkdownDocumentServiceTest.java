@@ -19,8 +19,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.markdown.application.MarkdownDocumentService;

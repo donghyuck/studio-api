@@ -97,7 +97,7 @@ public class GoogleGenAiChatPortFactoryConfiguration {
             org.springframework.ai.google.genai.GoogleGenAiChatModel chatModel =
                     org.springframework.ai.google.genai.GoogleGenAiChatModel.builder()
                             .genAiClient(client)
-                            .defaultOptions(defaultOptions)
+                            .options(defaultOptions)
                             .build();
             return new GoogleSpringAiChatAdapter(chatModel, provider.getType().name(), model);
         }

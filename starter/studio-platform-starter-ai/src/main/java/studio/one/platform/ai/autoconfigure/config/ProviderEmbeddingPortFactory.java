@@ -3,6 +3,7 @@ package studio.one.platform.ai.autoconfigure.config;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.env.Environment;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.model.embedding.EmbeddingSpaceContract;
 
 /**
  * Strategy interface for creating an {@link EmbeddingPort} for a specific provider type.
@@ -41,6 +42,18 @@ public interface ProviderEmbeddingPortFactory {
         }
         throw new IllegalStateException("Provider embedding factory " + supportedType()
                 + " does not support deployment model override: " + apiModel + "@" + dimension);
+    }
+
+    default EmbeddingPort createForDeployment(
+                         String providerId,
+                         AiAdapterProperties.Provider provider,
+                         String apiModel,
+                         Integer dimension,
+                         EmbeddingSpaceContract embeddingContract,
+                         Environment env,
+                         ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
+        return createForDeployment(
+                providerId, provider, apiModel, dimension, env, embeddingModelProvider);
     }
 
     EmbeddingPort create(AiAdapterProperties.Provider provider,

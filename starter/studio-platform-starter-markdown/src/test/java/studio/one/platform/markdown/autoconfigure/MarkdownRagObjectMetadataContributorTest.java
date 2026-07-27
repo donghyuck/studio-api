@@ -11,6 +11,8 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
+import tools.jackson.databind.ObjectMapper;
+
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.domain.MarkdownDocument;
 import studio.one.platform.markdown.domain.MarkdownPipelineExecution;
@@ -39,7 +41,8 @@ class MarkdownRagObjectMetadataContributorTest {
         when(repository.findPipelineExecution("mrev-1")).thenReturn(Optional.of(pipeline));
 
         Map<String, Object> result =
-                new MarkdownRagObjectMetadataContributor(repository).contribute("attachment", "17");
+                new MarkdownRagObjectMetadataContributor(repository, new ObjectMapper())
+                        .contribute("attachment", "17");
 
         assertThat((Map<String, Object>) result.get("markdown"))
                 .containsEntry("exists", true)
@@ -55,7 +58,8 @@ class MarkdownRagObjectMetadataContributorTest {
         when(repository.findDocumentBySourceAttachmentId(17L)).thenReturn(Optional.empty());
 
         Map<String, Object> result =
-                new MarkdownRagObjectMetadataContributor(repository).contribute("attachment", "17");
+                new MarkdownRagObjectMetadataContributor(repository, new ObjectMapper())
+                        .contribute("attachment", "17");
 
         assertThat((Map<String, Object>) result.get("markdown")).containsEntry("exists", false);
     }
