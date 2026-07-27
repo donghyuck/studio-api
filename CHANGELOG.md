@@ -2,6 +2,10 @@
 
 ## 3.0.0-rc.1
 
+- AI/RAG 전체 모듈 경계, 색인, 근거·인용, SSE, 운영 진단을 연결하는 문서 진입점을 추가했다.
+  누락돼 있던 document-metadata와 chunking-runtime README를 보완하고 루트·AI starter·Markdown
+  문서에서 동일한 기준 문서로 탐색할 수 있도록 정리했다.
+
 - `3.x` 첫 release candidate를 Java 17, Gradle 8.14.5, Spring Boot 4.1.0,
   Spring AI 2.0.0, MyBatis Spring Boot Starter 4.0.1, Boot 관리형 Jackson 3으로
   전환했다. Boot 4의 분리된 WebMVC·AspectJ·Flyway starter를 적용하고 classic/Jackson 2

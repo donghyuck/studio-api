@@ -4,6 +4,9 @@
 Catalog 등록은 모델을 실제 runtime에 활성화하지 않는다. 애플리케이션의 provider 연결과 adapter
 capability 검증을 통과한 deployment만 사용할 수 있다.
 
+모델 카탈로그가 deployment와 RAG에 연결되는 위치는
+[AI/RAG 아키텍처 가이드](../docs/ai-rag/README.md)를 참고한다.
+
 ## Catalog tier
 
 - `MIGRATION_READY`: 현재 애플리케이션 설정을 그대로 옮길 수 있는 모델

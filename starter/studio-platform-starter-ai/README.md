@@ -13,6 +13,14 @@ MyBatis가 없거나 애플리케이션의 custom `mybatis.mapper-locations` 설
 `starter:studio-platform-starter-chunking`이 있으면 `RagPipelineService`는 `ChunkingOrchestrator`를 우선 사용하고,
 없으면 기존 `TextChunker` fallback을 사용한다.
 
+## 문서 지도
+
+- 전체 모듈 경계: [AI/RAG 아키텍처](../../docs/ai-rag/README.md)
+- 색인·재색인: [RAG 색인](../../docs/ai-rag/indexing.md)
+- 근거·인용·SSE: [근거 기반 RAG Chat](../../docs/ai-rag/grounded-chat.md)
+- 기동·진단·cache: [AI/RAG 운영](../../docs/ai-rag/operations.md)
+- HTTP endpoint와 권한: [AI Web Starter](../studio-platform-starter-ai-web/README.md)
+
 > **중요** Spring AI BOM은 `gradle.properties`의 `springAiVersion`으로 중앙 관리되며
 > `api(platform())` 으로 노출되므로, 소비 앱에서 별도로 BOM을 선언하지 않아도
 > Spring AI 의존성 버전이 자동 관리된다.

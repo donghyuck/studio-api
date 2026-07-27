@@ -3,6 +3,9 @@
 첨부파일 텍스트를 추출하고 임베딩을 생성해 벡터 스토어 업서트 또는 RAG 인덱싱을 수행하는 모듈이다.
 `studio-application-modules:attachment-service`와 함께 사용하며, AI 플랫폼 포트(`studio-platform-ai`)에 의존한다.
 
+첨부 경로가 공통 RAG 계약과 연결되는 전체 구조는
+[AI/RAG 아키텍처 가이드](../../docs/ai-rag/README.md)를 참고한다.
+
 ## 사용 요약
 
 - attachment 모듈과 함께 사용한다.

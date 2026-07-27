@@ -56,7 +56,11 @@ studio-application-modules/      # 애플리케이션 기능 모듈 (attachment,
 studio-platform/                 # 코어 플랫폼 라이브러리
 studio-platform-objecttype/      # objectType 레지스트리/정책/런타임 검증 구현
 studio-platform-ai/              # AI/RAG 공통 계약과 포트
+studio-platform-ai-model-catalog/ # AI 모델 capability 카탈로그
 studio-platform-chunking/        # RAG indexing용 chunking 계약
+studio-platform-chunking-runtime/ # 청킹 전략과 context expansion 구현
+studio-platform-document-metadata/ # 문서 의미 유형과 metadata schema 계약
+studio-platform-markdown/        # Markdown document/revision/pipeline 계약
 studio-platform-thumbnail/       # image/PDF 썸네일 생성 SPI
 studio-platform-autoconfigure/   # 공통 자동 구성
 studio-platform-data/            # 데이터 액세스 공통
@@ -76,10 +80,54 @@ studio-platform-workspace-default/ # Workspace JPA 기본 구현
 - `studio-platform-security`, `studio-platform-security-acl`: 인증/인가, JWT, ACL
 - `studio-platform-user`, `studio-platform-user-default`: 사용자 계약과 기본 구현
 - `studio-platform-data`, `studio-platform-data-mybatis`, `studio-platform-objecttype`, `studio-platform-realtime`, `studio-platform-workspace`: 데이터, MyBatis convention, objectType, 실시간 기능, workspace 공통
-- `studio-platform-ai`, `studio-platform-chunking`, `studio-platform-thumbnail`, `studio-platform-storage`, `studio-platform-identity`: AI/RAG 계약, chunking 계약, 썸네일 생성, 저장소, 식별 공통
+- `studio-platform-ai`, `studio-platform-ai-model-catalog`: AI/RAG 공통 계약과 모델 capability 카탈로그
+- `studio-platform-chunking`, `studio-platform-chunking-runtime`: chunking 계약과 전략/context expansion 구현
+- `studio-platform-document-metadata`, `studio-platform-markdown`: 문서 의미 metadata와 Markdown revision/pipeline 계약
+- `studio-platform-thumbnail`, `studio-platform-storage`, `studio-platform-identity`: 썸네일 생성, 저장소, 식별 공통
 - `studio-application-modules/*`: attachment, avatar, embedding pipeline, template, mail
 
 세부 설정, 엔드포인트, 확장 포인트는 각 모듈 README를 참고한다.
+
+## AI/RAG 한눈에 보기
+
+Studio One의 RAG는 파일이나 도메인 원문을 검색 가능한 작은 근거 단위로 색인하고, 사용자의 질문과
+관련된 원문 구간만 LLM에 전달해 답변과 인용을 함께 만드는 기능이다. 단순한 vector 검색을 넘어
+문서 revision, 의미 metadata, 청킹 provenance, embedding identity, object 권한과 citation 검증을
+하나의 흐름으로 연결한다.
+
+![Studio One AI/RAG 전체 흐름](docs/ai-rag/images/ai-rag-overview.svg)
+
+그림의 위쪽은 문서 색인 경로다. Attachment나 Markdown 원문을 정규화하고 문서 metadata를 추출한 뒤,
+검색에 적합한 chunk로 분할한다. 각 chunk는 선택한 embedding deployment로 vector화되며 원문 위치,
+revision과 object scope를 함께 저장한다.
+
+아래쪽은 근거 기반 답변 경로다. 요청 권한과 질의 의도를 확인하고 같은 object scope에서 관련 chunk를
+검색한다. 실제 prompt와 화면의 근거 목록은 하나의 `PackedEvidenceSet`에서 만들어진다. 생성된 답변은
+citation 번호와 원문 span 검증을 통과해야 canonical 답변으로 확정되며, SSE 화면도 마지막
+`complete.canonicalContent`를 최종 결과로 사용한다.
+
+### 구성요소
+
+| 구성요소 | 쉬운 설명 | 주요 모듈 |
+|---|---|---|
+| 원문 연결 | Attachment, Markdown, 도메인 데이터를 RAG 입력으로 연결 | `content-embedding-pipeline`, `studio-platform-markdown` |
+| 문서 metadata | 책·논문·보고서 유형과 제목·저자·발간일의 근거를 관리 | `studio-platform-document-metadata`, starter-markdown |
+| 청킹 | 긴 문서를 검색 가능한 단위로 나누고 원문 위치와 문맥 관계를 보존 | `studio-platform-chunking`, `studio-platform-chunking-runtime` |
+| 모델 카탈로그 | 채팅·임베딩 모델의 capability와 workload를 공통 관리 | `studio-platform-ai-model-catalog` |
+| 임베딩·검색 | chunk를 vector로 저장하고 질문과 관련된 근거를 검색 | `studio-platform-ai`, `studio-platform-starter-ai` |
+| 근거 패킹 | 검색 결과를 prompt 한도에 맞추고 번호순 evidence와 span을 생성 | `studio-platform-starter-ai-web` |
+| 답변·인용 | sync/SSE 답변의 citation을 검증하고 canonical 결과를 확정 | `studio-platform-starter-ai-web` |
+| 운영 cache | 검증된 exact answer만 재사용하고 Redis 장애 시 provider로 우회 | `studio-platform-starter-ai-web` |
+
+구현하거나 문제를 진단할 때는 [AI/RAG 아키텍처 가이드](docs/ai-rag/README.md)에서 모듈 책임과
+색인·근거 답변의 상세 계약을 먼저 확인한다.
+
+| 목적 | 문서 |
+|---|---|
+| 전체 모듈 지도와 최소 조합 | [AI/RAG 아키텍처](docs/ai-rag/README.md) |
+| 추출·metadata·청킹·embedding·vector 저장 | [RAG 색인](docs/ai-rag/indexing.md) |
+| retrieval·evidence·citation·SSE | [근거 기반 RAG Chat](docs/ai-rag/grounded-chat.md) |
+| 기동·진단·cache·장애 대응 | [AI/RAG 운영](docs/ai-rag/operations.md) |
 
 ## 스타터
 각 기능은 대응되는 스타터를 추가하면 자동 구성된다. 요약은 `starter/README.md` 참고.
@@ -194,9 +242,13 @@ application modules
 | `:studio-platform` | - |
 | `:studio-platform-autoconfigure` | `implementation :studio-platform` |
 | `:studio-platform-ai` | `implementation :studio-platform` |
+| `:studio-platform-ai-model-catalog` | `api :studio-platform-ai` |
 | `:studio-platform-chunking` | - |
+| `:studio-platform-chunking-runtime` | `api :studio-platform-chunking`, `compileOnly :studio-platform-ai`, `compileOnly :studio-platform-textract` |
 | `:studio-platform-data` | `api :studio-platform-textract`, `implementation :studio-platform` |
+| `:studio-platform-document-metadata` | - |
 | `:studio-platform-identity` | - |
+| `:studio-platform-markdown` | `api :studio-platform`, `api :studio-platform-document-metadata`, `compileOnly :studio-platform-document-convert` |
 | `:studio-platform-objecttype` | `compileOnly :studio-platform`, `compileOnly :studio-platform-data` |
 | `:studio-platform-realtime` | `compileOnly :studio-platform`, `compileOnly :studio-platform-security` |
 | `:studio-platform-security` | `compileOnly :studio-platform`, `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-user-default`, `compileOnly :studio-platform-data` |
@@ -421,6 +473,7 @@ studio:
 - 사용자 계약: `studio-platform-user/README.md`
 - 사용자 기본 구현: `studio-platform-user-default/README.md`
 - 3.x 업그레이드 기준선: `docs/dev/3x-upgrade-baseline.md`
+- AI/RAG 아키텍처: `docs/ai-rag/README.md`
 - RAG cache 운영 절차: `docs/dev/redis-rag-cache-rollout.md`
 - 변경 이력: `CHANGELOG.md`
 - 보안 운영 규칙: `SECURITY.md`
