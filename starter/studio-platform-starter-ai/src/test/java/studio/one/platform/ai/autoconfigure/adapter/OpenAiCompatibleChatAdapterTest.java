@@ -10,8 +10,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -63,7 +63,7 @@ class OpenAiCompatibleChatAdapterTest {
                 }
                 """, 200);
         OpenAiCompatibleChatAdapter adapter = new OpenAiCompatibleChatAdapter(
-                baseUrl(), "local-dev", "local-gemma", "gemma-3-4b", null, objectMapper);
+                baseUrl(), "local-dev", "local-gemma", "gemma-3-4b", null);
 
         var response = adapter.chat(ChatRequest.builder()
                 .messages(List.of(
@@ -105,7 +105,7 @@ class OpenAiCompatibleChatAdapterTest {
     void failsWithHttpStatusAndBodyPreview() throws Exception {
         server = startServer(new AtomicReference<>(), new AtomicReference<>(), "{\"error\":\"bad request\"}", 400);
         OpenAiCompatibleChatAdapter adapter = new OpenAiCompatibleChatAdapter(
-                baseUrl(), null, "local-gemma", "gemma-3-4b", null, objectMapper);
+                baseUrl(), null, "local-gemma", "gemma-3-4b", null);
 
         assertThatThrownBy(() -> adapter.chat(ChatRequest.builder()
                 .messages(List.of(ChatMessage.user("hello")))

@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -19,8 +19,9 @@ import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkReso
 
 @RequiredArgsConstructor
 class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolver {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final RagPipelineService ragPipelineService;
-    private final ObjectMapper objectMapper;
 
     @Override
     public List<ResolvedRagChunk> listByObject(String objectType, String objectId, int limit) {
@@ -149,7 +150,7 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
                     safe.put(key, value);
                 }
             }
-            return objectMapper.writeValueAsString(safe);
+            return OBJECT_MAPPER.writeValueAsString(safe);
         } catch (Exception ex) {
             return null;
         }

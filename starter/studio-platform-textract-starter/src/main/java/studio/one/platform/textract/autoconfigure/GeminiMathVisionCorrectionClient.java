@@ -11,11 +11,10 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.platform.textract.domain.error.FileParseException;
 import studio.one.platform.textract.domain.model.BlockType;
@@ -56,7 +55,7 @@ class GeminiMathVisionCorrectionClient implements MathVisionCorrectionClient {
         this.model = effectiveModel;
         this.timeout = timeout == null ? Duration.ofMinutes(2) : timeout;
         this.maxFileSizeBytes = Math.max(1, maxFileSizeBytes);
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(this.timeout)
                 .build();
@@ -181,7 +180,7 @@ class GeminiMathVisionCorrectionClient implements MathVisionCorrectionClient {
                 }
                 return String.join("\n\n", lines);
             }
-        } catch (RuntimeException ignored) {
+        } catch (IOException | RuntimeException ignored) {
             // Fall through and parse line-by-line.
         }
         return modelText;

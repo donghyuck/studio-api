@@ -51,7 +51,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -402,7 +402,8 @@ public class SecurityAutoConfiguration {
                         @Qualifier(ServiceNames.USER_DETAILS_SERVICE) UserDetailsService uds,
                         @Qualifier(ServiceNames.PASSWORD_ENCODER) PasswordEncoder pe) {
 
-                DaoAuthenticationProvider p = new DaoAuthenticationProvider(uds);
+                DaoAuthenticationProvider p = new DaoAuthenticationProvider();
+                p.setUserDetailsService(uds);
                 p.setPasswordEncoder(pe);
                 return p;
         }

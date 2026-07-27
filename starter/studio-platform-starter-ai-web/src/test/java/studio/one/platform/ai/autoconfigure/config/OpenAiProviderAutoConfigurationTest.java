@@ -15,14 +15,13 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.embedding.Embedding;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
-import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.autoconfigure.AiWebAutoConfiguration;
 import studio.one.platform.ai.autoconfigure.AiWebChatProperties;
@@ -60,9 +59,7 @@ import studio.one.platform.web.dto.ApiResponse;
 class OpenAiProviderAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(
-                    JacksonAutoConfiguration.class,
-                    ConfigurationPropertiesAutoConfiguration.class))
+            .withConfiguration(AutoConfigurations.of(ConfigurationPropertiesAutoConfiguration.class))
             .withUserConfiguration(
                     AiSecretPresenceGuard.class,
                     AiWebAutoConfiguration.class,

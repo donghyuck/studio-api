@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
@@ -245,10 +245,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class, skillJobs),
                 provider(ChunkingOrchestrator.class),
                 provider(RagChunkStageStore.class),
-                null,
-                null,
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
         MarkdownPipelineOptions options = new MarkdownPipelineOptions(
                 true, true, true,
                 null, null, null, null,
@@ -285,10 +282,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class, chunking),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                repository,
-                new ObjectMapper());
+                repository);
 
         adapter.process(revision(), new MarkdownPipelineOptions(true, true, false),
                 studio.one.platform.markdown.domain.MarkdownPipelineStage.RAG_INDEX, stage -> {
@@ -327,10 +321,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class, chunking),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                repository,
-                new ObjectMapper());
+                repository);
 
         adapter.process(revision, new MarkdownPipelineOptions(
                 true, false, false,
@@ -458,10 +449,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class, chunking),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                repository,
-                new ObjectMapper());
+                repository);
 
         assertThatThrownBy(() -> adapter.process(revision(), new MarkdownPipelineOptions(true, true, false)))
                 .isInstanceOf(IllegalStateException.class)
@@ -488,10 +476,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class, chunking),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                repository,
-                new ObjectMapper());
+                repository);
 
         adapter.process(revision(), new MarkdownPipelineOptions(
                 true, true, false,
@@ -524,10 +509,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class, chunking),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                repository,
-                new ObjectMapper());
+                repository);
 
         adapter.process(revision(), new MarkdownPipelineOptions(
                 true, false, false,
@@ -559,10 +541,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class, chunking),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                repository,
-                new ObjectMapper());
+                repository);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> adapter.process(
                 revision(),
@@ -595,10 +574,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class, chunking),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                repository,
-                new ObjectMapper());
+                repository);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> adapter.process(
                 revision(),
@@ -626,10 +602,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class, chunking),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                repository,
-                new ObjectMapper());
+                repository);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> adapter.process(
                 revision(),
@@ -661,10 +634,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class, chunking),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                repository,
-                new ObjectMapper());
+                repository);
 
         adapter.process(
                 revision(),
@@ -691,10 +661,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
         stageStore.replace("attachment", "42", "document-1", List.of(
                 new RagChunkStage("attachment", "42", "document-1", 0, "chunk-1", "idea block",
                         Map.ofEntries(
@@ -815,10 +782,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
 
         MarkdownIdeaBlockSummary summary = adapter.ideaBlockSummary(revision());
 
@@ -841,9 +805,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(ChunkingOrchestrator.class),
                 provider(RagChunkStageStore.class, stageStore),
                 provider(EmbeddingPort.class, embeddingPort),
-                null,
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
         stageStore.replace("attachment", "42", "document-1", List.of(
                 new RagChunkStage("attachment", "42", "document-1", 0, "chunk-1", "idea block 1",
                         Map.ofEntries(
@@ -901,9 +863,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(ChunkingOrchestrator.class),
                 provider(RagChunkStageStore.class, stageStore),
                 provider(EmbeddingPort.class, embeddingPort),
-                null,
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
         stageStore.replace("attachment", "42", "document-1", List.of(
                 new RagChunkStage("attachment", "42", "document-1", 0, "chunk-1", "idea block 1",
                         Map.ofEntries(
@@ -940,10 +900,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class),
                 provider(RagChunkStageStore.class, stageStore),
-                null,
-                null,
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
         stageStore.replace("attachment", "42", "document-1", List.of(
                 ideaBlockStage("chunk-1", "연차휴가 신청 기준은 무엇인가?", "연차휴가는 사전에 신청하여 승인 후 사용한다.", 1),
                 ideaBlockStage("chunk-2", "휴가 신청 승인 절차는 무엇인가?", "휴가는 사전에 신청하여 승인 후 사용한다.", 2)));
@@ -984,8 +941,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(RagChunkStageStore.class, stageStore),
                 provider(EmbeddingPort.class),
                 provider(AiProviderRegistry.class, registry),
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
         stageStore.replace("attachment", "42", "document-1", List.of(
                 ideaBlockStage("chunk-1", "연차휴가 신청 기준은 무엇인가?", "연차휴가는 사전에 신청하여 승인 후 사용한다.", 1),
                 ideaBlockStage("chunk-2", "휴가 신청 승인 절차는 무엇인가?", "휴가는 사전에 신청하여 승인 후 사용한다.", 2)));
@@ -1025,8 +981,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(RagChunkStageStore.class, stageStore),
                 provider(EmbeddingPort.class),
                 provider(AiProviderRegistry.class, registry),
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
         stageStore.replace("attachment", "42", "document-1", List.of(
                 ideaBlockStage("chunk-1", "연차휴가 신청 기준은 무엇인가?", "연차휴가는 사전에 신청하여 승인 후 사용한다.", 1),
                 ideaBlockStage("chunk-2", "휴가 신청 승인 절차는 무엇인가?", "휴가는 사전에 신청하여 승인 후 사용한다.", 2)));
@@ -1060,8 +1015,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(RagChunkStageStore.class, stageStore),
                 provider(EmbeddingPort.class),
                 provider(AiProviderRegistry.class, registry),
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
         stageStore.replace("attachment", "42", "document-1", List.of(
                 ideaBlockStage("chunk-1", "연차휴가 신청 기준은 무엇인가?", "연차휴가는 사전에 신청하여 승인 후 사용한다.", 1),
                 ideaBlockStage("chunk-2", "휴가 신청 승인 절차는 무엇인가?", "휴가는 사전에 신청하여 승인 후 사용한다.", 2),
@@ -1111,8 +1065,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(RagChunkStageStore.class, stageStore),
                 provider(EmbeddingPort.class),
                 provider(AiProviderRegistry.class, registry),
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
         stageStore.replace("attachment", "42", "document-1", List.of(
                 ideaBlockStage("chunk-1", "연차휴가 신청 기준은 무엇인가?", "연차휴가는 사전에 신청하여 승인 후 사용한다.", 1),
                 ideaBlockStage("chunk-2", "휴가 신청 승인 절차는 무엇인가?", "휴가는 사전에 신청하여 승인 후 사용한다.", 2),
@@ -1154,10 +1107,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class),
                 provider(RagChunkStageStore.class, preparedStageStore()),
-                null,
-                null,
-                mock(MarkdownRepository.class),
-                new ObjectMapper());
+                mock(MarkdownRepository.class));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                 adapter.process(revision(), new MarkdownPipelineOptions(true, true, false),

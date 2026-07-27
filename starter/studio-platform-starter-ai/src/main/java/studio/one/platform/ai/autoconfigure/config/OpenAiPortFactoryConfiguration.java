@@ -5,7 +5,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import tools.jackson.databind.ObjectMapper;
 import studio.one.platform.ai.autoconfigure.adapter.OpenAiCompatibleChatAdapter;
 import studio.one.platform.ai.autoconfigure.adapter.SpringAiChatAdapter;
 import studio.one.platform.ai.autoconfigure.adapter.SpringAiEmbeddingAdapter;
@@ -23,8 +22,8 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 public class OpenAiPortFactoryConfiguration {
 
     @Bean
-    public ProviderChatPortFactory openAiChatPortFactory(ObjectMapper objectMapper) {
-        return new OpenAiChatPortFactory(objectMapper);
+    public ProviderChatPortFactory openAiChatPortFactory() {
+        return new OpenAiChatPortFactory();
     }
 
     @Bean
@@ -33,12 +32,6 @@ public class OpenAiPortFactoryConfiguration {
     }
 
     static final class OpenAiChatPortFactory implements ProviderChatPortFactory {
-
-        private final ObjectMapper objectMapper;
-
-        private OpenAiChatPortFactory(ObjectMapper objectMapper) {
-            this.objectMapper = objectMapper;
-        }
 
         @Override
         public AiAdapterProperties.ProviderType supportedType() {
@@ -69,8 +62,7 @@ public class OpenAiPortFactoryConfiguration {
                         firstNonBlank(provider.getApiKey(), env.getProperty("spring.ai.openai.api-key")),
                         firstNonBlank(providerId, provider.getType().name()),
                         apiModel,
-                        provider.getChat().getRequestTimeout(),
-                        objectMapper);
+                        provider.getChat().getRequestTimeout());
             }
             org.springframework.ai.chat.model.ChatModel chatModel = chatModelProvider.getIfAvailable();
             if (chatModel == null) {

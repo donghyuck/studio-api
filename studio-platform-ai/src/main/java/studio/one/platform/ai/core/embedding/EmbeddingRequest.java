@@ -14,11 +14,10 @@ public final class EmbeddingRequest {
     private final String provider;
     private final String model;
     private final EmbeddingInputType inputType;
-    private final EmbeddingPurpose purpose;
     private final Map<String, Object> metadata;
 
     public EmbeddingRequest(List<String> texts) {
-        this(texts, null, null, EmbeddingInputType.TEXT, EmbeddingPurpose.UNSPECIFIED, Map.of());
+        this(texts, null, null, EmbeddingInputType.TEXT, Map.of());
     }
 
     public EmbeddingRequest(
@@ -26,16 +25,6 @@ public final class EmbeddingRequest {
             String provider,
             String model,
             EmbeddingInputType inputType,
-            Map<String, Object> metadata) {
-        this(texts, provider, model, inputType, EmbeddingPurpose.UNSPECIFIED, metadata);
-    }
-
-    public EmbeddingRequest(
-            List<String> texts,
-            String provider,
-            String model,
-            EmbeddingInputType inputType,
-            EmbeddingPurpose purpose,
             Map<String, Object> metadata) {
         Objects.requireNonNull(texts, "texts");
         if (texts.isEmpty()) {
@@ -45,7 +34,6 @@ public final class EmbeddingRequest {
         this.provider = normalize(provider);
         this.model = normalize(model);
         this.inputType = inputType == null ? EmbeddingInputType.TEXT : inputType;
-        this.purpose = purpose == null ? EmbeddingPurpose.UNSPECIFIED : purpose;
         this.metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
     }
 
@@ -63,10 +51,6 @@ public final class EmbeddingRequest {
 
     public EmbeddingInputType inputType() {
         return inputType;
-    }
-
-    public EmbeddingPurpose purpose() {
-        return purpose;
     }
 
     public Map<String, Object> metadata() {

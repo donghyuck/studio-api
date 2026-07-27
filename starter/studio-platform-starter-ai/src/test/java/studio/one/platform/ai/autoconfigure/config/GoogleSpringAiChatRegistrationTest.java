@@ -146,7 +146,9 @@ class GoogleSpringAiChatRegistrationTest {
         chatModelField.setAccessible(true);
         Object chatModel = chatModelField.get(adapter);
 
-        Object defaultOptions = chatModel.getClass().getMethod("getOptions").invoke(chatModel);
+        Field defaultOptionsField = chatModel.getClass().getDeclaredField("defaultOptions");
+        defaultOptionsField.setAccessible(true);
+        Object defaultOptions = defaultOptionsField.get(chatModel);
 
         Method modelMethod = defaultOptions.getClass().getMethod("getModel");
         assertThat(modelMethod.invoke(defaultOptions)).isEqualTo("gemini-2.5-flash");
@@ -177,7 +179,9 @@ class GoogleSpringAiChatRegistrationTest {
                 .getDeclaredField("chatModel");
         chatModelField.setAccessible(true);
         Object chatModel = chatModelField.get(adapter);
-        Object defaultOptions = chatModel.getClass().getMethod("getOptions").invoke(chatModel);
+        Field defaultOptionsField = chatModel.getClass().getDeclaredField("defaultOptions");
+        defaultOptionsField.setAccessible(true);
+        Object defaultOptions = defaultOptionsField.get(chatModel);
 
         assertThat(defaultOptions.getClass().getMethod("getModel").invoke(defaultOptions))
                 .isEqualTo("gemini-2.5-pro");

@@ -7,7 +7,6 @@ import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.skillgraph.application.command.PreviewSkillCategoryRelationsCommand;
 import studio.one.platform.skillgraph.application.command.SaveSkillCategoryRelationsCommand;
@@ -28,8 +27,7 @@ class DefaultSkillCategoryRelationServiceTest {
         DefaultSkillCategoryRelationService service = new DefaultSkillCategoryRelationService(
                 taxonomyStore,
                 dictionaryStore,
-                new InMemorySkillCategoryRelationStore(),
-                new ObjectMapper());
+                new InMemorySkillCategoryRelationStore());
         Instant now = Instant.now();
         taxonomyStore.saveCategory(new SkillCategory("backend", null, "백엔드 API", 1));
         taxonomyStore.saveCategory(new SkillCategory("security", "backend", "인증 보안", 2));
@@ -57,8 +55,7 @@ class DefaultSkillCategoryRelationServiceTest {
         DefaultSkillCategoryRelationService service = new DefaultSkillCategoryRelationService(
                 taxonomyStore,
                 new InMemorySkillDictionaryStore(),
-                new InMemorySkillCategoryRelationStore(),
-                new ObjectMapper());
+                new InMemorySkillCategoryRelationStore());
         taxonomyStore.saveCategory(new SkillCategory("backend", null, "Backend", 1));
         taxonomyStore.saveCategory(new SkillCategory("security", null, "Security", 2));
 
@@ -85,8 +82,7 @@ class DefaultSkillCategoryRelationServiceTest {
         DefaultSkillCategoryRelationService service = new DefaultSkillCategoryRelationService(
                 taxonomyStore,
                 new InMemorySkillDictionaryStore(),
-                new InMemorySkillCategoryRelationStore(),
-                new ObjectMapper());
+                new InMemorySkillCategoryRelationStore());
         taxonomyStore.saveCategory(new SkillCategory("backend", null, "Backend", 1));
         taxonomyStore.saveCategory(new SkillCategory("security", null, "Security", 2));
 

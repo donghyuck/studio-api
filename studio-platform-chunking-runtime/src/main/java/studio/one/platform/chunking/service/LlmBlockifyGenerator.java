@@ -10,9 +10,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -41,7 +41,11 @@ public class LlmBlockifyGenerator implements BlockifyGenerator {
     private final ModelDeploymentRegistry providerRegistry;
     private final ObjectMapper objectMapper;
 
-    public LlmBlockifyGenerator(ModelDeploymentRegistry providerRegistry, ObjectMapper objectMapper) {
+    public LlmBlockifyGenerator(ModelDeploymentRegistry providerRegistry) {
+        this(providerRegistry, new ObjectMapper());
+    }
+
+    LlmBlockifyGenerator(ModelDeploymentRegistry providerRegistry, ObjectMapper objectMapper) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }
@@ -221,7 +225,7 @@ public class LlmBlockifyGenerator implements BlockifyGenerator {
                 // Ignore malformed typed metadata and keep parsing common IdeaBlock fields.
             }
         }
-        node.properties().forEach(entry -> {
+        node.fields().forEachRemaining(entry -> {
             if (!COMMON_KEYS.contains(entry.getKey()) && !entry.getValue().isNull()) {
                 values.put(entry.getKey(), objectMapper.convertValue(entry.getValue(), Object.class));
             }

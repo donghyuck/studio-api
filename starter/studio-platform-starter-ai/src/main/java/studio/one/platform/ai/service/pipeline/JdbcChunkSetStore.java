@@ -1,7 +1,7 @@
 package studio.one.platform.ai.service.pipeline;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -43,7 +43,7 @@ public class JdbcChunkSetStore implements ChunkSetStore {
             int insertBatchSize,
             TransactionOperations transactions) {
         this.template = Objects.requireNonNull(template, "template");
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
         this.insertBatchSize = normalizeBatchSize(insertBatchSize);
         this.transactions = transactions;
     }

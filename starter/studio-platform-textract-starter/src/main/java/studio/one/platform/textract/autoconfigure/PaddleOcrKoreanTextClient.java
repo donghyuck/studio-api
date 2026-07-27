@@ -4,7 +4,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.platform.textract.domain.error.FileParseException;
 import studio.one.platform.textract.domain.model.ParsedFile;

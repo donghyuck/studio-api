@@ -22,8 +22,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.server.ResponseStatusException;
 
-import tools.jackson.databind.json.JsonMapper;
-
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
@@ -133,8 +131,7 @@ class ChatControllerMethodSecurityTest {
                 .thenReturn(List.of(new RagSearchResult("doc-1", "content", Map.of(), 0.9d)));
         when(ragPipelineService.latestDiagnostics()).thenReturn(java.util.Optional.empty());
 
-        return new ChatController(providerRegistry, ragPipelineService,
-                JsonMapper.builder().build());
+        return new ChatController(providerRegistry, ragPipelineService);
     }
 
     private ChatRagRequestDto ragRequest(String objectType, String objectId) {

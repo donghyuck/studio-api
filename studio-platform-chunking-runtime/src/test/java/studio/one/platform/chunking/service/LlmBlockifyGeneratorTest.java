@@ -7,8 +7,6 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import tools.jackson.databind.ObjectMapper;
-
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
@@ -44,7 +42,7 @@ class LlmBlockifyGeneratorTest {
                 "google-ai-gemini",
                 Map.of("google-ai-gemini", chatPort),
                 Map.of());
-        LlmBlockifyGenerator generator = new LlmBlockifyGenerator(registry, new ObjectMapper());
+        LlmBlockifyGenerator generator = new LlmBlockifyGenerator(registry);
 
         List<BlockifyBlock> blocks = generator.generate(new BlockifyGenerationRequest(
                 "doc-1",
@@ -107,7 +105,7 @@ class LlmBlockifyGeneratorTest {
                 "google-ai-gemini",
                 Map.of("google-ai-gemini", chatPort),
                 Map.of());
-        LlmBlockifyGenerator generator = new LlmBlockifyGenerator(registry, new ObjectMapper());
+        LlmBlockifyGenerator generator = new LlmBlockifyGenerator(registry);
 
         List<BlockifyBlock> blocks = generator.generate(new BlockifyGenerationRequest(
                 "doc-1",

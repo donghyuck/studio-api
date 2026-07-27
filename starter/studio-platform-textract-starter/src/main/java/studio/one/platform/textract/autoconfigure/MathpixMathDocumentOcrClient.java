@@ -11,11 +11,10 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.platform.textract.domain.error.FileParseException;
 import studio.one.platform.textract.domain.model.BlockType;
@@ -57,7 +56,7 @@ class MathpixMathDocumentOcrClient implements MathDocumentOcrClient {
         this.maxPollAttempts = Math.max(1, maxPollAttempts);
         this.appId = appId == null ? "" : appId;
         this.appKey = appKey == null ? "" : appKey;
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(this.timeout)

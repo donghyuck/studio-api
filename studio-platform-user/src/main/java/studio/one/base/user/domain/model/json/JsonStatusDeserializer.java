@@ -21,9 +21,11 @@
 
 package studio.one.base.user.domain.model.json;
 
-import tools.jackson.core.JsonParser;
-import tools.jackson.databind.DeserializationContext;
-import tools.jackson.databind.ValueDeserializer;
+import java.io.IOException;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
 
 import studio.one.base.user.domain.model.Status;
  
@@ -41,11 +43,12 @@ import studio.one.base.user.domain.model.Status;
  * </pre>
  */
 
-public class JsonStatusDeserializer extends ValueDeserializer<Status> {
+public class JsonStatusDeserializer  extends JsonDeserializer<Status> {
  
 	@Override
-	public Status deserialize(JsonParser parser, DeserializationContext context) {
-		return Status.fromJson(parser.getString().toUpperCase());
+	public Status deserialize(JsonParser p, DeserializationContext ctxt)
+			throws IOException {
+		return Status.fromJson(p.getText().toUpperCase());
 	}
 
 }

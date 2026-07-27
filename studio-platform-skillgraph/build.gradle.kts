@@ -18,13 +18,13 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 
 dependencies {
     api(project(":studio-platform"))
-    api("tools.jackson.core:jackson-databind")
+    api("com.fasterxml.jackson.core:jackson-databind")
     api("org.springframework.data:spring-data-commons")
     compileOnly(project(":studio-platform-ai"))
     compileOnly(project(":studio-platform-chunking"))
     compileOnly(project(":studio-platform-objecttype"))
     compileOnly("org.springframework.boot:spring-boot-starter")
-    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework:spring-jdbc")

@@ -16,7 +16,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 
 val mapstructVersion: String = project.findProperty("mapstructVersion") as String? ?: "0.11.5"
 dependencies { 
-    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly(project(":studio-platform")) 
@@ -29,7 +29,7 @@ dependencies {
 
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.mockito:mockito-junit-jupiter")
-    testImplementation("org.springframework.boot:spring-boot-starter-webmvc")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
     testImplementation("org.springframework.data:spring-data-commons")
     testImplementation("org.springframework.security:spring-security-core")

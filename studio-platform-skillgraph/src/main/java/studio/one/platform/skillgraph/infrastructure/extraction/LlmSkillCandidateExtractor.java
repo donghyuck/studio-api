@@ -9,9 +9,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.chat.ChatMessage;
@@ -61,7 +61,7 @@ public class LlmSkillCandidateExtractor implements SkillCandidateExtractor{
             Double temperature) { 
         this.promptRenderer = Objects.requireNonNull(promptRenderer, "promptRenderer");
         this.chatPort = Objects.requireNonNull(chatPort, "chatPort");
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
         this.promptName = promptName == null || promptName.isBlank() ? DEFAULT_PROMPT : promptName.trim();
         this.maxTerms = Math.max(1, maxTerms);
         this.maxInputChars = Math.max(1, maxInputChars);

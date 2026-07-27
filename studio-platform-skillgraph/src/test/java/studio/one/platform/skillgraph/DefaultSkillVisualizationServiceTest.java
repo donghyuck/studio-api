@@ -8,7 +8,6 @@ import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 
 import studio.one.platform.skillgraph.application.service.DefaultSkillVisualizationService;
 import studio.one.platform.skillgraph.application.command.GenerateSkillProjectionCommand;
@@ -32,8 +31,7 @@ class DefaultSkillVisualizationServiceTest {
         DefaultSkillVisualizationService service = new DefaultSkillVisualizationService(
                 dictionaryStore,
                 projectionStore,
-                new DistanceThresholdSkillClusterer(0.5d),
-                JsonMapper.builder().build());
+                new DistanceThresholdSkillClusterer(0.5d));
 
         var result = service.generateProjection("projection-1", 100);
 
@@ -59,8 +57,7 @@ class DefaultSkillVisualizationServiceTest {
         DefaultSkillVisualizationService service = new DefaultSkillVisualizationService(
                 dictionaryStore,
                 new InMemorySkillProjectionStore(),
-                new DistanceThresholdSkillClusterer(),
-                JsonMapper.builder().build());
+                new DistanceThresholdSkillClusterer());
 
         var result = service.generateProjection("projection-1", 100);
 
@@ -83,8 +80,7 @@ class DefaultSkillVisualizationServiceTest {
         DefaultSkillVisualizationService service = new DefaultSkillVisualizationService(
                 dictionaryStore,
                 projectionStore,
-                new DistanceThresholdSkillClusterer(0.5d),
-                JsonMapper.builder().build());
+                new DistanceThresholdSkillClusterer(0.5d));
 
         var result = service.generateProjection(new GenerateSkillProjectionCommand(
                 "projection-task",

@@ -22,8 +22,8 @@
 package studio.one.base.user.web.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import tools.jackson.databind.annotation.JsonDeserialize;
-import tools.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import lombok.Builder;
 import lombok.Value;

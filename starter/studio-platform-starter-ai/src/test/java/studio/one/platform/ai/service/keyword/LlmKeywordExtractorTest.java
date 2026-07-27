@@ -1,7 +1,6 @@
 package studio.one.platform.ai.service.keyword;
 
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
@@ -24,8 +23,7 @@ class LlmKeywordExtractorTest {
             capturedRequest.set(request);
             return new ChatResponse(List.of(ChatMessage.assistant("[\"keyword\"]")), "test", Map.of());
         };
-        LlmKeywordExtractor extractor =
-                new LlmKeywordExtractor(promptRenderer, chatPort, 5, JsonMapper.builder().build());
+        LlmKeywordExtractor extractor = new LlmKeywordExtractor(promptRenderer, chatPort, 5);
 
         extractor.extract("1234567890");
 
@@ -39,8 +37,7 @@ class LlmKeywordExtractorTest {
                 List.of(ChatMessage.assistant("[\" Upload \", \"upload\", \"파일\", \" \", null, \"File\"]")),
                 "test",
                 Map.of());
-        LlmKeywordExtractor extractor =
-                new LlmKeywordExtractor(promptRenderer, chatPort, 4_000, JsonMapper.builder().build());
+        LlmKeywordExtractor extractor = new LlmKeywordExtractor(promptRenderer, chatPort, 4_000);
 
         List<String> keywords = extractor.extract("text");
 

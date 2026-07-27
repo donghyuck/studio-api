@@ -8,7 +8,6 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -56,8 +55,7 @@ import java.util.concurrent.ConcurrentHashMap;
 class SkillGraphAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(SkillGraphAutoConfiguration.class))
-            .withBean(ObjectMapper.class, ObjectMapper::new);
+            .withConfiguration(AutoConfigurations.of(SkillGraphAutoConfiguration.class));
 
     @Test
     void createsDefaultMemorySkillGraphBeans() {
@@ -93,7 +91,6 @@ class SkillGraphAutoConfigurationTest {
                 .withConfiguration(AutoConfigurations.of(
                         SkillGraphAutoConfiguration.class,
                         SkillGraphWebAutoConfiguration.SkillGraphRagExtractionConfig.class))
-                .withBean(ObjectMapper.class, ObjectMapper::new)
                 .withBean(RagPipelineService.class, FakeRagPipelineService::new)
                 .withPropertyValues(
                         "studio.features.skillgraph.web.enabled=true",

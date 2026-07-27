@@ -12,7 +12,6 @@
 
 # Package Files #
 *.jar
-!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.nar
 *.ear
@@ -31,7 +30,6 @@ replay_pid*
 !skills/build/
 !skills/build/**
 .gradle/
-.gradle-codex/
 .env
 .env.*
 !.env.example

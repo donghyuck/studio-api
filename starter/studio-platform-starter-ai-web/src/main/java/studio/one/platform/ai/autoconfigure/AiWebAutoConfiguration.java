@@ -1,6 +1,6 @@
 package studio.one.platform.ai.autoconfigure;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.concurrent.Executor;
 
@@ -20,8 +20,9 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.jspecify.annotations.Nullable;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
@@ -167,6 +168,12 @@ public class AiWebAutoConfiguration {
     @Bean
     ConversationChatService conversationChatService(ConversationRepositoryPort repositoryPort) {
         return new ConversationChatService(repositoryPort);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ObjectMapper.class)
+    ObjectMapper aiWebObjectMapper() {
+        return Jackson2ObjectMapperBuilder.json().build();
     }
 
     @Bean
@@ -626,11 +633,8 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
-    QueryRewriteController queryRewriteController(
-            PromptRenderer promptManager,
-            ChatPort chatPort,
-            ObjectMapper objectMapper) {
-        return new QueryRewriteController(promptManager, chatPort, objectMapper);
+    QueryRewriteController queryRewriteController(PromptRenderer promptManager, ChatPort chatPort) {
+        return new QueryRewriteController(promptManager, chatPort);
     }
 
     @Bean

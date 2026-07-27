@@ -8,12 +8,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -51,9 +50,8 @@ public class DefaultSkillCategoryRelationService implements SkillCategoryRelatio
     public DefaultSkillCategoryRelationService(
             SkillTaxonomyStore taxonomyStore,
             SkillDictionaryStore dictionaryStore,
-            SkillCategoryRelationStore relationStore,
-            ObjectMapper objectMapper) {
-        this(taxonomyStore, dictionaryStore, relationStore, null, null, objectMapper);
+            SkillCategoryRelationStore relationStore) {
+        this(taxonomyStore, dictionaryStore, relationStore, null, null, null);
     }
 
     public DefaultSkillCategoryRelationService(
@@ -68,7 +66,7 @@ public class DefaultSkillCategoryRelationService implements SkillCategoryRelatio
         this.relationStore = relationStore;
         this.promptRenderer = promptRenderer;
         this.chatPort = chatPort;
-        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
     }
 
     @Override

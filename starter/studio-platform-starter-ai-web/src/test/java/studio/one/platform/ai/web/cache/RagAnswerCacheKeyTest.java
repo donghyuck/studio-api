@@ -29,18 +29,6 @@ class RagAnswerCacheKeyTest {
     }
 
     @Test
-    void revisionChangeInPackedEvidenceFingerprintProducesMiss() {
-        ChatRagRequestDto request = request("attachment", "11");
-
-        RagAnswerCacheKey revisionOne = RagAnswerCacheKey.create(
-                "principal:user-a", request, "Question", "chat-default", "revision-1-evidence");
-        RagAnswerCacheKey revisionTwo = RagAnswerCacheKey.create(
-                "principal:user-a", request, "Question", "chat-default", "revision-2-evidence");
-
-        assertThat(revisionTwo).isNotEqualTo(revisionOne);
-    }
-
-    @Test
     void whitespaceNormalizedQuestionProducesStableKeyWithoutLosingCase() {
         ChatRagRequestDto request = request("attachment", "11");
 

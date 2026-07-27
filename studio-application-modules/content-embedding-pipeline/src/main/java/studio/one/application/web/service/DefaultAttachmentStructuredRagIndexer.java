@@ -24,7 +24,6 @@ import org.springframework.stereotype.Component;
 
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
-import studio.one.platform.ai.core.embedding.EmbeddingPurpose;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
@@ -614,7 +613,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         for (int attempt = 1; attempt <= EMBEDDING_MAX_ATTEMPTS; attempt++) {
             try {
                 return resolvedEmbedding.embeddingPort()
-                        .embed(resolvedEmbedding.request(contents, EmbeddingPurpose.INDEX));
+                        .embed(resolvedEmbedding.request(contents));
             } catch (RuntimeException ex) {
                 lastFailure = ex;
                 if (attempt == EMBEDDING_MAX_ATTEMPTS) {

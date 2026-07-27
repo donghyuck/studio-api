@@ -17,8 +17,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatMessageRole;
@@ -305,7 +305,7 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
             Map<String, DocumentMetadataField> fields = new LinkedHashMap<>();
             JsonNode fieldRoot = root.path("fields");
             if (fieldRoot.isObject()) {
-                fieldRoot.properties().forEach(entry -> {
+                fieldRoot.fields().forEachRemaining(entry -> {
                     String fieldId = entry.getKey();
                     if (!schema.allows(fieldId) || excluded(fieldId)) {
                         return;
@@ -332,7 +332,7 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
                 });
             }
             return new LlmResult(type, subject, confidence, fields);
-        } catch (RuntimeException ex) {
+        } catch (RuntimeException | java.io.IOException ex) {
             throw new IllegalStateException("Metadata model returned invalid JSON", ex);
         }
     }

@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
@@ -27,7 +26,7 @@ class RagPipelineSkillGraphRagChunkResolverTest {
                         "chunkId", "skill-test-doc-01-chunk-000"),
                 0.0)));
         RagPipelineSkillGraphRagChunkResolver resolver =
-                new RagPipelineSkillGraphRagChunkResolver(pipelineService, JsonMapper.builder().build());
+                new RagPipelineSkillGraphRagChunkResolver(pipelineService);
 
         var chunks = resolver.listByObject("attachment", null, 0, 50);
 

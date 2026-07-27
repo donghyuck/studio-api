@@ -1,12 +1,12 @@
 # Studio One Platform
 
-[![release](https://img.shields.io/badge/release-3.0.0--rc.1-blue.svg)](https://github.com/donghyuck/studio-api/tree/3.x)
-[![license](https://img.shields.io/badge/license-APACHE-blue.svg)](LICENSE.md)
+[![release](https://img.shields.io/badge/release-2.0.0-blue.svg)](https://github.com/metasfresh/metasfresh/releases/tag/5.175)
+[![license](https://img.shields.io/badge/license-APACHE-blue.svg)](https://github.com/metasfresh/metasfresh/blob/master/LICENSE.md)
 
 모듈화된 Spring Boot 기반 백엔드 플랫폼. 인증/인가, 사용자/그룹 관리, 파일·첨부 관리, 템플릿, 메일, 실시간 메시징, AI 임베딩/RAG 파이프라인을 공통 컴포넌트와 스타터로 제공한다. 설정은 `spring.*`, `studio.features.<module>.*`, `studio.<module>.*`의 3층 모델을 따른다.
 
 ## 빠른 시작
-1. JDK 17을 준비한다. 빌드는 저장소의 Gradle Wrapper를 사용한다.
+1. JDK 17과 Gradle 실행 환경을 준비한다.
 2. 필요한 secret을 셸 환경변수 또는 로컬 전용 `~/.gradle/gradle.properties`에 넣는다.
 3. 루트에서 `./gradlew clean build`를 실행한다.
 4. 애플리케이션에서는 필요한 starter만 선택해 의존성에 추가한다.
@@ -21,33 +21,9 @@
 
 ## 기술 기준
 - Java toolchain / source compatibility: `17`
-- Gradle Wrapper: `8.14.5`
-- Spring Boot: `4.1.0`
-- Spring AI: `2.0.0`
-- MyBatis Spring Boot Starter: `4.0.1`
-- JSON application boundary: Jackson `3`
+- Spring Boot: `3.5.9`
 - Spring Dependency Management Plugin: `1.1.7`
-- Release candidate: `3.0.0-rc.1`
-
-## 3.x 호환성과 업그레이드
-
-`3.x`는 Spring Boot 4와 Spring AI 2를 기준으로 한 major line이다. 애플리케이션은
-`studio.one.*:3.0.0-rc.1` artifact를 동일하게 사용해야 하며, 2.x와 3.x artifact를 한
-runtime classpath에 혼합하지 않는다.
-
-주요 호환성 경계는 다음과 같다.
-
-- 애플리케이션 JSON 매핑은 Jackson 3 API를 사용한다.
-- Spring Boot 4의 MVC와 Flyway starter 분리를 반영한다.
-- Spring AI 2 provider starter와 모델 옵션 계약을 사용한다.
-- RAG exact-answer cache는 선택 기능이며 기본값은 `none`이다. Redis 장애 시 provider
-  호출로 fail-open한다.
-- 기존 `@Cacheable` 도메인 cache와 RAG answer cache의 직렬화 경계는 분리한다.
-
-업그레이드 및 검증 상세는 [3.x 업그레이드 기준선](docs/dev/3x-upgrade-baseline.md), Redis
-승격 절차는 [RAG cache rollout](docs/dev/redis-rag-cache-rollout.md)을 따른다. 2.x로
-롤백할 때는 RAG cache를 먼저 비활성화하고 `v2.1.0-rc.1` 기준의 platform과 server
-property set을 함께 복원한다.
+- Build: `Gradle Wrapper`
 
 ## 레포지토리 구성
 ```
@@ -420,9 +396,7 @@ studio:
 - 애플리케이션 모듈 가이드: `studio-application-modules/README.md`
 - 사용자 계약: `studio-platform-user/README.md`
 - 사용자 기본 구현: `studio-platform-user-default/README.md`
-- 3.x 업그레이드 기준선: `docs/dev/3x-upgrade-baseline.md`
-- RAG cache 운영 절차: `docs/dev/redis-rag-cache-rollout.md`
-- 변경 이력: `CHANGELOG.md`
+- 변경 이력: `CHANGELOG.md` (`2.x` 라인부터 새 기준으로 관리)
 - 보안 운영 규칙: `SECURITY.md`
 - 플랫폼 웹 규칙: `studio-platform/WEB_API_DEVELOPMENT_GUIDE.md`
 - 설정 네임스페이스 가이드: `CONFIGURATION_NAMESPACE_GUIDE.md`

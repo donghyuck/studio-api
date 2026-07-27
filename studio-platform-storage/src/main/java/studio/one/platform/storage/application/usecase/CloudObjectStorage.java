@@ -10,7 +10,7 @@ import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.jspecify.annotations.Nullable;
+import org.springframework.lang.Nullable;
 
 import studio.one.platform.storage.application.result.PageResult;
 import studio.one.platform.storage.domain.model.BucketInfo;

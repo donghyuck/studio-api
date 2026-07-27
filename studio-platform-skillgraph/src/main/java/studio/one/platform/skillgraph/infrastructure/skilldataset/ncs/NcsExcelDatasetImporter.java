@@ -25,7 +25,7 @@ import org.apache.poi.ss.util.CellReference;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.infrastructure.skilldataset.SkillConcept;

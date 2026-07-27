@@ -23,7 +23,7 @@ dependencies {
     api(project(":studio-platform-workspace"))
     api(project(":studio-platform-workspace-default"))
     implementation(project(":studio-platform-user"))
-    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
@@ -37,6 +37,6 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    testImplementation("org.springframework.boot:spring-boot-starter-webmvc")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
     testRuntimeOnly("com.h2database:h2")
 }

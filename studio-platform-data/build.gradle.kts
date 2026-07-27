@@ -14,8 +14,8 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 dependencies {
     api(project(":studio-platform-textract"))
     implementation(project(":studio-platform"))
-    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
-    testImplementation("org.springframework.boot:spring-boot-starter-webmvc")
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")  
     implementation("commons-codec:commons-codec")
     implementation ("org.freemarker:freemarker:${property("freemarkerVersion")}")  

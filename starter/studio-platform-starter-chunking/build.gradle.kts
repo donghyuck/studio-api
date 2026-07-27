@@ -25,7 +25,6 @@ dependencies {
     compileOnly(project(":starter:studio-platform-starter"))
     compileOnly("org.springframework.boot:spring-boot-autoconfigure")
     compileOnly("org.springframework:spring-context")
-    compileOnly("tools.jackson.core:jackson-databind")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core")
     testImplementation(project(":studio-platform-textract"))
@@ -33,5 +32,4 @@ dependencies {
     testImplementation(project(":studio-platform-chunking-runtime"))
     testImplementation("org.springframework.boot:spring-boot-autoconfigure")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("tools.jackson.core:jackson-databind")
 }

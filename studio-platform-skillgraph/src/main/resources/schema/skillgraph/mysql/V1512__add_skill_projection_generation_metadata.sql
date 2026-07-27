@@ -1,9 +1,9 @@
 ALTER TABLE tb_skill_projection
-    ADD COLUMN reduction_algorithm VARCHAR(30),
-    ADD COLUMN clustering_algorithm VARCHAR(30),
-    ADD COLUMN embedding_provider VARCHAR(100),
-    ADD COLUMN embedding_model VARCHAR(200),
-    ADD COLUMN embedding_dimension INT;
+    ADD COLUMN IF NOT EXISTS reduction_algorithm VARCHAR(30),
+    ADD COLUMN IF NOT EXISTS clustering_algorithm VARCHAR(30),
+    ADD COLUMN IF NOT EXISTS embedding_provider VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS embedding_model VARCHAR(200),
+    ADD COLUMN IF NOT EXISTS embedding_dimension INT;
 
 UPDATE tb_skill_projection
 SET reduction_algorithm = COALESCE(reduction_algorithm, 'UMAP'),

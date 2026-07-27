@@ -3,7 +3,7 @@ package studio.one.platform.markdown.autoconfigure;
 import java.time.Clock;
 import java.util.Set;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;

@@ -9,8 +9,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -501,7 +501,7 @@ public final class MarkdownMetadataBackfillService {
     private String write(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JacksonException ex) {
+        } catch (JsonProcessingException ex) {
             throw new IllegalArgumentException("Metadata backfill settings are invalid", ex);
         }
     }

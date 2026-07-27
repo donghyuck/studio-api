@@ -28,13 +28,13 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-import tools.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.application.usecase.AttachmentService;
@@ -43,7 +43,6 @@ import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentRagIndexUnavailableException;
 import studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
-import studio.one.platform.ai.core.embedding.EmbeddingPurpose;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
@@ -137,7 +136,7 @@ class AttachmentEmbeddingPipelineControllerTest {
         validator.afterPropertiesSet();
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setMessageConverters(new JacksonJsonHttpMessageConverter(JsonMapper.builder().build()))
+                .setMessageConverters(new MappingJackson2HttpMessageConverter(new ObjectMapper()))
                 .setValidator(validator)
                 .addPlaceholderValue(PropertyKeys.Features.PREFIX + ".attachment.web.mgmt-base-path", BASE_PATH)
                 .build();
@@ -212,7 +211,7 @@ class AttachmentEmbeddingPipelineControllerTest {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         MockMvc customMvc = MockMvcBuilders.standaloneSetup(controller)
-                .setMessageConverters(new JacksonJsonHttpMessageConverter(JsonMapper.builder().build()))
+                .setMessageConverters(new MappingJackson2HttpMessageConverter(new ObjectMapper()))
                 .setValidator(validator)
                 .addPlaceholderValue(PropertyKeys.Features.PREFIX + ".attachment.web.mgmt-base-path", BASE_PATH)
                 .build();
@@ -760,7 +759,6 @@ class AttachmentEmbeddingPipelineControllerTest {
         ArgumentCaptor<EmbeddingRequest> request = ArgumentCaptor.forClass(EmbeddingRequest.class);
         verify(embeddingPort).embed(request.capture());
         assertThat(request.getValue().texts()).containsExactly("exact prepared chunk");
-        assertThat(request.getValue().purpose()).isEqualTo(EmbeddingPurpose.INDEX);
         verify(extractionService, never()).parseStructured(any(), any(), any(InputStream.class));
         verifyNoInteractions(ragPipelineService);
     }

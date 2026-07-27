@@ -23,7 +23,7 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot")
 
     implementation("com.knuddels:jtokkit:${property("jtokkitVersion")}")
-    implementation("tools.jackson.core:jackson-databind")
+    implementation("com.fasterxml.jackson.core:jackson-databind")
 
     testImplementation(project(":studio-platform-ai"))
     testImplementation(project(":studio-platform-textract"))

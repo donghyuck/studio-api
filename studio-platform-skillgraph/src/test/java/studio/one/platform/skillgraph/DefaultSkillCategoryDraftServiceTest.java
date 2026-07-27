@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatResponse;
@@ -52,8 +52,7 @@ class DefaultSkillCategoryDraftServiceTest {
                 projectionStore,
                 dictionaryStore,
                 taxonomyStore,
-                candidateStore,
-                new ObjectMapper());
+                candidateStore);
 
         var representatives = service.findRepresentatives("default", "cluster-1", false,
                 PageRequest.of(0, 10, Sort.by(Sort.Order.desc("occurrenceCount"))));
@@ -260,8 +259,7 @@ class DefaultSkillCategoryDraftServiceTest {
                 projectionStore,
                 dictionaryStore,
                 taxonomyStore,
-                candidateStore,
-                new ObjectMapper());
+                candidateStore);
 
         var result = service.saveAndAssignDrafts(new SaveAndAssignSkillCategoryDraftCommand(
                 "projection-1",
@@ -302,8 +300,7 @@ class DefaultSkillCategoryDraftServiceTest {
         DefaultSkillCategoryDraftService service = new DefaultSkillCategoryDraftService(
                 projectionStore,
                 dictionaryStore,
-                taxonomyStore,
-                new ObjectMapper());
+                taxonomyStore);
 
         var result = service.reconcileDrafts(new ReconcileSkillCategoryDraftCommand(
                 10,

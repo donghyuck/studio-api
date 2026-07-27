@@ -20,7 +20,7 @@ val mapstructVersion: String = project.findProperty("mapstructVersion") as Strin
 
 dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter")
-    compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
@@ -35,9 +35,8 @@ dependencies {
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.mockito:mockito-junit-jupiter")
     testImplementation("org.mapstruct:mapstruct:$mapstructVersion")
-    testImplementation("org.springframework.boot:spring-boot-starter-webmvc")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.data:spring-data-commons")
     testImplementation("org.springframework:spring-jdbc")
     testImplementation("org.springframework.security:spring-security-core")
@@ -45,7 +44,7 @@ dependencies {
     testImplementation(project(":studio-platform-user"))
     testImplementation(project(":studio-platform-identity"))
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter:${property("testcontainersVersion")}")
-    testImplementation("org.testcontainers:testcontainers-postgresql:${property("testcontainersVersion")}")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
     testRuntimeOnly("org.postgresql:postgresql")
 }

@@ -9,7 +9,6 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -203,7 +202,7 @@ class JdbcSkillGraphStoreTest {
                     PRIMARY KEY (projection_id, cluster_id, skill_id)
                 )
                 """);
-        candidateStore = new JdbcSkillCandidateStore(template, new ObjectMapper());
+        candidateStore = new JdbcSkillCandidateStore(template);
         dictionaryStore = new JdbcSkillDictionaryStore(template);
         taxonomyStore = new JdbcSkillTaxonomyStore(template);
         graphStore = new JdbcSkillGraphStore(template);

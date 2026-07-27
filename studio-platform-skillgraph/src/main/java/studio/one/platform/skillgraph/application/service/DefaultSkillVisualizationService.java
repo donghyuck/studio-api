@@ -15,8 +15,8 @@ import java.util.concurrent.RejectedExecutionException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import studio.one.platform.ai.core.vector.visualization.UmapVectorProjectionGenerator;
 import studio.one.platform.ai.core.vector.visualization.VectorItem;
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionPoint;
@@ -73,6 +73,8 @@ import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemory
  *        </pre>
  */
 public class DefaultSkillVisualizationService implements SkillVisualizationService {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final SkillDictionaryStore dictionaryStore;
     private final SkillProjectionStore projectionStore;
     private final SkillClusterer clusterer;
@@ -80,14 +82,12 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
     private final Executor projectionJobExecutor;
     private final SkillGraphBatchJobStore jobStore;
     private final SkillGraphBatchJobNotifier jobNotifier;
-    private final ObjectMapper objectMapper;
 
     public DefaultSkillVisualizationService(
             SkillDictionaryStore dictionaryStore,
             SkillProjectionStore projectionStore,
-            SkillClusterer clusterer,
-            ObjectMapper objectMapper) {
-        this(dictionaryStore, projectionStore, clusterer, new UmapVectorProjectionGenerator(), objectMapper);
+            SkillClusterer clusterer) {
+        this(dictionaryStore, projectionStore, clusterer, new UmapVectorProjectionGenerator());
     }
 
     public DefaultSkillVisualizationService(
@@ -96,20 +96,18 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
             SkillClusterer clusterer,
             Executor projectionJobExecutor,
             SkillGraphBatchJobStore jobStore,
-            SkillGraphBatchJobNotifier jobNotifier,
-            ObjectMapper objectMapper) {
+            SkillGraphBatchJobNotifier jobNotifier) {
         this(dictionaryStore, projectionStore, clusterer, new UmapVectorProjectionGenerator(), projectionJobExecutor,
-                jobStore, jobNotifier, objectMapper);
+                jobStore, jobNotifier);
     }
 
     public DefaultSkillVisualizationService(
             SkillDictionaryStore dictionaryStore,
             SkillProjectionStore projectionStore,
             SkillClusterer clusterer,
-            UmapVectorProjectionGenerator projectionGenerator,
-            ObjectMapper objectMapper) {
+            UmapVectorProjectionGenerator projectionGenerator) {
         this(dictionaryStore, projectionStore, clusterer, projectionGenerator, Runnable::run,
-                new InMemorySkillGraphBatchJobStore(), SkillGraphBatchJobNotifier.NOOP, objectMapper);
+                new InMemorySkillGraphBatchJobStore(), SkillGraphBatchJobNotifier.NOOP);
     }
 
     public DefaultSkillVisualizationService(
@@ -119,8 +117,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
             UmapVectorProjectionGenerator projectionGenerator,
             Executor projectionJobExecutor,
             SkillGraphBatchJobStore jobStore,
-            SkillGraphBatchJobNotifier jobNotifier,
-            ObjectMapper objectMapper) {
+            SkillGraphBatchJobNotifier jobNotifier) {
         this.dictionaryStore = dictionaryStore;
         this.projectionStore = projectionStore;
         this.clusterer = clusterer;
@@ -128,7 +125,6 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         this.projectionJobExecutor = projectionJobExecutor == null ? Runnable::run : projectionJobExecutor;
         this.jobStore = jobStore == null ? new InMemorySkillGraphBatchJobStore() : jobStore;
         this.jobNotifier = jobNotifier == null ? SkillGraphBatchJobNotifier.NOOP : jobNotifier;
-        this.objectMapper = java.util.Objects.requireNonNull(objectMapper, "objectMapper");
     }
 
     @Override
@@ -534,8 +530,8 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         payload.put("clusteringAlgorithm", clusteringAlgorithm);
         payload.put("parameters", parameters);
         try {
-            return objectMapper.writeValueAsString(payload);
-        } catch (JacksonException ex) {
+            return OBJECT_MAPPER.writeValueAsString(payload);
+        } catch (JsonProcessingException ex) {
             return "{}";
         }
     }

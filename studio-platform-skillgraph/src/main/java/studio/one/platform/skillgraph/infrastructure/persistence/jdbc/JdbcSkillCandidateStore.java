@@ -9,8 +9,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
+import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStats;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
@@ -25,18 +26,14 @@ import studio.one.platform.skillgraph.domain.model.SkillEmbeddingMetadata;
 import studio.one.platform.skillgraph.domain.model.SkillSourceChunk;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
 
+@RequiredArgsConstructor
 public class JdbcSkillCandidateStore implements SkillCandidateStore {
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {
     };
 
     private final NamedParameterJdbcTemplate template;
-    private final ObjectMapper objectMapper;
-
-    public JdbcSkillCandidateStore(NamedParameterJdbcTemplate template, ObjectMapper objectMapper) {
-        this.template = java.util.Objects.requireNonNull(template, "template");
-        this.objectMapper = java.util.Objects.requireNonNull(objectMapper, "objectMapper");
-    }
 
     @Override
     public SkillSourceChunk saveSourceChunk(SkillSourceChunk chunk) {
@@ -486,7 +483,7 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
 
     private String writeStringList(List<String> values) {
         try {
-            return objectMapper.writeValueAsString(values == null ? List.of() : values);
+            return OBJECT_MAPPER.writeValueAsString(values == null ? List.of() : values);
         } catch (Exception ex) {
             throw new IllegalArgumentException("Failed to serialize skill candidate technology", ex);
         }
@@ -497,7 +494,7 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
             return List.of();
         }
         try {
-            return objectMapper.readValue(value, STRING_LIST);
+            return OBJECT_MAPPER.readValue(value, STRING_LIST);
         } catch (Exception ex) {
             return List.of();
         }

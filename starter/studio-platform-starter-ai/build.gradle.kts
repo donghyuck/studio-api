@@ -37,7 +37,7 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
     implementation("io.github.resilience4j:resilience4j-retry:${property("resilience4jVersion")}")
     implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
-    implementation("tools.jackson.core:jackson-databind")
+    implementation("com.fasterxml.jackson.core:jackson-databind")
 
     // Tests need the provider libraries at runtime to exercise the factory implementations
     testImplementation("org.springframework.ai:spring-ai-starter-model-openai")
@@ -52,8 +52,8 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-core")
     testImplementation(project(":starter:studio-platform-starter-mybatis"))
     testImplementation("org.mybatis.spring.boot:mybatis-spring-boot-starter:${property("mybatisSpringBootStarterVersion")}")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter:${property("testcontainersVersion")}")
-    testImplementation("org.testcontainers:testcontainers-postgresql:${property("testcontainersVersion")}")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
     testImplementation("com.h2database:h2")
     testImplementation(project(":studio-platform"))
     testImplementation(project(":starter:studio-platform-starter-chunking"))

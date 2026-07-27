@@ -3,7 +3,7 @@ package studio.one.platform.documentconvert.autoconfigure;
 import java.net.http.HttpClient;
 import java.time.Clock;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;

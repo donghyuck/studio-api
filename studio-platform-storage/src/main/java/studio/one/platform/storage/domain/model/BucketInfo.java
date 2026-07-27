@@ -3,7 +3,7 @@ package studio.one.platform.storage.domain.model;
 import java.io.Serializable;
 import java.time.Instant;
 
-import tools.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -2,11 +2,12 @@
 
 ## 현재 결정
 
-- exact answer cache는 Spring Boot 4.1.0/Spring AI 2.0.0 기준으로 제공한다.
+- exact answer cache는 Spring Boot 3.5.16/Spring AI 1.1.8 기준으로 제공한다.
 - 기본 backend는 `NONE`이며 개발 서버에서만 명시적으로 `REDIS`를 활성화한다.
 - semantic cache는 serving하지 않는다. 준비된 Redis가 Query Engine/vector search를 지원하는지,
   HNSW index 생성 권한이 있는지 확인되기 전에는 shadow 실행도 시작하지 않는다.
-- Jackson 3 payload는 기존 cache와 dual-read하지 않고 `v2` namespace로 격리한다.
+- Boot 4.1/Spring AI 2.0 전환은
+  [호환성 스파이크](spring-boot-4-spring-ai-2-spike.md)의 재개 조건을 충족할 때까지 보류한다.
 
 ## 개발 서버 설정
 
@@ -18,9 +19,6 @@ implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
 ```yaml
 spring:
-  cache:
-    # 기존 @Cacheable 도메인 객체는 Redis 직렬화 계약으로 전환하지 않는다.
-    type: caffeine
   data:
     redis:
       host: ${REDIS_HOST}
@@ -36,12 +34,12 @@ studio:
       answer-cache:
         type: redis
         ttl: 5m
-        namespace: studio:ai:rag-answer:v2
+        namespace: studio:ai:rag-answer:v1
         fail-open: true
 ```
 
 비밀값은 repository나 로그에 기록하지 않는다. realtime Redis와 같은 서버를 사용하더라도 별도 ACL
-사용자와 `studio:ai:rag-answer:v2` prefix 권한을 사용한다.
+사용자와 `studio:ai:rag-answer:v1` prefix 권한을 사용한다.
 
 ## 승격 순서
 
@@ -58,15 +56,10 @@ studio:
 
 | Server | Candidate artifact | Cache mode | Context | Chat | Embedding | RAG sync | RAG SSE | Redis fail-open | Owner |
 |---|---|---|---|---|---|---|---|---|---|
-| 개발 서버 | `3.0.0-rc.1` | `none` → `redis` | 통과 | 통과 | 통과 | 통과 | 통과 | 통과 | `studio-one-api-server` |
+| 개발 서버 | `2.1.0-rc.1` | `none` → `redis` | 미검증 | 미검증 | 미검증 | 미검증 | 미검증 | 미검증 | 미입력 |
 
-2026-07-26 실행 서버 검증에서 `none` 모드는 Redis v2 키를 생성하지 않았고, `redis` 모드는
-동일 principal/object/evidence 요청에서 `MISS → HIT`를 반환했다. 근거 revision을 변경하면 새
-fingerprint의 `MISS`가 발생했고 Redis 중단 상태에서도 HTTP 200과 `INDEX_VALID` canonical 응답을
-반환했다. 실제 Redis 장애 로그에는 원문·질의·token 대신 `errorType`만 기록됐다.
-
-이 repository에는 실행 가능한 server instance와 해당 `application.yml`이 포함되어 있지 않으므로,
-이 표의 증거는 소비 서버 worktree에서 수행한 검증 명령과 결과를 기준으로 유지한다.
+이 repository에는 실행 가능한 server instance와 해당 `application.yml`이 포함되어 있지 않다.
+따라서 위 matrix가 소비 서버에서 채워지기 전에는 candidate artifact를 정식 승격하지 않는다.
 
 ## Semantic cache 사전 점검
 
