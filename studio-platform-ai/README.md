@@ -5,6 +5,9 @@ AI 공통 계약 계층이다. 챗 완성, 임베딩 생성, 벡터 스토어 �
 Spring AI 기반 런타임 구현체와 RAG pipeline 구현은 `studio-platform-starter-ai`가 담당한다.
 RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `studio-platform-starter-chunking`을 사용한다.
 
+전체 모듈 경계와 색인·근거 답변 흐름은
+[AI/RAG 아키텍처 가이드](../docs/ai-rag/README.md)를 먼저 참고한다.
+
 ## 요약
 포트/어댑터 원칙에 따라 AI 공급자(OpenAI, Ollama, Google AI Gemini 등)를 추상화한다. 애플리케이션 코드는 이 모듈의 포트 인터페이스에만 의존하고, 실제 공급자는 스타터가 빈으로 등록한다.
 

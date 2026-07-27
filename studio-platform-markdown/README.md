@@ -2,6 +2,9 @@
 
 Attachment를 안정적인 Markdown 지식 원본으로 변환하고 Revision 이력을 관리한다.
 
+전체 AI/RAG 흐름은 [AI/RAG 아키텍처 가이드](../docs/ai-rag/README.md), 문서 metadata 계약은
+[studio-platform-document-metadata](../studio-platform-document-metadata/README.md)를 참고한다.
+
 ## 처리 방식
 
 - DOCX/HTML은 `studio-platform-document-convert` application port를 통해 Pandoc 변환 Job을 생성한다.
@@ -12,6 +15,8 @@ Attachment를 안정적인 Markdown 지식 원본으로 변환하고 Revision �
 - 성공한 Revision만 `MarkdownDocument.currentRevisionId`로 승격한다.
 - 동일 원본 hash, extractor/version, options 조합의 완료 Revision은 재사용한다.
 - 후속 Chunking/RAG/Skill 실패는 완료된 Markdown Revision 상태를 되돌리지 않는다.
+- 명시적인 후속 단계 순서는 `METADATA_ENRICHMENT -> CHUNKING -> RAG_INDEX -> SKILL_EXTRACTION`이다.
+- metadata enrichment는 native·구조 기반 값을 우선하고 설정된 모드에 따라 조건부 LLM 보강을 사용한다.
 - Markdown RAG 색인은 `RagIndexJobService`를 통해 실행하며 기존 RAG Job 이력과 로그에
   `sourceType=markdown-revision`으로 기록한다.
 
@@ -24,6 +29,8 @@ Attachment를 안정적인 Markdown 지식 원본으로 변환하고 Revision �
 - `GET /api/markdown-documents/{id}/pipeline`
 - `GET /api/markdown-documents/{id}/locators`
 - `GET /api/markdown-documents/{id}/resources`
+- `GET /api/markdown-documents/{id}/metadata?revisionId=...`
+- `GET /api/document-metadata/schemas`
 - `POST /api/markdown-documents/{id}/reextract`
 - `POST /api/markdown-documents/{id}/resume`
 - `POST /api/markdown-documents/{id}/rag/reindex`
@@ -38,7 +45,8 @@ Attachment를 안정적인 Markdown 지식 원본으로 변환하고 Revision �
 }
 ```
 
-지원 단계는 `CHUNKING`, `RAG_INDEX`, `SKILL_EXTRACTION`이다. 추출 단계가 완료되지 않았으면
+지원 단계는 `METADATA_ENRICHMENT`, `CHUNKING`, `RAG_INDEX`, `SKILL_EXTRACTION`이다.
+추출 단계가 완료되지 않았으면
 `resume`은 native 추출을 다시 실행하며, 실패한 Pandoc 추출은 새 Revision과 변환 Job으로 재시작한다.
 
 embedding 모델만 변경해 다시 색인하려면 `rag/reindex`를 사용한다.
@@ -57,6 +65,9 @@ embedding 모델만 변경해 다시 색인하려면 `rag/reindex`를 사용한�
 Markdown 생성, 재추출, resume, RAG reindex 요청은 다음 선택 항목을 지원한다.
 
 - `useLlmKeywordExtraction`: RAG 색인 중 LLM keyword extraction 사용 여부
+- `documentSemanticType`: `AUTO`, `GENERAL`, `BOOK`, `ACADEMIC_PAPER`, `THESIS`, `REPORT`,
+  `POLICY`, `MANUAL`, `PRESENTATION`
+- `metadataEnrichmentMode`: `OFF`, `AUTO`, `REQUIRED`
 - `skillExtractionMode`: Skill 후보 추출 방식(`regex`, `llm`). 생략하면 서버의
   `studio.skillgraph.extraction.mode` 설정을 사용한다.
 - `generateSkillEmbeddings`: Skill 후보 추출 완료 후 후보 embedding 생성 여부
@@ -69,6 +80,24 @@ Skill 추출 LLM이 아니라 추출된 후보의 후속 embedding에만 사용�
 `pipeline`은 신규 Revision에 대해 요청 단계가 없더라도 최종 `COMPLETED` 실행 정보를 저장하고
 항상 non-null 응답을 반환한다. 실행 이력이 없던 기존 완료 Revision은 상태를 추측하지 않고
 `UNKNOWN`, `errorCode=PIPELINE_HISTORY_UNAVAILABLE`로 반환한다.
+
+## 문서 metadata와 backfill
+
+metadata artifact는 revision별 `DOCUMENT_METADATA` resource로 한 번 저장한다. vector에는 전체 artifact가
+아니라 `docMetadataId`, 의미 유형, 제목, 제한된 저자, 발간 연도와 조직만 projection한다.
+RAG metadata 질의에는 source-verified field만 사용한다.
+
+기존 완료 revision은 관리 API로 metadata-only backfill할 수 있다.
+
+- `POST /api/mgmt/markdown/metadata-backfill-jobs`
+- `GET /api/mgmt/markdown/metadata-backfill-jobs`
+- `GET /api/mgmt/markdown/metadata-backfill-jobs/{jobId}`
+- `GET /api/mgmt/markdown/metadata-backfill-jobs/{jobId}/items`
+- `POST /api/mgmt/markdown/metadata-backfill-jobs/{jobId}/retry`
+- `POST /api/mgmt/markdown/metadata-backfill-jobs/{jobId}/cancel`
+
+backfill은 normalized snapshot이 있는 현재 완료 revision만 처리하며 새 revision, chunk 또는 embedding을
+자동 생성하지 않는다. 변경 작업은 Markdown manage와 AI RAG write 권한을 모두 요구한다.
 
 ## 응답 규약
 

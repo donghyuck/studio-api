@@ -9,6 +9,16 @@ orchestration, vector persistence 구현을 추가하지 않는다.
 RAG chunking 실행은 `starter:studio-platform-starter-ai`의 `RagPipelineService`와 선택적
 `starter:studio-platform-starter-chunking`에 위임한다.
 
+## 문서 지도
+
+이 README는 전체 HTTP endpoint와 세부 설정의 기준 문서다. 실행 흐름을 먼저 이해하려면 다음 문서를
+사용한다.
+
+- 전체 모듈 경계: [AI/RAG 아키텍처](../../docs/ai-rag/README.md)
+- 추출부터 vector 저장까지: [RAG 색인](../../docs/ai-rag/indexing.md)
+- `PackedEvidenceSet`, citation, canonical SSE: [근거 기반 RAG Chat](../../docs/ai-rag/grounded-chat.md)
+- 장애 진단과 exact-answer cache: [AI/RAG 운영](../../docs/ai-rag/operations.md)
+
 ## 1) 의존성 추가
 
 AI 코어 스타터와 웹 스타터를 함께 선언한다. 프로바이더 라이브러리도 소비 앱에서 직접 선언해야 한다.
@@ -21,7 +31,7 @@ dependencies {
     implementation(project(":starter:studio-platform-starter-ai-web"))
 
     // REST 엔드포인트 활성화에 필요
-    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
