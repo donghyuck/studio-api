@@ -2,6 +2,7 @@ package studio.one.platform.ai.autoconfigure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -156,6 +157,28 @@ class GoogleSpringAiEmbeddingRegistrationTest {
 
         assertThat(field(port, "indexTaskType")).isEqualTo("RETRIEVAL_DOCUMENT");
         assertThat(field(port, "queryTaskType")).isEqualTo("RETRIEVAL_QUERY");
+    }
+
+    @Test
+    void propagatesConfiguredEmbeddingRequestTimeout() throws Exception {
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        provider.getEmbedding().setRequestTimeout(Duration.ofSeconds(7));
+
+        EmbeddingPort port = new GoogleGenAiEmbeddingPortFactoryConfiguration.GoogleGenAiEmbeddingPortFactory()
+                .createForDeployment(
+                        "google",
+                        provider,
+                        "gemini-embedding-001",
+                        768,
+                        null,
+                        new MockEnvironment().withProperty(
+                                "spring.ai.google.genai.embedding.api-key", "spring-key"),
+                        new StaticListableBeanFactory().getBeanProvider(
+                                org.springframework.ai.embedding.EmbeddingModel.class));
+
+        assertThat(field(port, "requestTimeoutMillis")).isEqualTo(7_000);
     }
 
     @Test

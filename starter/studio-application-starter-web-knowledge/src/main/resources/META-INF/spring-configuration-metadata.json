@@ -1,0 +1,153 @@
+{
+  "groups": [
+    {
+      "name": "studio.ai.indexed-web",
+      "type": "studio.one.application.webknowledge.autoconfigure.IndexedWebProperties",
+      "sourceType": "studio.one.application.webknowledge.autoconfigure.IndexedWebProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "studio.ai.indexed-web.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.ai.indexed-web.max-selected-sources",
+      "type": "java.lang.Integer",
+      "defaultValue": 10
+    },
+    {
+      "name": "studio.ai.indexed-web.fetch.allowed-schemes",
+      "type": "java.util.List<java.lang.String>",
+      "defaultValue": ["https"],
+      "description": "Only the single HTTPS scheme is accepted."
+    },
+    {
+      "name": "studio.ai.indexed-web.fetch.connect-timeout",
+      "type": "java.time.Duration",
+      "defaultValue": "5s"
+    },
+    {
+      "name": "studio.ai.indexed-web.fetch.request-timeout",
+      "type": "java.time.Duration",
+      "defaultValue": "15s"
+    },
+    {
+      "name": "studio.ai.indexed-web.fetch.max-response-bytes",
+      "type": "java.lang.Integer",
+      "defaultValue": 5242880
+    },
+    {
+      "name": "studio.ai.indexed-web.fetch.max-normalized-chars",
+      "type": "java.lang.Integer",
+      "defaultValue": 2000000
+    },
+    {
+      "name": "studio.ai.indexed-web.fetch.max-redirects",
+      "type": "java.lang.Integer",
+      "defaultValue": 3
+    },
+    {
+      "name": "studio.ai.indexed-web.fetch.robots-enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.ai.indexed-web.fetch.user-agent",
+      "type": "java.lang.String",
+      "defaultValue": "StudioOne-WebKnowledge/1.0"
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.site-crawl-enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enables bounded SITE collection. SINGLE_PAGE remains available when disabled."
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.default-max-depth",
+      "type": "java.lang.Integer",
+      "defaultValue": 2
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.maximum-depth",
+      "type": "java.lang.Integer",
+      "defaultValue": 5
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.default-max-pages",
+      "type": "java.lang.Integer",
+      "defaultValue": 50
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.maximum-pages",
+      "type": "java.lang.Integer",
+      "defaultValue": 500
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.default-max-concurrency",
+      "type": "java.lang.Integer",
+      "defaultValue": 2
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.maximum-concurrency",
+      "type": "java.lang.Integer",
+      "defaultValue": 8
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.min-delay-per-origin",
+      "type": "java.time.Duration",
+      "defaultValue": "500ms"
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.max-total-response-bytes",
+      "type": "java.lang.Long",
+      "defaultValue": 52428800
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.max-total-normalized-chars",
+      "type": "java.lang.Integer",
+      "defaultValue": 10000000
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.max-run-duration",
+      "type": "java.time.Duration",
+      "defaultValue": "10m"
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.max-active-runs-global",
+      "type": "java.lang.Integer",
+      "defaultValue": 2
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.max-active-runs-per-workspace",
+      "type": "java.lang.Integer",
+      "defaultValue": 1
+    },
+    {
+      "name": "studio.ai.indexed-web.crawl.max-active-runs-per-principal",
+      "type": "java.lang.Integer",
+      "defaultValue": 1
+    },
+    {
+      "name": "studio.ai.indexed-web.quota.max-sources-per-workspace",
+      "type": "java.lang.Long",
+      "defaultValue": 100
+    },
+    {
+      "name": "studio.ai.indexed-web.quota.max-active-pages-per-workspace",
+      "type": "java.lang.Long",
+      "defaultValue": 10000
+    },
+    {
+      "name": "studio.ai.indexed-web.quota.max-snapshot-units-per-workspace",
+      "type": "java.lang.Long",
+      "defaultValue": 1000000000
+    },
+    {
+      "name": "studio.ai.indexed-web.content-security.pii-redaction-enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true
+    }
+  ]
+}

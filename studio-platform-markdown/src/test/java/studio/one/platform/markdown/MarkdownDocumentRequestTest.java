@@ -4,11 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import studio.one.platform.markdown.web.MarkdownDocumentRequest;
+import studio.one.platform.markdown.web.MarkdownReextractRequest;
 
 class MarkdownDocumentRequestTest {
 
@@ -19,6 +19,8 @@ class MarkdownDocumentRequestTest {
                   "attachmentId": 7,
                   "runChunking": true,
                   "runRagIndex": true,
+                  "runSkillExtraction": false,
+                  "force": false,
                   "embeddingModelId": "google-ai/gemini-embedding-001@768"
                 }
                 """, MarkdownDocumentRequest.class);
@@ -36,6 +38,8 @@ class MarkdownDocumentRequestTest {
                   "attachmentId": 7,
                   "runChunking": true,
                   "runRagIndex": true,
+                  "runSkillExtraction": false,
+                  "force": false,
                   "embeddingDeploymentId": "document-multimodal-v1"
                 }
                 """, MarkdownDocumentRequest.class);
@@ -45,9 +49,57 @@ class MarkdownDocumentRequestTest {
         assertThat(request.embeddingProfileId()).isNull();
     }
 
+    @Test
+    void defaultsOmittedOptionalBooleanOptionsToFalse() throws Exception {
+        MarkdownDocumentRequest request = requestMapper().readValue("""
+                {
+                  "attachmentId": 13,
+                  "runChunking": true,
+                  "runRagIndex": true,
+                  "runSkillExtraction": false,
+                  "force": false
+                }
+                """, MarkdownDocumentRequest.class);
+
+        assertThat(request.useLlmKeywordExtraction()).isFalse();
+        assertThat(request.generateSkillEmbeddings()).isFalse();
+    }
+
+    @Test
+    void defaultsNullOptionalBooleanOptionsToFalseForReextract() throws Exception {
+        MarkdownReextractRequest request = requestMapper().readValue("""
+                {
+                  "runChunking": true,
+                  "runRagIndex": true,
+                  "runSkillExtraction": false,
+                  "useLlmKeywordExtraction": null,
+                  "generateSkillEmbeddings": null
+                }
+                """, MarkdownReextractRequest.class);
+
+        assertThat(request.useLlmKeywordExtraction()).isFalse();
+        assertThat(request.generateSkillEmbeddings()).isFalse();
+    }
+
+    @Test
+    void preservesEnabledOptionalBooleanOptions() throws Exception {
+        MarkdownDocumentRequest request = requestMapper().readValue("""
+                {
+                  "attachmentId": 13,
+                  "runChunking": true,
+                  "runRagIndex": true,
+                  "runSkillExtraction": false,
+                  "force": false,
+                  "useLlmKeywordExtraction": true,
+                  "generateSkillEmbeddings": true
+                }
+                """, MarkdownDocumentRequest.class);
+
+        assertThat(request.useLlmKeywordExtraction()).isTrue();
+        assertThat(request.generateSkillEmbeddings()).isTrue();
+    }
+
     private ObjectMapper requestMapper() {
-        return JsonMapper.builder()
-                .disable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
-                .build();
+        return JsonMapper.builder().build();
     }
 }

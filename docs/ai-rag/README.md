@@ -10,6 +10,7 @@ README를 기준으로 하며, 같은 설정을 이 문서에 중복 정의하�
 |---|---|
 | 문서 색인 흐름과 재색인 기준 | [RAG 색인](indexing.md) |
 | 근거 기반 답변·인용·SSE 계약 | [근거 기반 RAG Chat](grounded-chat.md) |
+| URL 자료 클라이언트 연동 | [Indexed Web RAG 클라이언트 가이드](../plans/client-indexed-web-rag-integration-guide.md) |
 | 기동·진단·캐시·장애 대응 | [운영 및 문제 해결](operations.md) |
 | AI 공통 타입과 metadata key | [studio-platform-ai](../../studio-platform-ai/README.md) |
 | Provider·벡터·RAG runtime 설정 | [studio-platform-starter-ai](../../starter/studio-platform-starter-ai/README.md) |
@@ -32,6 +33,7 @@ README를 기준으로 하며, 같은 설정을 이 문서에 중복 정의하�
 | Markdown 계약 | `studio-platform-markdown` | 문서/revision/pipeline/resource 저장 계약과 API | 추출기·AI runtime 구현 |
 | Markdown runtime | `studio-platform-starter-markdown` | native metadata, 조건부 LLM enrichment, backfill, RAG 연결 | Provider 모델 카탈로그 |
 | 첨부 연동 | `content-embedding-pipeline` | Attachment 추출, 구조화 색인, attachment job executor | 범용 AI/RAG 계약 |
+| URL 지식 수집 | `web-knowledge-service` | 공개 HTTPS 단일 페이지 또는 bounded 사이트 수집, page/corpus revision, RAG partition | 일반 웹 검색, 인증·JS 렌더링 |
 
 ## 전체 구조
 
@@ -128,6 +130,20 @@ implementation(project(":starter:studio-platform-starter-ai-web"))
 
 `studio-platform-starter-markdown`은 revision, metadata enrichment, ChunkSet/RAG 후속 실행을 연결한다.
 실제 변환·추출·provider 의존성은 사용하는 포맷과 모델에 맞게 소비 서버가 추가한다.
+
+### 사전 수집 URL RAG
+
+```kotlin
+implementation(project(":starter:studio-application-starter-web-knowledge"))
+implementation(project(":starter:studio-platform-starter-ai-web"))
+```
+
+workspace와 RAG read/write 권한, canonical embedding deployment가 필요하다. URL source는 공개 HTTPS
+단일 페이지를 기본으로 비동기 수집한다. 서버에서 `SITE` 기능을 활성화하면 동일 origin·허용 경로 안의
+sitemap과 HTML link를 page/depth/byte/time 상한 내에서 수집할 수 있다. 로그인·cookie·JavaScript
+렌더링, cross-origin redirect, 외부 도메인과 무제한 크롤링은 지원하지 않는다. 읽기는 workspace
+`READ`, 수집·갱신은 `UPDATE`, archive는 `ARCHIVE` 권한을 추가로 요구한다. 설정과 API는
+[web knowledge starter](../../starter/studio-application-starter-web-knowledge/README.md)를 따른다.
 
 ## 설정 소유권
 

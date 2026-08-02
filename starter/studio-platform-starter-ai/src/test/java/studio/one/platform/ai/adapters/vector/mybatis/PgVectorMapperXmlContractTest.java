@@ -55,8 +55,18 @@ class PgVectorMapperXmlContractTest {
         assertThat(mapper)
                 .contains("<insert id=\"upsertChunks\">")
                 .contains("<foreach collection=\"chunks\" item=\"chunk\" separator=\",\">")
-                .contains("ON CONFLICT (object_type, object_id, chunk_index)")
+                .contains("ON CONFLICT (object_type, object_id, partition_id, chunk_index)")
                 .contains("DO UPDATE SET");
+    }
+
+    @Test
+    void partitionOperationsUsePhysicalPartitionColumn() throws Exception {
+        String mapper = mapperXml();
+
+        assertThat(mapper)
+                .contains("-&gt;&gt;'partitionId'")
+                .contains("<delete id=\"deleteByObjectPartition\">")
+                .contains("partition_id = #{partitionId,jdbcType=VARCHAR}");
     }
 
     private String mapperXml() throws Exception {

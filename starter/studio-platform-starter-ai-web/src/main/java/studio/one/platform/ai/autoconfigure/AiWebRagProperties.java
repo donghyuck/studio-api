@@ -1,8 +1,14 @@
 package studio.one.platform.ai.autoconfigure;
 
+import java.time.Duration;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.ai.web.controller.RagAnswerMode;
+import studio.one.platform.ai.web.controller.RagSourceScope;
 
 @ConfigurationProperties(prefix = PropertyKeys.AI.Endpoints.PREFIX + ".rag")
 public class AiWebRagProperties {
@@ -11,6 +17,9 @@ public class AiWebRagProperties {
     private final DiagnosticsProperties diagnostics = new DiagnosticsProperties();
     private final ChunkPreviewProperties chunkPreview = new ChunkPreviewProperties();
     private final RetrievalProperties retrieval = new RetrievalProperties();
+    private final AnswerPolicyProperties answerPolicy = new AnswerPolicyProperties();
+    private final SourcePolicyProperties sourcePolicy = new SourcePolicyProperties();
+    private final ExternalSourcesProperties externalSources = new ExternalSourcesProperties();
 
     public ContextProperties getContext() {
         return context;
@@ -26,6 +35,18 @@ public class AiWebRagProperties {
 
     public RetrievalProperties getRetrieval() {
         return retrieval;
+    }
+
+    public AnswerPolicyProperties getAnswerPolicy() {
+        return answerPolicy;
+    }
+
+    public SourcePolicyProperties getSourcePolicy() {
+        return sourcePolicy;
+    }
+
+    public ExternalSourcesProperties getExternalSources() {
+        return externalSources;
     }
 
     public static class ContextProperties {
@@ -243,6 +264,156 @@ public class AiWebRagProperties {
 
         public void setMinRecommendationMrr(double minRecommendationMrr) {
             this.minRecommendationMrr = Math.max(0.0d, Math.min(1.0d, minRecommendationMrr));
+        }
+    }
+
+    public static class AnswerPolicyProperties {
+        private RagAnswerMode defaultMode = RagAnswerMode.GROUNDED_INFERENCE;
+        private RagAnswerMode maximumMode = RagAnswerMode.GROUNDED_INFERENCE;
+        private boolean clientSelectionEnabled = true;
+        private boolean factualListPartialAnswerEnabled;
+
+        public RagAnswerMode getDefaultMode() {
+            return defaultMode;
+        }
+
+        public void setDefaultMode(RagAnswerMode defaultMode) {
+            this.defaultMode = defaultMode;
+        }
+
+        public RagAnswerMode getMaximumMode() {
+            return maximumMode;
+        }
+
+        public void setMaximumMode(RagAnswerMode maximumMode) {
+            this.maximumMode = maximumMode;
+        }
+
+        public boolean isClientSelectionEnabled() {
+            return clientSelectionEnabled;
+        }
+
+        public void setClientSelectionEnabled(boolean clientSelectionEnabled) {
+            this.clientSelectionEnabled = clientSelectionEnabled;
+        }
+
+        public boolean isFactualListPartialAnswerEnabled() {
+            return factualListPartialAnswerEnabled;
+        }
+
+        public void setFactualListPartialAnswerEnabled(boolean factualListPartialAnswerEnabled) {
+            this.factualListPartialAnswerEnabled = factualListPartialAnswerEnabled;
+        }
+    }
+
+    public static class SourcePolicyProperties {
+        private RagSourceScope defaultScope = RagSourceScope.DOCUMENT_ONLY;
+        private RagSourceScope maximumScope = RagSourceScope.DOCUMENT_AND_OFFICIAL_EXTERNAL;
+        private boolean clientSelectionEnabled;
+
+        public RagSourceScope getDefaultScope() {
+            return defaultScope;
+        }
+
+        public void setDefaultScope(RagSourceScope defaultScope) {
+            this.defaultScope = defaultScope;
+        }
+
+        public RagSourceScope getMaximumScope() {
+            return maximumScope;
+        }
+
+        public void setMaximumScope(RagSourceScope maximumScope) {
+            this.maximumScope = maximumScope;
+        }
+
+        public boolean isClientSelectionEnabled() {
+            return clientSelectionEnabled;
+        }
+
+        public void setClientSelectionEnabled(boolean clientSelectionEnabled) {
+            this.clientSelectionEnabled = clientSelectionEnabled;
+        }
+    }
+
+    public static class ExternalSourcesProperties {
+        private boolean enabled;
+        private String gatewayUrl;
+        private String apiKey;
+        private Set<String> gatewayAllowedHosts = new LinkedHashSet<>();
+        private Set<String> sourceAllowedHosts = new LinkedHashSet<>();
+        private Duration timeout = Duration.ofSeconds(8);
+        private int maxResults = 8;
+        private int maxResponseBytes = 1_000_000;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getGatewayUrl() {
+            return gatewayUrl;
+        }
+
+        public void setGatewayUrl(String gatewayUrl) {
+            this.gatewayUrl = gatewayUrl;
+        }
+
+        public String getApiKey() {
+            return apiKey;
+        }
+
+        public void setApiKey(String apiKey) {
+            this.apiKey = apiKey;
+        }
+
+        public Set<String> getGatewayAllowedHosts() {
+            return gatewayAllowedHosts;
+        }
+
+        public void setGatewayAllowedHosts(Set<String> gatewayAllowedHosts) {
+            this.gatewayAllowedHosts = gatewayAllowedHosts == null
+                    ? new LinkedHashSet<>()
+                    : new LinkedHashSet<>(gatewayAllowedHosts);
+        }
+
+        public Set<String> getSourceAllowedHosts() {
+            return sourceAllowedHosts;
+        }
+
+        public void setSourceAllowedHosts(Set<String> sourceAllowedHosts) {
+            this.sourceAllowedHosts = sourceAllowedHosts == null
+                    ? new LinkedHashSet<>()
+                    : new LinkedHashSet<>(sourceAllowedHosts);
+        }
+
+        public Duration getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(Duration timeout) {
+            this.timeout = timeout == null || timeout.isNegative() || timeout.isZero()
+                    ? Duration.ofSeconds(8)
+                    : timeout;
+        }
+
+        public int getMaxResults() {
+            return maxResults;
+        }
+
+        public void setMaxResults(int maxResults) {
+            this.maxResults = Math.max(1, Math.min(maxResults, 20));
+        }
+
+        public int getMaxResponseBytes() {
+            return maxResponseBytes;
+        }
+
+        public void setMaxResponseBytes(int maxResponseBytes) {
+            this.maxResponseBytes = Math.max(1_024, Math.min(maxResponseBytes, 5_000_000));
         }
     }
 }

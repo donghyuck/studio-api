@@ -81,6 +81,9 @@ studio:
 | `POST` | `{basePath}/chat/stream` | SSE 채팅 스트림 | `services:ai_chat write` |
 | `POST` | `{basePath}/chat/rag` | RAG 컨텍스트 주입 후 채팅 | `services:ai_chat write`, `services:ai_rag read`, object scope read |
 | `POST` | `{basePath}/chat/rag/stream` | RAG 검색 상태와 답변을 SSE로 스트리밍 | `services:ai_chat write`, `services:ai_rag read`, object scope read |
+| `GET` | `{basePath}/chat/rag/capabilities` | 답변 모드와 근거 범위의 서버 허용 정책 조회 | `services:ai_rag read` |
+| `GET` | `{basePath}/chat/rag/answer-policy` | 허용 답변 모드와 서버 기본·최대 정책 조회 | `services:ai_rag read` |
+| `POST` | `{basePath}/chat/rag/regenerate` | 저장된 RAG turn을 동일 정책 경로로 재생성 | `services:ai_chat write`, `services:ai_rag read`, object scope read |
 | `GET` | `{basePath}/chat/conversations` | conversation 목록 조회 | `services:ai_chat read` |
 | `GET` | `{basePath}/chat/conversations/{conversationId}` | conversation 상세 및 메시지 조회 | `services:ai_chat read` |
 | `DELETE` | `{basePath}/chat/conversations/{conversationId}` | conversation 삭제 | `services:ai_chat write` |
@@ -146,8 +149,8 @@ credential, 원문 전체, reference excerpt·locator는 저장하지 않는다.
 `PackedEvidenceSet`으로 다시 검증한다.
 
 hit 응답은 sync와 SSE 모두 `metadata.ragAnswerCache=HIT`을 반환하고 provider를 호출하지 않는다.
-provider 호출이 없으므로 SSE cache hit은 `usage` 이벤트를 생성하지 않고 `delta → complete`로
-종료한다. chat memory가 활성화된 요청은 서버 측 history가 답변 입력에 포함되므로 exact cache를
+provider 호출이 없으므로 SSE cache hit은 `usage`나 답변 `delta` 이벤트를 생성하지 않고
+`complete`로 종료한다. chat memory가 활성화된 요청은 서버 측 history가 답변 입력에 포함되므로 exact cache를
 우회한다.
 Redis 장애는 기본적으로 miss로 처리한다. 초기 구현은 근거 검색을 건너뛰지 않고 생성 비용만
 줄이므로, 최신 evidence/reference가 cached payload와 일치하지 않으면 즉시 miss가 된다.
@@ -650,6 +653,7 @@ Content-Type: application/json
       {"role": "user", "content": "이 파일의 핵심 내용을 요약해줘"}
     ]
   },
+  "answerMode": "STRICT_GROUNDED",
   "objectType": "attachment",
   "objectId": "123"
 }
@@ -661,6 +665,38 @@ Content-Type: application/json
 포함된다. 최종 `complete.metadata`에는 일반 RAG 응답과 동일한 `ragReferences`, `ragTiming`, 검색 진단
 정보가 포함된다. 검색 결과가 없으면 provider를 호출하지 않고 안내 문구를 `delta`로 보낸 뒤 `complete`로
 종료한다.
+
+`answerMode`는 `STRICT_GROUNDED` 또는 `GROUNDED_INFERENCE`를 사용한다. 요청값이 없으면 서버
+기본값을 적용하고, 요청이 서버 최대 허용 범위를 넘으면 오류 대신 더 엄격한 모드로 조정한다. 실제 적용값과
+조정 사유는 동기 응답과 SSE `complete.metadata.answerPolicy`에서 동일하게 확인할 수 있다.
+일반 `/chat/regenerate`는 RAG turn을 `409 RAG_REGENERATION_REQUIRES_RAG_ENDPOINT`로 거부하므로
+RAG 재생성은 `/chat/rag/regenerate`를 사용해야 한다.
+
+### Workspace 웹 자료 선택
+
+`studio-application-starter-web-knowledge`를 함께 사용하면 공개 HTTPS 페이지를 workspace 공유 자산으로
+비동기 수집·색인할 수 있다. 등록·목록·상세·refresh·cancel·archive API의 기준 경로는
+`/api/workspaces/{workspaceId}/ai/rag/web-sources`이다. 완료된 revision만 아래처럼 RAG 요청에 추가한다.
+
+```json
+{
+  "objectType": "attachment",
+  "objectId": "123",
+  "indexedWebSources": [
+    {"sourceId": "wsrc-...", "revisionId": "wrev-..."}
+  ]
+}
+```
+
+source는 요청 embedding deployment와 canonical embedding space가 같아야 한다. 일반 질문은 문서 또는
+웹 중 관련 근거를 사용하지만, 비교 의도에서는 `DOCUMENT`와 `INDEXED_WEB` 또는
+`OFFICIAL_EXTERNAL`을 각각 인용하지 않으면 canonical 답변으로 확정하지 않는다. 공개 reference에는
+origin, 제목, publisher, canonical HTTPS URL, 기준 시각, 검색 점수와 최대 500자의 exact excerpt만
+포함하며 내부 revision/chunk 식별자는 제외한다.
+
+URL 등록 시 deployment는 model registry에서 먼저 검증하며 임의 기본값으로 대체하지 않는다. URL 수집의
+DNS 조회는 실제 connection manager가 검증한 공인 주소만 사용한다. 외부 본문·제목·publisher에 포함된
+직접 연락처·정부·결제 식별자는 normalized snapshot과 vector 생성 전에 기본 마스킹된다.
 
 `topK`는 `1` 이상 `100` 이하만 허용한다. 기존 `ragTopK`도 호환용으로 계속 받지만, 둘 다 있으면 `topK`가 우선한다.
 `minScore`를 지정하면 최종 검색 결과에서 해당 점수 이상인 항목만 context 후보로 사용한다. 요청값이 없으면
@@ -712,8 +748,8 @@ LLM에 전달되는 context에는 요청 단위 인덱스와 packed preview만 �
 RAG Chat 응답은 실제 답변 생성 프롬프트에 포함된 근거를 `metadata.ragReferences` 배열로 반환한다.
 순서는 system context의 `[1]`, `[2]` 순서와 같으며, context expansion 또는 fallback이 적용된 경우에도
 최종 프롬프트 순서를 따른다. 일반 응답의 reference는 citation 표시용 allowlist field만 포함하며,
-클라이언트가 근거를 직접 확인할 수 있도록 공백을 정규화하고 최대 700자로 제한한 `excerpt`를 포함한다.
-packed content 전체는 서버 `allow-client-debug=true`와 요청 `debug=true`가 모두 만족될 때만 포함한다.
+클라이언트가 근거를 직접 확인할 수 있도록 정규화 chunk의 연속 부분 문자열인 `exactText`를 최대
+500자로 제한한다. 내부 document/revision/chunk ID와 raw `sourceRef`는 공개하지 않는다.
 서버는 답변의 주요 사실과 요약 항목에 `[1]`, `[1, 2]` 형식으로 실제 reference 번호를 인용하도록 지시한다.
 클라이언트는 별도 management search를 다시 호출하지 않고 이 값으로 출처 UI를 구성할 수 있다.
 
@@ -722,18 +758,25 @@ packed content 전체는 서버 `allow-client-debug=true`와 요청 `debug=true`
   "metadata": {
     "ragReferences": [
       {
-        "index": 1,
-        "documentId": "3",
+        "citationIndex": 1,
+        "evidenceId": "stable-evidence-id",
+        "usageStatus": "CITED",
         "sourceName": "sample.pdf",
-        "chunkId": "chunk-1",
-        "chunkOrder": 0,
         "score": 0.91,
-        "excerpt": "검색된 원문 중 답변의 근거가 된 부분...",
+        "exactText": "검색된 원문 중 답변의 근거가 된 부분...",
         "page": 3,
-        "pageNumber": 3,
-        "sourceRef": "page[3]"
+        "locator": "페이지 3"
       }
     ],
+    "ragAnswerOutcome": {
+      "type": "ANSWERED",
+      "stage": "NONE",
+      "reasonCode": "NONE",
+      "retrievedResultCount": 8,
+      "acceptedResultCount": 3,
+      "packedEvidenceCount": 3,
+      "usedEvidenceIndexes": [1]
+    },
     "ragQueryIntent": "INTERPRETIVE_ANALYSIS",
     "answerType": "EVIDENCE_BASED_INFERENCE",
     "ragRetrievalTopK": 8,
@@ -743,14 +786,33 @@ packed content 전체는 서버 `allow-client-debug=true`와 요청 `debug=true`
 ```
 
 `sourceName`은 원본 파일명 metadata를 우선하고, 없으면 문서 제목을 사용한다.
-위치 정보는 metadata에 있으면 `page`/`pageNumber`, `slide`/`slideNumber`, `section`, `heading`으로 함께 내려간다.
-`sourceRef`는 provenance 표시를 위해 응답하며 raw metadata map은 응답하지 않는다.
+위치 정보는 권한 확인 후 `page`, `slide`, `section`, 정제된 `locator`로 내려간다. 검증 실패 시
+`usageStatus=RETRIEVED_ONLY`인 원문 후보만 제공하며 inline citation은 활성화하지 않는다.
+raw `sourceRef`와 내부 ID, provider topology 및 raw metadata map은 응답하지 않는다.
 
 ```yaml
 studio:
   ai:
     endpoints:
       rag:
+        answer-policy:
+          default-mode: GROUNDED_INFERENCE
+          maximum-mode: GROUNDED_INFERENCE
+          client-selection-enabled: true
+          factual-list-partial-answer-enabled: false
+        source-policy:
+          default-scope: DOCUMENT_ONLY
+          maximum-scope: DOCUMENT_AND_OFFICIAL_EXTERNAL
+          client-selection-enabled: false
+        external-sources:
+          enabled: false
+          gateway-url: ${RAG_EXTERNAL_SOURCE_GATEWAY_URL:}
+          api-key: ${RAG_EXTERNAL_SOURCE_GATEWAY_API_KEY:}
+          gateway-allowed-hosts: []
+          source-allowed-hosts: []
+          timeout: 8s
+          max-results: 8
+          max-response-bytes: 1000000
         context:
           max-chunks: 8
           max-chars: 12000
@@ -769,6 +831,21 @@ studio:
 
 | 설정 | 기본값 | 설명 |
 |---|---:|---|
+| `studio.ai.endpoints.rag.answer-policy.default-mode` | `GROUNDED_INFERENCE` | 요청 모드가 없거나 사용자 선택이 비활성화된 경우의 답변 모드 |
+| `studio.ai.endpoints.rag.answer-policy.maximum-mode` | `GROUNDED_INFERENCE` | 서버가 허용하는 가장 느슨한 답변 모드. default가 이를 넘으면 시작 실패 |
+| `studio.ai.endpoints.rag.answer-policy.client-selection-enabled` | `true` | 요청의 `answerMode` 선택 반영 여부 |
+| `studio.ai.endpoints.rag.answer-policy.factual-list-partial-answer-enabled` | `false` | `FACTUAL_LIST` 순수 목록에서 인용 없는 항목만 제거하고 재검증한 canonical 부분 답변을 허용할지 여부 |
+| `studio.ai.endpoints.rag.source-policy.default-scope` | `DOCUMENT_ONLY` | 요청에 `sourceScope`가 없거나 사용자 선택이 비활성화된 경우의 근거 범위 |
+| `studio.ai.endpoints.rag.source-policy.maximum-scope` | `DOCUMENT_AND_OFFICIAL_EXTERNAL` | 서버가 허용하는 최대 근거 범위 |
+| `studio.ai.endpoints.rag.source-policy.client-selection-enabled` | `false` | 요청의 `sourceScope` 선택 반영 여부 |
+| `studio.ai.endpoints.rag.external-sources.enabled` | `false` | 승인된 공식자료 게이트웨이 provider 등록 여부 |
+| `studio.ai.endpoints.rag.external-sources.gateway-url` | 없음 | 운영자가 관리하는 공식자료 게이트웨이 HTTPS URL |
+| `studio.ai.endpoints.rag.external-sources.api-key` | 없음 | 게이트웨이 Bearer credential. 환경변수나 secret store로만 주입 |
+| `studio.ai.endpoints.rag.external-sources.gateway-allowed-hosts` | `[]` | SSRF 방지를 위한 게이트웨이 host exact allowlist |
+| `studio.ai.endpoints.rag.external-sources.source-allowed-hosts` | `[]` | 반환 가능한 공식 원문 canonical URL host exact allowlist |
+| `studio.ai.endpoints.rag.external-sources.timeout` | `8s` | 게이트웨이 connect/request timeout |
+| `studio.ai.endpoints.rag.external-sources.max-results` | `8` | 요청·응답당 공식 외부 근거 상한 |
+| `studio.ai.endpoints.rag.external-sources.max-response-bytes` | `1000000` | 게이트웨이 응답 byte 상한 |
 | `studio.ai.endpoints.rag.context.max-chunks` | `8` | chat system context에 포함할 최대 RAG chunk 수 |
 | `studio.ai.endpoints.rag.context.max-chars` | `12000` | header 포함 chat system context 최대 문자 수 |
 | `studio.ai.endpoints.rag.context.max-chunk-chars` | `2000` | 개별 chunk가 이 값을 넘으면 LLM 전달 전 deterministic excerpt preview로 압축 |
@@ -791,6 +868,23 @@ studio:
 `ChatResponseDto.metadata.ragContextDiagnostics`로 노출한다. 이 값은 확장 지원 여부, 적용 여부, 전략,
 후보/결과/확장 hit 수, 포함/압축/제외 count, context 문자 예산, fallback reason만 포함하며 chunk 본문, snippet,
 embedding vector는 포함하지 않는다.
+
+### 답변 모드와 근거 범위
+
+`answerMode`와 `sourceScope`는 서로 다른 정책이다.
+
+- `answerMode=STRICT_GROUNDED | GROUNDED_INFERENCE`는 확보한 근거를 얼마나 해석할 수 있는지 정한다.
+- `sourceScope=DOCUMENT_ONLY | DOCUMENT_AND_OFFICIAL_EXTERNAL`은 어느 자료를 검색할지 정한다.
+- 외부 범위는 일반 웹 검색이 아니다. 등록된 `ExternalEvidenceProvider`가 canonical URL과 exact excerpt를
+  함께 반환한 공식자료만 허용한다.
+- `DOCUMENT_AND_OFFICIAL_EXTERNAL`에서는 문서 근거와 외부 근거를 구분해 제시하고 양쪽을 모두 인용해야
+  canonical 답변으로 인정한다.
+- provider가 없거나 비활성화되면 capabilities에 외부 범위를 노출하지 않고 요청은
+  `DOCUMENT_ONLY`로 축소한다.
+
+기본 gateway adapter는 redirect를 따르지 않으며 HTTPS endpoint와 원문 host를 각각 exact allowlist로
+검증한다. 게이트웨이는 검색 결과 snippet이 아니라 실제 공식 원문에서 복사한 `exactText`를 반환해야 한다.
+질의·원문·credential·내부 URL은 로그나 공개 metadata에 포함하지 않는다.
 
 ### 임베딩 요청 예시
 

@@ -17,6 +17,11 @@ public interface PgVectorMapper {
             @Param("objectType") String objectType,
             @Param("objectId") String objectId);
 
+    int deleteByObjectPartition(
+            @Param("objectType") String objectType,
+            @Param("objectId") String objectId,
+            @Param("partitionId") String partitionId);
+
     List<PgVectorSearchRow> searchByObject(PgVectorSearchParameter parameter);
 
     List<PgVectorSearchRow> hybridSearch(PgVectorHybridSearchParameter parameter);

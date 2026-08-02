@@ -113,6 +113,9 @@ public class ConversationChatService {
                 .filter(message -> message.role() == ChatMessageRole.ASSISTANT)
                 .forEach(stored::add);
         for (ChatMessage message : stored) {
+            Map<String, Object> metadata = message.role() == ChatMessageRole.ASSISTANT
+                    ? response.metadata()
+                    : Map.of();
             repository.saveMessage(new ChatConversationMessage(
                     UUID.randomUUID().toString(),
                     conversation.conversationId(),
@@ -120,7 +123,7 @@ public class ConversationChatService {
                     "",
                     true,
                     Instant.now(),
-                    Map.of()));
+                    metadata));
         }
         return conversation.messageCount() + stored.size();
     }
@@ -134,6 +137,18 @@ public class ConversationChatService {
                     "No user message available for regenerate");
         }
         return messages.subList(0, lastUser + 1);
+    }
+
+    public Map<String, Object> lastAssistantMetadata(String ownerId, String conversationId) {
+        ChatConversation conversation = requireConversation(ownerId, conversationId);
+        List<ChatConversationMessage> messages = allMessages(conversation.conversationId());
+        for (int index = messages.size() - 1; index >= 0; index--) {
+            ChatConversationMessage message = messages.get(index);
+            if (message.message().role() == ChatMessageRole.ASSISTANT) {
+                return message.metadata();
+            }
+        }
+        return Map.of();
     }
 
     public int replaceLastAssistantResponse(String ownerId, String conversationId, ChatResponse response) {

@@ -8,11 +8,14 @@ import java.util.Objects;
 
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRagRetrievalOptionsDto;
+import studio.one.platform.ai.web.controller.ResolvedRagAnswerPolicy;
+import studio.one.platform.ai.web.controller.ResolvedRagSourcePolicy;
 
 public record RagAnswerCacheKey(String digest) {
 
-    private static final String SCHEMA_VERSION = "v2";
-    private static final String RAG_PROMPT_CONTRACT_VERSION = "rag-grounding-v2";
+    private static final String SCHEMA_VERSION = "v9";
+    private static final String RAG_PROMPT_CONTRACT_VERSION = "rag-grounding-v9";
+    private static final String RAG_VALIDATOR_VERSION = "rag-answer-validator-v3";
 
     public RagAnswerCacheKey {
         if (digest == null || digest.isBlank()) {
@@ -26,6 +29,41 @@ public record RagAnswerCacheKey(String digest) {
             String resolvedQuestion,
             String chatDeployment,
             String contextFingerprint) {
+        return create(
+                authorizationScope,
+                request,
+                resolvedQuestion,
+                chatDeployment,
+                contextFingerprint,
+                null,
+                null);
+    }
+
+    public static RagAnswerCacheKey create(
+            String authorizationScope,
+            ChatRagRequestDto request,
+            String resolvedQuestion,
+            String chatDeployment,
+            String contextFingerprint,
+            ResolvedRagAnswerPolicy answerPolicy) {
+        return create(
+                authorizationScope,
+                request,
+                resolvedQuestion,
+                chatDeployment,
+                contextFingerprint,
+                answerPolicy,
+                null);
+    }
+
+    public static RagAnswerCacheKey create(
+            String authorizationScope,
+            ChatRagRequestDto request,
+            String resolvedQuestion,
+            String chatDeployment,
+            String contextFingerprint,
+            ResolvedRagAnswerPolicy answerPolicy,
+            ResolvedRagSourcePolicy sourcePolicy) {
         Objects.requireNonNull(request, "request");
         StringBuilder canonical = new StringBuilder();
         append(canonical, SCHEMA_VERSION);
@@ -53,7 +91,15 @@ public record RagAnswerCacheKey(String digest) {
         append(canonical, raw(request.chat().systemPrompt()));
         append(canonical, raw(String.valueOf(request.chat().messages())));
         append(canonical, raw(contextFingerprint));
+        append(canonical, answerPolicy == null ? "" : answerPolicy.effectiveMode().name());
+        append(canonical, answerPolicy == null ? "" : answerPolicy.fingerprint());
+        append(canonical, raw(request.sourceScope()));
+        append(canonical, raw(String.valueOf(request.externalSourceOptions())));
+        append(canonical, raw(String.valueOf(request.indexedWebSources())));
+        append(canonical, sourcePolicy == null ? "" : sourcePolicy.effectiveScope().name());
+        append(canonical, sourcePolicy == null ? "" : sourcePolicy.fingerprint());
         append(canonical, RAG_PROMPT_CONTRACT_VERSION);
+        append(canonical, RAG_VALIDATOR_VERSION);
         return new RagAnswerCacheKey(sha256(canonical.toString()));
     }
 

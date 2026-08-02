@@ -92,6 +92,32 @@ class RagChatRetrievalServiceTest {
     }
 
     @Test
+    void metadataIntentFallsBackToVectorSearchWhenArtifactIsUnavailable() {
+        RagDocumentMetadataProvider provider = new RagDocumentMetadataProvider() {
+            @Override
+            public boolean supports(String objectType) {
+                return "attachment".equals(objectType);
+            }
+
+            @Override
+            public List<RagSearchResult> find(String objectType, String objectId) {
+                return List.of();
+            }
+        };
+        service = new RagChatRetrievalService(
+                ragPipelineService, new AiWebRagProperties.RetrievalProperties(), List.of(provider));
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(result("doc-1", "chunk-1", 0.9d)));
+
+        RagChatRetrievalService.RetrievalResult result = service.retrieve(
+                request("default", null), "작가는 누구인가", "attachment", "3",
+                5, 0.15d, 5, false, true);
+
+        assertThat(result.results()).hasSize(1);
+        verify(ragPipelineService).search(any(RagSearchRequest.class));
+    }
+
+    @Test
     void omittedStrategyUsesConfiguredHybridDefault() {
         when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of());
 
@@ -271,6 +297,28 @@ class RagChatRetrievalServiceTest {
     }
 
     @Test
+    void answerModeDoesNotChangeRetrievalRequest() {
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(result("doc-1", "chunk-1", 0.9d)));
+
+        service.retrieve(requestWithMode("STRICT_GROUNDED"), "트럼프는 전쟁광인가",
+                "attachment", "11", 5, 0.15d, 5, false);
+        service.retrieve(requestWithMode("GROUNDED_INFERENCE"), "트럼프는 전쟁광인가",
+                "attachment", "11", 5, 0.15d, 5, false);
+
+        ArgumentCaptor<RagSearchRequest> captor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        verify(ragPipelineService, times(2)).search(captor.capture());
+        assertThat(captor.getAllValues()).hasSize(2);
+        RagSearchRequest strict = captor.getAllValues().get(0);
+        RagSearchRequest inference = captor.getAllValues().get(1);
+        assertThat(inference.query()).isEqualTo(strict.query());
+        assertThat(inference.topK()).isEqualTo(strict.topK());
+        assertThat(inference.minScore()).isEqualTo(strict.minScore());
+        assertThat(inference.metadataFilter()).isEqualTo(strict.metadataFilter());
+        assertThat(inference.queryExpansionEnabled()).isEqualTo(strict.queryExpansionEnabled());
+    }
+
+    @Test
     void autoStrategyResolvesToHybrid() {
         when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of());
 
@@ -314,6 +362,26 @@ class RagChatRetrievalServiceTest {
                 true,
                 strategy,
                 options);
+    }
+
+    private ChatRagRequestDto requestWithMode(String answerMode) {
+        ChatRagRequestDto request = request("default", null);
+        return new ChatRagRequestDto(
+                request.chat(),
+                request.ragQuery(),
+                request.ragTopK(),
+                request.objectType(),
+                request.objectId(),
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.topK(),
+                request.minScore(),
+                request.debug(),
+                request.retrievalStrategy(),
+                request.retrievalOptions(),
+                request.embeddingDeploymentId(),
+                answerMode);
     }
 
     private RagSearchResult result(String documentId, String chunkId, double score) {

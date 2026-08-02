@@ -48,12 +48,13 @@ class PgVectorStoreAdapterV2PostgresTest {
                     id BIGSERIAL PRIMARY KEY,
                     object_type VARCHAR(100) NOT NULL,
                     object_id VARCHAR(100) NOT NULL,
+                    partition_id VARCHAR(80) NOT NULL DEFAULT '',
                     chunk_index INTEGER NOT NULL,
                     text TEXT NOT NULL,
                     metadata JSONB NOT NULL,
                     embedding vector NOT NULL,
                     embedding_dimension INTEGER NOT NULL,
-                    CONSTRAINT uq_test_chunk UNIQUE (object_type, object_id, chunk_index)
+                    CONSTRAINT uq_test_chunk UNIQUE (object_type, object_id, partition_id, chunk_index)
                 )
                 """);
         PgVectorMapper mapper = mapper(dataSource);
@@ -139,6 +140,44 @@ class PgVectorStoreAdapterV2PostgresTest {
         assertThat(results).singleElement()
                 .extracting(result -> result.document().id())
                 .isEqualTo("chunk-1");
+    }
+
+    @Test
+    void replaceByObjectPartitionDoesNotDeleteSiblingPartition() {
+        VectorDocument first = document(
+                "partition-a-0",
+                "web_source",
+                "source-1",
+                0,
+                "first",
+                List.of(0.1, 0.2),
+                Map.of("partitionId", "page-a"));
+        VectorDocument sibling = document(
+                "partition-b-0",
+                "web_source",
+                "source-1",
+                0,
+                "sibling",
+                List.of(0.2, 0.3),
+                Map.of("partitionId", "page-b"));
+        adapter.replaceByObjectPartition("web_source", "source-1", "page-a", List.of(first));
+        adapter.replaceByObjectPartition("web_source", "source-1", "page-b", List.of(sibling));
+
+        VectorDocument replacement = document(
+                "partition-a-1",
+                "web_source",
+                "source-1",
+                0,
+                "replacement",
+                List.of(0.3, 0.4),
+                Map.of("partitionId", "page-a"));
+        adapter.replaceByObjectPartition("web_source", "source-1", "page-a", List.of(replacement));
+
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT partition_id, text FROM tb_ai_document_chunk "
+                        + "WHERE object_type = 'web_source' AND object_id = 'source-1' ORDER BY partition_id"))
+                .extracting(row -> row.get("partition_id") + ":" + row.get("text"))
+                .containsExactly("page-a:replacement", "page-b:sibling");
     }
 
     private static PgVectorMapper mapper(DataSource dataSource) throws Exception {

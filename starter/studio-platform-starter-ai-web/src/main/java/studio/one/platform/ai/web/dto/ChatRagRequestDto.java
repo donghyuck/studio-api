@@ -1,11 +1,14 @@
 package studio.one.platform.ai.web.dto;
 
+import java.util.List;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 /**
  * Chat 요청에 RAG 검색을 결합하기 위한 DTO.
@@ -30,15 +33,94 @@ public record ChatRagRequestDto(
         Boolean debug,
         String retrievalStrategy,
         @Valid ChatRagRetrievalOptionsDto retrievalOptions,
-        String embeddingDeploymentId
+        String embeddingDeploymentId,
+        String answerMode,
+        String sourceScope,
+        @Valid ExternalSourceOptionsDto externalSourceOptions,
+        @Size(max = 10, message = "indexedWebSources must contain at most 10 sources")
+        List<@Valid IndexedWebSourceRefDto> indexedWebSources
 ) {
     public ChatRagRequestDto(
             ChatRequestDto chat,
             String ragQuery,
             Integer ragTopK,
             String objectType,
+            String objectId,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer topK,
+            Double minScore,
+            Boolean debug,
+            String retrievalStrategy,
+            ChatRagRetrievalOptionsDto retrievalOptions,
+            String embeddingDeploymentId,
+            String answerMode) {
+        this(
+                chat,
+                ragQuery,
+                ragTopK,
+                objectType,
+                objectId,
+                embeddingProfileId,
+                embeddingProvider,
+                embeddingModel,
+                topK,
+                minScore,
+                debug,
+                retrievalStrategy,
+                retrievalOptions,
+                embeddingDeploymentId,
+                answerMode,
+                null,
+                null,
+                null);
+    }
+
+    public ChatRagRequestDto(
+            ChatRequestDto chat,
+            String ragQuery,
+            Integer ragTopK,
+            String objectType,
+            String objectId,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer topK,
+            Double minScore,
+            Boolean debug,
+            String retrievalStrategy,
+            ChatRagRetrievalOptionsDto retrievalOptions,
+            String embeddingDeploymentId) {
+        this(
+                chat,
+                ragQuery,
+                ragTopK,
+                objectType,
+                objectId,
+                embeddingProfileId,
+                embeddingProvider,
+                embeddingModel,
+                topK,
+                minScore,
+                debug,
+                retrievalStrategy,
+                retrievalOptions,
+                embeddingDeploymentId,
+                null,
+                null,
+                null,
+                null);
+    }
+
+    public ChatRagRequestDto(
+            ChatRequestDto chat,
+            String ragQuery,
+            Integer ragTopK,
+            String objectType,
             String objectId) {
-        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, null, null, null, null);
+        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, null, null, null, null, null,
+                null, null, null);
     }
 
     public ChatRagRequestDto(
@@ -48,7 +130,8 @@ public record ChatRagRequestDto(
             String objectType,
             String objectId,
             Boolean debug) {
-        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, debug, null, null, null);
+        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, debug, null, null, null, null,
+                null, null, null);
     }
 
     public ChatRagRequestDto(
@@ -64,7 +147,7 @@ public record ChatRagRequestDto(
             Double minScore,
             Boolean debug) {
         this(chat, ragQuery, ragTopK, objectType, objectId, embeddingProfileId, embeddingProvider, embeddingModel,
-                topK, minScore, debug, null, null, null);
+                topK, minScore, debug, null, null, null, null, null, null, null);
     }
 
     public ChatRagRequestDto(
@@ -82,6 +165,6 @@ public record ChatRagRequestDto(
             String retrievalStrategy,
             ChatRagRetrievalOptionsDto retrievalOptions) {
         this(chat, ragQuery, ragTopK, objectType, objectId, embeddingProfileId, embeddingProvider, embeddingModel,
-                topK, minScore, debug, retrievalStrategy, retrievalOptions, null);
+                topK, minScore, debug, retrievalStrategy, retrievalOptions, null, null, null, null, null);
     }
 }

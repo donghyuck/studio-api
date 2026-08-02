@@ -24,6 +24,7 @@ package studio.one.application.attachment.autoconfigure;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -43,6 +44,7 @@ import studio.one.application.attachment.web.controller.AttachmentController;
 import studio.one.application.attachment.web.controller.AttachmentMgmtController;
 import studio.one.application.attachment.web.controller.MeAttachmentController;
 import studio.one.application.attachment.web.controller.AttachmentUrlIssueRequestDetailsResolver;
+import studio.one.application.attachment.web.controller.AttachmentRagObjectAuthorizer;
 
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
@@ -164,6 +166,25 @@ public class AttachmentEndpointAutoConfiguration {
                                 ownerAccessAuthorizers,
                                 principalResolverProvider,
                                 objectTypeResolver);
+        }
+
+        @Configuration(proxyBeanMethods = false)
+        @ConditionalOnClass(name = "studio.one.platform.ai.core.rag.RagObjectAuthorizer")
+        static class AttachmentRagAuthorizationConfiguration {
+
+                @Bean
+                @ConditionalOnMissingBean(AttachmentRagObjectAuthorizer.class)
+                AttachmentRagObjectAuthorizer attachmentRagObjectAuthorizer(
+                                AttachmentService attachmentService,
+                                ObjectProvider<PrincipalResolver> principalResolverProvider,
+                                ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
+                                AttachmentObjectTypeResolver objectTypeResolver) {
+                        return new AttachmentRagObjectAuthorizer(
+                                        attachmentService,
+                                        principalResolverProvider,
+                                        ownerAccessAuthorizers,
+                                        objectTypeResolver);
+                }
         }
 
 }

@@ -23,9 +23,30 @@ public interface RagPipelineService {
         index(request);
     }
 
+    default boolean supportsObjectPartitions() {
+        return false;
+    }
+
+    default void indexObjectPartition(
+            RagIndexRequest request,
+            String objectType,
+            String objectId,
+            String partitionId,
+            RagIndexProgressListener listener) {
+        throw new UnsupportedOperationException("indexObjectPartition is not implemented");
+    }
+
     List<RagSearchResult> search(RagSearchRequest request);
 
     List<RagSearchResult> searchByObject(RagSearchRequest request, String objectType, String objectId);
+
+    default List<RagSearchResult> searchByObjectPartitions(
+            RagSearchRequest request,
+            String objectType,
+            String objectId,
+            Set<String> partitionIds) {
+        throw new UnsupportedOperationException("searchByObjectPartitions is not implemented");
+    }
 
     List<RagSearchResult> listByObject(String objectType, String objectId, Integer limit);
 
@@ -39,6 +60,10 @@ public interface RagPipelineService {
 
     default void deleteByObject(String objectType, String objectId) {
         throw new UnsupportedOperationException("deleteByObject is not implemented");
+    }
+
+    default void deleteObjectPartition(String objectType, String objectId, String partitionId) {
+        throw new UnsupportedOperationException("deleteObjectPartition is not implemented");
     }
 
     default List<RagSearchResult> listByObject(String objectType, String objectId, int offset, int limit) {

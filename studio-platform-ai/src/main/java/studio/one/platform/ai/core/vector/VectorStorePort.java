@@ -55,15 +55,50 @@ public interface VectorStorePort {
     default void replaceRecordsByObject(String objectType, String objectId, List<VectorRecord> records) {
         Objects.requireNonNull(records, "records");
         replaceByObject(objectType, objectId, records.stream()
-                .map(record -> toObjectScopedDocument(objectType, objectId, record))
+                .map(record -> toObjectScopedDocument(objectType, objectId, null, record))
                 .toList());
     }
 
-    private static VectorDocument toObjectScopedDocument(String objectType, String objectId, VectorRecord record) {
+    default boolean supportsObjectPartitions() {
+        return false;
+    }
+
+    default void deleteByObjectPartition(String objectType, String objectId, String partitionId) {
+        throw new UnsupportedOperationException("deleteByObjectPartition is not implemented");
+    }
+
+    default void replaceByObjectPartition(
+            String objectType,
+            String objectId,
+            String partitionId,
+            List<VectorDocument> documents) {
+        deleteByObjectPartition(objectType, objectId, partitionId);
+        upsert(documents);
+    }
+
+    default void replaceRecordsByObjectPartition(
+            String objectType,
+            String objectId,
+            String partitionId,
+            List<VectorRecord> records) {
+        Objects.requireNonNull(records, "records");
+        replaceByObjectPartition(objectType, objectId, partitionId, records.stream()
+                .map(record -> toObjectScopedDocument(objectType, objectId, partitionId, record))
+                .toList());
+    }
+
+    private static VectorDocument toObjectScopedDocument(
+            String objectType,
+            String objectId,
+            String partitionId,
+            VectorRecord record) {
         VectorDocument document = toLegacyDocument(record);
         Map<String, Object> metadata = new LinkedHashMap<>(document.metadata());
         metadata.put(VectorRecord.KEY_OBJECT_TYPE, objectType);
         metadata.put(VectorRecord.KEY_OBJECT_ID, objectId);
+        if (partitionId != null && !partitionId.isBlank()) {
+            metadata.put("partitionId", partitionId);
+        }
         return new VectorDocument(document.id(), document.content(), metadata, document.embedding());
     }
 

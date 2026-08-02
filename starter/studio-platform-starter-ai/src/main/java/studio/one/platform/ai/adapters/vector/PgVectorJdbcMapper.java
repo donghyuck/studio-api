@@ -21,9 +21,18 @@ import studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchRow;
 public final class PgVectorJdbcMapper implements PgVectorMapper {
 
     private static final String UPSERT_CHUNK_SQL = """
-            INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding, embedding_dimension)
-            VALUES (:objectType, :objectId, :chunkIndex, :text, CAST(:metadata AS jsonb), :embedding, :embeddingDimension)
-            ON CONFLICT (object_type, object_id, chunk_index)
+            INSERT INTO tb_ai_document_chunk(
+                object_type, object_id, partition_id, chunk_index, text, metadata, embedding, embedding_dimension)
+            VALUES (
+                :objectType,
+                :objectId,
+                COALESCE(CAST(:metadata AS jsonb)->>'partitionId', ''),
+                :chunkIndex,
+                :text,
+                CAST(:metadata AS jsonb),
+                :embedding,
+                :embeddingDimension)
+            ON CONFLICT (object_type, object_id, partition_id, chunk_index)
             DO UPDATE SET text = EXCLUDED.text,
                           metadata = EXCLUDED.metadata,
                           embedding = EXCLUDED.embedding,
@@ -38,6 +47,12 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     private static final String DELETE_BY_OBJECT_SQL = """
             DELETE FROM tb_ai_document_chunk
              WHERE object_type = :objectType AND object_id = :objectId
+            """;
+    private static final String DELETE_BY_OBJECT_PARTITION_SQL = """
+            DELETE FROM tb_ai_document_chunk
+             WHERE object_type = :objectType
+               AND object_id = :objectId
+               AND partition_id = :partitionId
             """;
     private static final String SEARCH_BY_OBJECT_SQL = """
             SELECT %s, %s AS distance
@@ -205,6 +220,13 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     @Override
     public int deleteByObject(String objectType, String objectId) {
         return jdbcTemplate.update(DELETE_BY_OBJECT_SQL, objectParams(objectType, objectId));
+    }
+
+    @Override
+    public int deleteByObjectPartition(String objectType, String objectId, String partitionId) {
+        return jdbcTemplate.update(
+                DELETE_BY_OBJECT_PARTITION_SQL,
+                objectParams(objectType, objectId).addValue("partitionId", partitionId));
     }
 
     @Override

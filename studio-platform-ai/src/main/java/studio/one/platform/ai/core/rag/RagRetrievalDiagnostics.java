@@ -63,6 +63,7 @@ public record RagRetrievalDiagnostics(
         HYBRID("hybrid"),
         KEYWORD_ENRICHED_HYBRID("keyword_enriched_hybrid"),
         SEMANTIC("semantic"),
+        OBJECT_LEXICAL_RESCUE("object_lexical_rescue"),
         NONE("none");
 
         private final String value;

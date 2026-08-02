@@ -4,9 +4,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -32,6 +35,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
@@ -48,6 +52,13 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 public class DefaultRagPipelineService implements RagPipelineService {
 
     private static final int MAX_STAGE_READ_BATCH_SIZE = 200;
+    private static final int MAX_LEXICAL_RESCUE_TERMS = 4;
+    private static final int MAX_LEXICAL_RESCUE_CANDIDATES_PER_TERM = 24;
+    private static final Set<String> LEXICAL_RESCUE_STOP_WORDS = Set.of(
+            "무엇", "어떻게", "왜", "인가", "인지", "대한", "대해", "관련", "설명", "평가", "문서");
+    private static final List<String> KOREAN_QUERY_SUFFIXES = List.of(
+            "이라고", "라고", "으로", "에서", "에게", "인가", "인지", "처럼", "보다", "까지", "부터",
+            "에는", "에서는", "은", "는", "이", "가", "을", "를", "의", "에", "로", "과", "와", "도", "만");
 
     private final EmbeddingPort embeddingPort;
     private final RagEmbeddingProfileResolver embeddingProfileResolver;
@@ -247,6 +258,11 @@ public class DefaultRagPipelineService implements RagPipelineService {
     }
 
     @Override
+    public boolean supportsObjectPartitions() {
+        return vectorStorePort.supportsObjectPartitions();
+    }
+
+    @Override
     public void index(RagIndexRequest request, RagIndexProgressListener listener) {
 
         log.debug("using llm keywords extract : {}", request.useLlmKeywordExtraction());
@@ -328,6 +344,101 @@ public class DefaultRagPipelineService implements RagPipelineService {
         if (objectType != null && objectId != null) {
             chunkStageStore.deleteByObject(objectType, objectId, request.documentId());
         }
+        progress.onIndexedCount(indexed);
+    }
+
+    @Override
+    public void indexObjectPartition(
+            RagIndexRequest request,
+            String objectType,
+            String objectId,
+            String partitionId,
+            RagIndexProgressListener listener) {
+        if (!supportsObjectPartitions()) {
+            throw new UnsupportedOperationException("Object partitions are not supported by the vector store");
+        }
+        String normalizedObjectType = RagChunkingMetadata.normalizeObjectScope(objectType);
+        String normalizedObjectId = RagChunkingMetadata.normalizeObjectScope(objectId);
+        String normalizedPartitionId = RagChunkingMetadata.normalizeObjectScope(partitionId);
+        if (normalizedObjectType == null || normalizedObjectId == null || normalizedPartitionId == null) {
+            throw new IllegalArgumentException("objectType, objectId and partitionId are required");
+        }
+
+        RagIndexProgressListener progress = listener == null ? RagIndexProgressListener.noop() : listener;
+        TextCleaningResult cleaning = cleanText(request.text());
+        String indexedText = cleaning.text() == null ? request.text() : cleaning.text();
+        RagIndexRequest chunkingRequest = withResolvedEmbeddingForChunking(request);
+        List<String> documentKeywords = keywordOptions.scope().includesDocument()
+                ? resolveDocumentKeywords(request, indexedText)
+                : List.of();
+        Map<String, Object> baseMetadata = new HashMap<>(request.metadata());
+        baseMetadata.put("objectType", normalizedObjectType);
+        baseMetadata.put("objectId", normalizedObjectId);
+        baseMetadata.put("partitionId", normalizedPartitionId);
+        baseMetadata.putIfAbsent("cleaned", cleaning.cleaned());
+        baseMetadata.putIfAbsent("cleanerPrompt", cleaning.cleanerPrompt() == null ? "" : cleaning.cleanerPrompt());
+        baseMetadata.putIfAbsent("originalTextLength", request.text().length());
+        baseMetadata.putIfAbsent("indexedTextLength", indexedText.length());
+        if (!documentKeywords.isEmpty()) {
+            baseMetadata.put("keywords", documentKeywords);
+            baseMetadata.put("keywordsText", String.join(" ", documentKeywords));
+        }
+
+        long stagedChunkCount = stagedChunkCount(normalizedObjectType, normalizedObjectId, request.documentId());
+        List<RagPipelineChunk> chunks;
+        if (stagedChunkCount == 0L) {
+            progress.onStep(RagIndexJobStep.CHUNKING);
+            chunks = chunk(indexedText, chunkingRequest);
+            progress.onChunkCount(chunks.size());
+            saveChunkStage(normalizedObjectType, normalizedObjectId, request.documentId(), chunks);
+        } else {
+            chunks = List.of();
+            progress.onChunkCount(Math.toIntExact(stagedChunkCount));
+        }
+        int chunkCount = stagedChunkCount > 0L ? Math.toIntExact(stagedChunkCount) : chunks.size();
+        baseMetadata.putIfAbsent("chunkCount", chunkCount);
+        if (chunkCount == 0) {
+            progress.onStep(RagIndexJobStep.INDEXING);
+            vectorStorePort.deleteByObjectPartition(
+                    normalizedObjectType, normalizedObjectId, normalizedPartitionId);
+            chunkStageStore.deleteByObject(normalizedObjectType, normalizedObjectId, request.documentId());
+            progress.onIndexedCount(0);
+            return;
+        }
+
+        int indexUpsertBatchSize = options.indexUpsertBatchSize();
+        if (stagedChunkCount > 0L && stagedChunkCount <= indexUpsertBatchSize) {
+            chunks = stagedChunkBatch(
+                    normalizedObjectType, normalizedObjectId, request.documentId(), -1, chunkCount);
+        }
+        if (chunkCount <= indexUpsertBatchSize) {
+            List<VectorRecord> records = embedRecords(request, chunks, baseMetadata, progress);
+            vectorStorePort.replaceRecordsByObjectPartition(
+                    normalizedObjectType, normalizedObjectId, normalizedPartitionId, records);
+            chunkStageStore.deleteByObject(normalizedObjectType, normalizedObjectId, request.documentId());
+            progress.onIndexedCount(records.size());
+            return;
+        }
+
+        vectorStorePort.deleteByObjectPartition(normalizedObjectType, normalizedObjectId, normalizedPartitionId);
+        int indexed;
+        try {
+            indexed = stagedChunkCount > 0L
+                    ? embedAndUpsertStagedBatches(
+                            request,
+                            normalizedObjectType,
+                            normalizedObjectId,
+                            request.documentId(),
+                            chunkCount,
+                            baseMetadata,
+                            progress)
+                    : embedAndUpsertInBatches(request, chunks, baseMetadata, progress);
+        } catch (RuntimeException ex) {
+            vectorStorePort.deleteByObjectPartition(
+                    normalizedObjectType, normalizedObjectId, normalizedPartitionId);
+            throw ex;
+        }
+        chunkStageStore.deleteByObject(normalizedObjectType, normalizedObjectId, request.documentId());
         progress.onIndexedCount(indexed);
     }
 
@@ -787,6 +898,37 @@ public class DefaultRagPipelineService implements RagPipelineService {
         return searchObjectScope(request, filter);
     }
 
+    @Override
+    public List<RagSearchResult> searchByObjectPartitions(
+            RagSearchRequest request,
+            String objectType,
+            String objectId,
+            Set<String> partitionIds) {
+        clearDiagnostics();
+        if (partitionIds == null || partitionIds.isEmpty()) {
+            return List.of();
+        }
+        request = withDefaults(request);
+        Map<String, Object> equals = new LinkedHashMap<>(request.metadataFilter().equalsCriteria());
+        equals.put("objectType", objectType);
+        equals.put("objectId", objectId);
+        Map<String, List<Object>> in = new LinkedHashMap<>(request.metadataFilter().inCriteria());
+        in.put("partitionId", partitionIds.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .map(value -> (Object) value)
+                .toList());
+        MetadataFilter filter = MetadataFilter.of(equals, in, request.metadataFilter().rangeCriteria());
+        return searchObjectScope(request, filter);
+    }
+
+    @Override
+    public void deleteObjectPartition(String objectType, String objectId, String partitionId) {
+        vectorStorePort.deleteByObjectPartition(objectType, objectId, partitionId);
+    }
+
     private List<RagSearchResult> searchObjectScope(RagSearchRequest request, MetadataFilter filter) {
         ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(request);
         MetadataFilter searchFilter = embeddingFilter(filter, resolvedEmbedding, hasEmbeddingSelection(request));
@@ -956,6 +1098,11 @@ public class DefaultRagPipelineService implements RagPipelineService {
                         "Embedding provider quota exceeded while generating RAG embedding.",
                         ex);
             }
+            if (AiProviderExceptionSupport.isTimeout(ex)) {
+                throw new EmbeddingProviderTimeoutException(
+                        "Embedding provider timed out while generating RAG embedding.",
+                        ex);
+            }
             throw ex;
         }
     }
@@ -995,6 +1142,9 @@ public class DefaultRagPipelineService implements RagPipelineService {
         Map<String, Object> equals = new HashMap<>(filter.equalsCriteria());
         if (resolvedEmbedding.dimension() != null) {
             equals.put(VectorRecord.KEY_EMBEDDING_DIMENSION, resolvedEmbedding.dimension());
+        }
+        if (resolvedEmbedding.deploymentId() != null) {
+            equals.put(VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID, resolvedEmbedding.deploymentId());
         }
         if (resolvedEmbedding.embeddingSpaceId() != null) {
             equals.put(VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, resolvedEmbedding.embeddingSpaceId());
@@ -1103,9 +1253,10 @@ public class DefaultRagPipelineService implements RagPipelineService {
             boolean queryExpansionEnabled) {
         List<VectorSearchResult> rawResults = limitResults(hybridSearch.apply(query), searchRequest.topK());
         List<VectorSearchResult> results = applyMinScore(rawResults, searchRequest.minScore());
+        logSearchLeg("HYBRID", rawResults.size(), results.size(), searchRequest.minScore());
         List<VectorSearchResult> lastRawResults = rawResults;
         List<VectorSearchResult> lastResults = results;
-        if (hasRelevantResults(rawResults)) {
+        if (hasRelevantResults(results)) {
             recordDiagnostics(RagRetrievalDiagnostics.Strategy.HYBRID,
                     rawResults.size(), results.size(), searchRequest, objectType, objectId,
                     requestedTopK, requestedMinScore, rawResults, results);
@@ -1120,9 +1271,14 @@ public class DefaultRagPipelineService implements RagPipelineService {
                     hybridSearch.apply(enrichedQuery),
                     searchRequest.topK());
             List<VectorSearchResult> enrichedResults = applyMinScore(enrichedRawResults, searchRequest.minScore());
+            logSearchLeg(
+                    "KEYWORD_ENRICHED_HYBRID",
+                    enrichedRawResults.size(),
+                    enrichedResults.size(),
+                    searchRequest.minScore());
             lastRawResults = enrichedRawResults;
             lastResults = enrichedResults;
-            if (hasRelevantResults(enrichedRawResults)) {
+            if (hasRelevantResults(enrichedResults)) {
                 recordDiagnostics(RagRetrievalDiagnostics.Strategy.KEYWORD_ENRICHED_HYBRID,
                         initialResultCount, enrichedResults.size(), searchRequest, objectType, objectId,
                         requestedTopK, requestedMinScore, enrichedRawResults, enrichedResults);
@@ -1133,19 +1289,219 @@ public class DefaultRagPipelineService implements RagPipelineService {
         if (options.semanticFallbackEnabled()) {
             List<VectorSearchResult> semanticRawResults = limitResults(semanticSearch.get(), searchRequest.topK());
             List<VectorSearchResult> semanticResults = applyMinScore(semanticRawResults, searchRequest.minScore());
+            logSearchLeg("SEMANTIC", semanticRawResults.size(), semanticResults.size(), searchRequest.minScore());
             lastRawResults = semanticRawResults;
             lastResults = semanticResults;
-            if (hasRelevantResults(semanticRawResults)) {
+            if (hasRelevantResults(semanticResults)) {
                 recordDiagnostics(RagRetrievalDiagnostics.Strategy.SEMANTIC,
                         initialResultCount, semanticResults.size(), searchRequest, objectType, objectId,
                         requestedTopK, requestedMinScore, semanticRawResults, semanticResults);
                 return semanticResults;
             }
         }
+        List<VectorSearchResult> lexicalRescueResults = objectLexicalRescue(
+                query,
+                enrichedQuery,
+                searchRequest,
+                objectType,
+                objectId);
+        if (hasRelevantResults(lexicalRescueResults)) {
+            logSearchLeg("OBJECT_LEXICAL_RESCUE", lexicalRescueResults.size(), lexicalRescueResults.size(), 0.0d);
+            recordDiagnostics(RagRetrievalDiagnostics.Strategy.OBJECT_LEXICAL_RESCUE,
+                    initialResultCount, lexicalRescueResults.size(), searchRequest, objectType, objectId,
+                    requestedTopK, requestedMinScore, lexicalRescueResults, lexicalRescueResults);
+            return lexicalRescueResults;
+        }
         recordDiagnostics(RagRetrievalDiagnostics.Strategy.NONE,
                 initialResultCount, 0, searchRequest, objectType, objectId,
                 requestedTopK, requestedMinScore, lastRawResults, lastResults);
         return List.of();
+    }
+
+    private List<VectorSearchResult> objectLexicalRescue(
+            String query,
+            String enrichedQuery,
+            VectorSearchRequest searchRequest,
+            String objectType,
+            String objectId) {
+        if (objectType == null || objectType.isBlank() || objectId == null || objectId.isBlank()) {
+            logLexicalRescueDecision("INCOMPLETE_OBJECT_SCOPE", 0, 0);
+            return List.of();
+        }
+        MetadataFilter filter = searchRequest.metadataFilter();
+        if (!filter.rangeCriteria().isEmpty()) {
+            logLexicalRescueDecision("RANGE_FILTER_PRESENT", 0, 0);
+            return List.of();
+        }
+        List<String> terms = lexicalRescueTerms(query, enrichedQuery);
+        if (terms.isEmpty()) {
+            logLexicalRescueDecision("NO_BOUNDED_TERMS", 0, 0);
+            return List.of();
+        }
+        int candidateLimit = Math.min(
+                Math.max(searchRequest.topK() * 3, searchRequest.topK()),
+                MAX_LEXICAL_RESCUE_CANDIDATES_PER_TERM);
+        Map<String, VectorSearchResult> candidates = new LinkedHashMap<>();
+        for (String term : terms) {
+            List<VectorSearchResult> matches = vectorStorePort.listByObject(
+                    objectType,
+                    objectId,
+                    term,
+                    0,
+                    candidateLimit);
+            if (matches == null || matches.isEmpty()) {
+                continue;
+            }
+            for (VectorSearchResult candidate : matches) {
+                if (!matchesLexicalRescueFilter(candidate, filter)
+                        || !containsTerm(candidate.document().content(), term)) {
+                    continue;
+                }
+                candidates.putIfAbsent(lexicalRescueKey(candidate), candidate);
+            }
+        }
+        logLexicalRescueDecision("CANDIDATES_COLLECTED", terms.size(), candidates.size());
+        return candidates.values().stream()
+                .map(candidate -> withLexicalRescueScore(candidate, terms))
+                .filter(candidate -> candidate.score() > 0.0d)
+                .sorted(Comparator.comparingDouble(VectorSearchResult::score).reversed())
+                .limit(searchRequest.topK())
+                .toList();
+    }
+
+    private void logLexicalRescueDecision(String reason, int termCount, int candidateCount) {
+        if (diagnosticsOptions.logResults() && log.isDebugEnabled()) {
+            log.debug(
+                    "RAG object lexical rescue reason={}, termCount={}, candidateCount={}",
+                    reason,
+                    termCount,
+                    candidateCount);
+        }
+    }
+
+    private List<String> lexicalRescueTerms(String query, String enrichedQuery) {
+        Map<String, Boolean> terms = new LinkedHashMap<>();
+        collectLexicalRescueTerms(query, terms);
+        if (!Objects.equals(query, enrichedQuery)) {
+            collectLexicalRescueTerms(enrichedQuery, terms);
+        }
+        return terms.keySet().stream().limit(MAX_LEXICAL_RESCUE_TERMS).toList();
+    }
+
+    private void collectLexicalRescueTerms(String source, Map<String, Boolean> terms) {
+        if (source == null || source.isBlank() || terms.size() >= MAX_LEXICAL_RESCUE_TERMS) {
+            return;
+        }
+        String normalized = source.toLowerCase(Locale.ROOT)
+                .replaceAll("[^\\p{L}\\p{N}]+", " ");
+        for (String token : normalized.split("\\s+")) {
+            String term = stripKoreanQuerySuffix(token);
+            if (term.length() < 2 || LEXICAL_RESCUE_STOP_WORDS.contains(term)) {
+                continue;
+            }
+            terms.putIfAbsent(term, Boolean.TRUE);
+            if (term.endsWith("광") && term.length() >= 3) {
+                terms.putIfAbsent(term.substring(0, term.length() - 1), Boolean.TRUE);
+            }
+            if (terms.size() >= MAX_LEXICAL_RESCUE_TERMS) {
+                return;
+            }
+        }
+    }
+
+    private String stripKoreanQuerySuffix(String token) {
+        String result = token == null ? "" : token.trim();
+        for (String suffix : KOREAN_QUERY_SUFFIXES) {
+            if (result.length() > suffix.length() + 1 && result.endsWith(suffix)) {
+                return result.substring(0, result.length() - suffix.length());
+            }
+        }
+        return result;
+    }
+
+    private boolean matchesLexicalRescueFilter(VectorSearchResult candidate, MetadataFilter filter) {
+        Map<String, Object> metadata = candidate.document().metadata();
+        boolean sameLogicalDeployment = sameMetadataValue(
+                metadata.get(VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID),
+                filter.equalsCriteria().get(VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID));
+        for (Map.Entry<String, Object> criterion : filter.equalsCriteria().entrySet()) {
+            if (isObjectScopeKey(criterion.getKey())) {
+                continue;
+            }
+            if (VectorRecord.KEY_EMBEDDING_SPACE_ID_V2.equals(criterion.getKey())
+                    && sameLogicalDeployment
+                    && sameMetadataValue(
+                            metadata.get(VectorRecord.KEY_EMBEDDING_DIMENSION),
+                            filter.equalsCriteria().get(VectorRecord.KEY_EMBEDDING_DIMENSION))) {
+                continue;
+            }
+            if (!sameMetadataValue(metadata.get(criterion.getKey()), criterion.getValue())) {
+                return false;
+            }
+        }
+        for (Map.Entry<String, List<Object>> criterion : filter.inCriteria().entrySet()) {
+            if (isObjectScopeKey(criterion.getKey())) {
+                continue;
+            }
+            String actual = Objects.toString(metadata.get(criterion.getKey()), null);
+            boolean matched = criterion.getValue().stream()
+                    .map(value -> Objects.toString(value, null))
+                    .anyMatch(value -> Objects.equals(value, actual));
+            if (!matched) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean sameMetadataValue(Object actual, Object expected) {
+        return expected != null
+                && Objects.equals(Objects.toString(actual, null), Objects.toString(expected, null));
+    }
+
+    private boolean containsTerm(String content, String term) {
+        return content != null && content.toLowerCase(Locale.ROOT).contains(term);
+    }
+
+    private String lexicalRescueKey(VectorSearchResult candidate) {
+        Map<String, Object> metadata = candidate.document().metadata();
+        for (String key : List.of("_vectorRowId", "chunkId", "documentChunkId", "_documentChunkId")) {
+            Object value = metadata.get(key);
+            if (value != null && !Objects.toString(value, "").isBlank()) {
+                return key + ":" + value;
+            }
+        }
+        return candidate.document().id() + ":" + Integer.toHexString(candidate.document().content().hashCode());
+    }
+
+    private VectorSearchResult withLexicalRescueScore(VectorSearchResult candidate, List<String> terms) {
+        String content = candidate.document().content().toLowerCase(Locale.ROOT);
+        long matchedTerms = terms.stream().filter(content::contains).count();
+        double score = terms.isEmpty() ? 0.0d : (double) matchedTerms / terms.size();
+        Map<String, Object> metadata = new HashMap<>(candidate.document().metadata());
+        metadata.put("retrievalStrategy", RagRetrievalDiagnostics.Strategy.OBJECT_LEXICAL_RESCUE.value());
+        metadata.put("retrievalScoreKind", "lexical_coverage");
+        metadata.put("_matchedQueryTerms", terms.stream()
+                .filter(content::contains)
+                .limit(MAX_LEXICAL_RESCUE_TERMS)
+                .toList());
+        VectorDocument document = new VectorDocument(
+                candidate.document().id(),
+                candidate.document().content(),
+                Map.copyOf(metadata),
+                candidate.document().embedding());
+        return new VectorSearchResult(document, score);
+    }
+
+    private boolean isObjectScopeKey(String key) {
+        return "objectType".equals(key) || "objectId".equals(key);
+    }
+
+    private void logSearchLeg(String strategy, int rawCount, int acceptedCount, double threshold) {
+        if (diagnosticsOptions.logResults() && log.isDebugEnabled()) {
+            log.debug("RAG retrieval leg strategy={}, rawCount={}, acceptedCount={}, threshold={}",
+                    strategy, rawCount, acceptedCount, threshold);
+        }
     }
 
     private List<VectorSearchResult> limitResults(List<VectorSearchResult> results, int topK) {
@@ -1247,7 +1603,9 @@ public class DefaultRagPipelineService implements RagPipelineService {
             }
             return String.join(" ", uniqueTerms);
         } catch (Exception ex) {
-            log.debug("Failed to extract keywords for RAG search fallback. query={}", query, ex);
+            log.debug("Failed to extract keywords for RAG search fallback. queryLength={}, errorType={}",
+                    query == null ? 0 : query.length(),
+                    ex.getClass().getSimpleName());
             return query;
         }
     }
@@ -1342,20 +1700,19 @@ public class DefaultRagPipelineService implements RagPipelineService {
             return;
         }
         log.debug("RAG retrieval diagnostics strategy={}, initialResultCount={}, finalResultCount={}, minScore={}, "
-                        + "vectorWeight={}, lexicalWeight={}, objectType={}, objectId={}, topK={}",
+                        + "vectorWeight={}, lexicalWeight={}, topK={}",
                 diagnostics.strategy().value(),
                 diagnostics.initialResultCount(),
                 diagnostics.finalResultCount(),
                 diagnostics.minScore(),
                 diagnostics.vectorWeight(),
                 diagnostics.lexicalWeight(),
-                diagnostics.objectType(),
-                diagnostics.objectId(),
                 diagnostics.topK());
-        results.stream().limit(diagnostics.topK()).forEach(result ->
-                log.debug("RAG diagnostic hit docId={}, score={}",
-                        result.document().id(),
-                        String.format("%.3f", result.score())));
+        if (!results.isEmpty()) {
+            log.debug("RAG diagnostic hits count={}, topScore={}",
+                    Math.min(results.size(), diagnostics.topK()),
+                    String.format("%.3f", results.get(0).score()));
+        }
     }
 
     private int safeSize(List<VectorSearchResult> results) {
