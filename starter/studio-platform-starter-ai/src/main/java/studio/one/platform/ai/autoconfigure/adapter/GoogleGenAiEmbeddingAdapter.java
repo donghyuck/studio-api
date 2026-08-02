@@ -1,5 +1,6 @@
 package studio.one.platform.ai.autoconfigure.adapter;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -8,6 +9,7 @@ import java.util.Objects;
 import com.google.genai.types.ContentEmbedding;
 import com.google.genai.types.EmbedContentConfig;
 import com.google.genai.types.EmbedContentResponse;
+import com.google.genai.types.HttpOptions;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPurpose;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
@@ -31,6 +33,7 @@ public final class GoogleGenAiEmbeddingAdapter implements EmbeddingPort {
     }
 
     private static final String PROVIDER_DEFAULT = "provider-default";
+    private static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
     private final Client client;
     private final String modelEndpoint;
@@ -40,6 +43,7 @@ public final class GoogleGenAiEmbeddingAdapter implements EmbeddingPort {
     private final String queryTaskType;
     private final String defaultTaskType;
     private final boolean taskTypeSupported;
+    private final int requestTimeoutMillis;
 
     public GoogleGenAiEmbeddingAdapter(
             org.springframework.ai.google.genai.embedding.GoogleGenAiEmbeddingConnectionDetails connectionDetails,
@@ -50,6 +54,26 @@ public final class GoogleGenAiEmbeddingAdapter implements EmbeddingPort {
             String defaultTaskType,
             boolean taskTypeSupported) {
         this(
+                connectionDetails,
+                configuredModel,
+                configuredDimension,
+                indexTaskType,
+                queryTaskType,
+                defaultTaskType,
+                taskTypeSupported,
+                DEFAULT_REQUEST_TIMEOUT);
+    }
+
+    public GoogleGenAiEmbeddingAdapter(
+            org.springframework.ai.google.genai.embedding.GoogleGenAiEmbeddingConnectionDetails connectionDetails,
+            String configuredModel,
+            Integer configuredDimension,
+            String indexTaskType,
+            String queryTaskType,
+            String defaultTaskType,
+            boolean taskTypeSupported,
+            Duration requestTimeout) {
+        this(
                 (model, texts, config) ->
                         connectionDetails.getGenAiClient().models.embedContent(model, texts, config),
                 connectionDetails.getModelEndpointName(configuredModel),
@@ -58,7 +82,8 @@ public final class GoogleGenAiEmbeddingAdapter implements EmbeddingPort {
                 indexTaskType,
                 queryTaskType,
                 defaultTaskType,
-                taskTypeSupported);
+                taskTypeSupported,
+                requestTimeout);
     }
 
     GoogleGenAiEmbeddingAdapter(
@@ -70,6 +95,28 @@ public final class GoogleGenAiEmbeddingAdapter implements EmbeddingPort {
             String queryTaskType,
             String defaultTaskType,
             boolean taskTypeSupported) {
+        this(
+                client,
+                modelEndpoint,
+                configuredModel,
+                configuredDimension,
+                indexTaskType,
+                queryTaskType,
+                defaultTaskType,
+                taskTypeSupported,
+                DEFAULT_REQUEST_TIMEOUT);
+    }
+
+    GoogleGenAiEmbeddingAdapter(
+            Client client,
+            String modelEndpoint,
+            String configuredModel,
+            Integer configuredDimension,
+            String indexTaskType,
+            String queryTaskType,
+            String defaultTaskType,
+            boolean taskTypeSupported,
+            Duration requestTimeout) {
         this.client = Objects.requireNonNull(client, "client");
         this.modelEndpoint = requireText(modelEndpoint, "modelEndpoint");
         this.configuredModel = requireText(configuredModel, "configuredModel");
@@ -78,6 +125,7 @@ public final class GoogleGenAiEmbeddingAdapter implements EmbeddingPort {
         this.queryTaskType = normalizeTaskType(queryTaskType);
         this.defaultTaskType = normalizeTaskType(defaultTaskType);
         this.taskTypeSupported = taskTypeSupported;
+        this.requestTimeoutMillis = timeoutMillis(requestTimeout);
     }
 
     @Override
@@ -97,6 +145,7 @@ public final class GoogleGenAiEmbeddingAdapter implements EmbeddingPort {
         if (taskType != null) {
             config.taskType(taskType);
         }
+        config.httpOptions(HttpOptions.builder().timeout(requestTimeoutMillis));
 
         EmbedContentResponse providerResponse =
                 client.embed(modelEndpoint, request.texts(), config.build());
@@ -159,5 +208,20 @@ public final class GoogleGenAiEmbeddingAdapter implements EmbeddingPort {
             throw new IllegalArgumentException(field + " must not be blank");
         }
         return value.trim();
+    }
+
+    private static int timeoutMillis(Duration requestTimeout) {
+        Duration timeout = requestTimeout == null ? DEFAULT_REQUEST_TIMEOUT : requestTimeout;
+        if (timeout.isZero() || timeout.isNegative()) {
+            throw new IllegalArgumentException("requestTimeout must be positive");
+        }
+        long millis = timeout.toMillis();
+        if (millis == 0L) {
+            throw new IllegalArgumentException("requestTimeout must be at least 1ms");
+        }
+        if (millis > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("requestTimeout exceeds Google GenAI SDK limit");
+        }
+        return Math.toIntExact(millis);
     }
 }

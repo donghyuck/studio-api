@@ -53,8 +53,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
@@ -1000,6 +1002,7 @@ class RagPipelineServiceTest {
         assertThat(searchRequest.getValue().metadataFilter().equalsCriteria())
                 .containsEntry(VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, "es:v1:test-space")
                 .containsEntry(VectorRecord.KEY_EMBEDDING_DIMENSION, 768)
+                .containsEntry(VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID, "humanities-text-v1")
                 .doesNotContainKey(VectorRecord.KEY_EMBEDDING_PROFILE_ID);
     }
 
@@ -1305,7 +1308,7 @@ class RagPipelineServiceTest {
     }
 
     @Test
-    void shouldNotUseSemanticFallbackWhenRawHybridResultsAreRelevantBeforeMinScoreCutoff() {
+    void shouldUseSemanticFallbackWhenRawHybridResultsAreRejectedByMinScoreCutoff() {
         ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.2d, 0.15d, false, true, 3, 20, 100));
         RagSearchRequest request = new RagSearchRequest(
@@ -1321,11 +1324,202 @@ class RagPipelineServiceTest {
         when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
                 .thenReturn(List.of(new VectorSearchResult(
                         new VectorDocument("doc-hybrid-low", "weak hybrid", Map.of(), List.of()), 0.5)));
+        when(vectorStorePort.search(any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-semantic", "semantic", Map.of(), List.of()), 0.9)));
 
         List<RagSearchResult> results = ragPipelineService.search(request);
 
-        assertThat(results).isEmpty();
-        verify(vectorStorePort, never()).search(any(VectorSearchRequest.class));
+        assertThat(results)
+                .extracting(RagSearchResult::documentId)
+                .containsExactly("doc-semantic");
+        verify(vectorStorePort).search(any(VectorSearchRequest.class));
+    }
+
+    @Test
+    void shouldUseObjectScopedLexicalRescueAfterVectorSearchLegsAreRejected() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                new RagPipelineOptions(0.7d, 0.3d, 0.15d, 0.15d, false, true, 3, 20, 100));
+        RagSearchRequest request = new RagSearchRequest(
+                "트럼프는 전쟁광인가",
+                3,
+                MetadataFilter.objectScope("attachment", "11"),
+                null,
+                null,
+                null,
+                0.15d);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearchByObject(
+                anyString(), eq("attachment"), eq("11"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "unrelated", Map.of(), List.of()), 0.10d)));
+        when(vectorStorePort.searchByObject(eq("attachment"), eq("11"), any(VectorSearchRequest.class)))
+                .thenReturn(List.of());
+        when(vectorStorePort.listByObject(eq("attachment"), eq("11"), eq("트럼프"), eq(0), anyInt()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument(
+                                "doc-rescue",
+                                "트럼프는 자신이 전쟁을 끝내려 한다고 주장했지만 문서는 군사 개입에 대한 비판도 함께 제시한다.",
+                                Map.of("chunkId", "chunk-11"),
+                                List.of()),
+                        1.0d)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).singleElement().satisfies(result -> {
+            assertThat(result.documentId()).isEqualTo("doc-rescue");
+            assertThat(result.score()).isGreaterThan(0.0d);
+            assertThat(result.metadata())
+                    .containsEntry("retrievalStrategy", "object_lexical_rescue")
+                    .containsEntry("retrievalScoreKind", "lexical_coverage");
+        });
+    }
+
+    @Test
+    void shouldNotUseLexicalRescueWithoutCompleteObjectScope() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                new RagPipelineOptions(0.7d, 0.3d, 0.15d, 0.15d, false, true, 3, 20, 100));
+        RagSearchRequest request = new RagSearchRequest(
+                "트럼프는 전쟁광인가",
+                3,
+                MetadataFilter.objectScope("attachment", null),
+                null,
+                null,
+                null,
+                0.15d);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearchByObject(
+                anyString(), eq("attachment"), isNull(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of());
+        when(vectorStorePort.searchByObject(eq("attachment"), isNull(), any(VectorSearchRequest.class)))
+                .thenReturn(List.of());
+
+        assertThat(ragPipelineService.search(request)).isEmpty();
+
+        verify(vectorStorePort, never()).listByObject(
+                anyString(), anyString(), anyString(), anyInt(), anyInt());
+    }
+
+    @Test
+    void shouldRejectLexicalRescueCandidateFromDifferentEmbeddingSpace() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                new RagPipelineOptions(0.7d, 0.3d, 0.15d, 0.15d, false, true, 3, 20, 100));
+        MetadataFilter filter = MetadataFilter.of(
+                Map.of(
+                        "objectType", "attachment",
+                        "objectId", "11",
+                        VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, "space-current"),
+                Map.of(),
+                Map.of());
+        RagSearchRequest request = new RagSearchRequest(
+                "트럼프는 전쟁광인가",
+                3,
+                filter,
+                null,
+                null,
+                null,
+                0.15d);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearchByObject(
+                anyString(), eq("attachment"), eq("11"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of());
+        when(vectorStorePort.searchByObject(eq("attachment"), eq("11"), any(VectorSearchRequest.class)))
+                .thenReturn(List.of());
+        when(vectorStorePort.listByObject(eq("attachment"), eq("11"), eq("트럼프"), eq(0), anyInt()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument(
+                                "doc-old-space",
+                                "트럼프와 전쟁에 관한 구간",
+                                Map.of(VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, "space-old"),
+                                List.of()),
+                        1.0d)));
+
+        assertThat(ragPipelineService.search(request)).isEmpty();
+    }
+
+    @Test
+    void shouldAllowLexicalRescueFromPriorSpaceOfSameLogicalDeploymentAndDimension() {
+        RagEmbeddingProfileResolver resolver = selection -> new ResolvedRagEmbedding(
+                embeddingPort,
+                "document-multimodal-v1",
+                "google-ai",
+                "gemini-embedding-2",
+                768,
+                selection.inputType(),
+                "google/gemini-embedding-2",
+                "space-current",
+                "document-multimodal-v1",
+                "google/gemini-embedding-2",
+                "v1");
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                null,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                new RagPipelineOptions(0.7d, 0.3d, 0.15d, 0.15d, false, true, 3, 20, 100),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults(),
+                resolver);
+        RagSearchRequest request = new RagSearchRequest(
+                "트럼프는 전쟁광인가",
+                3,
+                MetadataFilter.objectScope("attachment", "11"),
+                null,
+                null,
+                null,
+                0.15d,
+                3,
+                0.15d,
+                true,
+                "document-multimodal-v1");
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearchByObject(
+                anyString(), eq("attachment"), eq("11"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of());
+        when(vectorStorePort.searchByObject(eq("attachment"), eq("11"), any(VectorSearchRequest.class)))
+                .thenReturn(List.of());
+        when(vectorStorePort.listByObject(eq("attachment"), eq("11"), eq("트럼프"), eq(0), anyInt()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument(
+                                "doc-prior-space",
+                                "트럼프와 전쟁에 관한 구간",
+                                Map.of(
+                                        VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, "space-prior",
+                                        VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID, "document-multimodal-v1",
+                                        VectorRecord.KEY_EMBEDDING_DIMENSION, 768),
+                                List.of()),
+                        1.0d)));
+
+        assertThat(ragPipelineService.search(request))
+                .singleElement()
+                .satisfies(result -> assertThat(result.metadata())
+                        .containsEntry("retrievalStrategy", "object_lexical_rescue"));
     }
 
     @Test
@@ -1581,11 +1775,10 @@ class RagPipelineServiceTest {
         assertThat(appender.list)
                 .extracting(ILoggingEvent::getFormattedMessage)
                 .anySatisfy(message -> assertThat(message)
-                        .contains("docId=doc-1")
-                        .contains("score=0.900"))
-                .noneSatisfy(message -> assertThat(message)
-                        .contains("private body snippet")
-                        .contains("snippet="));
+                        .contains("hits count=1")
+                        .contains("topScore=0.900"))
+                .allSatisfy(message -> assertThat(message)
+                        .doesNotContain("doc-1", "private body snippet", "snippet="));
     }
 
     @Test

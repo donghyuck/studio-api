@@ -1,6 +1,7 @@
 package studio.one.platform.ai.web.controller;
 
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 /**
  * Classifies an object-scoped RAG query without adding another model call.
@@ -18,7 +19,8 @@ public interface RagQueryIntentClassifier {
         DOCUMENT_METADATA,
         DOCUMENT_SUMMARY,
         KEY_POINTS,
-        INTERPRETIVE_ANALYSIS
+        INTERPRETIVE_ANALYSIS,
+        FACTUAL_LIST
     }
 
     record Classification(Intent intent, double confidence, String reason) {
@@ -26,6 +28,15 @@ public interface RagQueryIntentClassifier {
 }
 
 final class RuleBasedRagQueryIntentClassifier implements RagQueryIntentClassifier {
+
+    private static final Pattern RELATION_MARKER = Pattern.compile(
+            "(?:관련\\s*있는|관련된|연관\\s*있는|연관된|언급된|등장하는"
+                    + "|관련\\s+|연관\\s+"
+                    + "|related\\s+to|related\\s+|associated\\s+with|mentioned\\s+in)");
+    private static final Pattern RELATIONAL_TOPIC_ENDING = Pattern.compile(
+            ".*\\s+[^\\s?？.]{1,40}(?:은|는|이|가|들은|들이)[?？]?$");
+    private static final Pattern POSSESSIVE_TOPIC_ENDING = Pattern.compile(
+            ".*\\S+의\\s+\\S+(?:은|는|이|가)[?？]?$");
 
     @Override
     public Classification classify(String query) {
@@ -59,7 +70,47 @@ final class RuleBasedRagQueryIntentClassifier implements RagQueryIntentClassifie
                 "character motivation", "symbolism")) {
             return new Classification(Intent.INTERPRETIVE_ANALYSIS, 0.92d, "INTERPRETIVE_PHRASE");
         }
+        if (hasExplicitRelationalListCue(normalized)) {
+            return new Classification(Intent.FACTUAL_LIST, 0.91d, "RELATIONAL_LIST_STRUCTURE");
+        }
+        if (normalized.matches(".*(?:은|는|이|가)\\s*[^?？.]+(?:인가|한가)[?？]?$")
+                || normalized.contains("라고 볼 수 있는가")
+                || normalized.contains("로 볼 수 있는가")
+                || normalized.contains("으로 볼 수 있는가")
+                || normalized.contains("로 평가할 수 있는가")
+                || normalized.contains("으로 평가할 수 있는가")) {
+            return new Classification(Intent.INTERPRETIVE_ANALYSIS, 0.90d, "EVALUATIVE_QUESTION");
+        }
+        if (looksLikeRelationalListQuery(normalized)) {
+            return new Classification(Intent.FACTUAL_LIST, 0.91d, "RELATIONAL_LIST_STRUCTURE");
+        }
         return new Classification(Intent.CONTENT_QA, 0.80d, "DEFAULT_CONTENT_QA");
+    }
+
+    private boolean looksLikeRelationalListQuery(String value) {
+        if (containsAny(value,
+                "which scholars",
+                "mentioned researchers",
+                "related scholars",
+                "people associated with",
+                "people related to")) {
+            return true;
+        }
+        if (!RELATION_MARKER.matcher(value).find()) {
+            return value.contains("누구들이");
+        }
+        if (hasExplicitRelationalListCue(value)) {
+            return true;
+        }
+        return RELATIONAL_TOPIC_ENDING.matcher(value).matches()
+                && !POSSESSIVE_TOPIC_ENDING.matcher(value).matches();
+    }
+
+    private boolean hasExplicitRelationalListCue(String value) {
+        return RELATION_MARKER.matcher(value).find()
+                && containsAny(value,
+                        "누구", "무엇", "어떤", "목록", "나열", "알려", "찾아", "정리", "말해",
+                        "who", "which", "what", "list");
     }
 
     private boolean containsAny(String value, String... candidates) {

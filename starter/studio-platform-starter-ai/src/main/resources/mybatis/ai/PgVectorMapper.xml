@@ -96,17 +96,19 @@
   </sql>
 
   <insert id="upsertChunk" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorChunkParameter">
-    INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding, embedding_dimension)
+    INSERT INTO tb_ai_document_chunk(
+      object_type, object_id, partition_id, chunk_index, text, metadata, embedding, embedding_dimension)
     VALUES (
       #{objectType,jdbcType=VARCHAR},
       #{objectId,jdbcType=VARCHAR},
+      COALESCE(CAST(#{metadata,jdbcType=VARCHAR} AS jsonb)-&gt;&gt;'partitionId', ''),
       #{chunkIndex},
       #{text,jdbcType=VARCHAR},
       CAST(#{metadata,jdbcType=VARCHAR} AS jsonb),
       #{embedding,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler},
       #{embeddingDimension}
     )
-    ON CONFLICT (object_type, object_id, chunk_index)
+    ON CONFLICT (object_type, object_id, partition_id, chunk_index)
     DO UPDATE SET
       text = EXCLUDED.text,
       metadata = EXCLUDED.metadata,
@@ -115,12 +117,14 @@
   </insert>
 
   <insert id="upsertChunks">
-    INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding, embedding_dimension)
+    INSERT INTO tb_ai_document_chunk(
+      object_type, object_id, partition_id, chunk_index, text, metadata, embedding, embedding_dimension)
     VALUES
     <foreach collection="chunks" item="chunk" separator=",">
       (
         #{chunk.objectType,jdbcType=VARCHAR},
         #{chunk.objectId,jdbcType=VARCHAR},
+        COALESCE(CAST(#{chunk.metadata,jdbcType=VARCHAR} AS jsonb)-&gt;&gt;'partitionId', ''),
         #{chunk.chunkIndex},
         #{chunk.text,jdbcType=VARCHAR},
         CAST(#{chunk.metadata,jdbcType=VARCHAR} AS jsonb),
@@ -128,7 +132,7 @@
         #{chunk.embeddingDimension}
       )
     </foreach>
-    ON CONFLICT (object_type, object_id, chunk_index)
+    ON CONFLICT (object_type, object_id, partition_id, chunk_index)
     DO UPDATE SET
       text = EXCLUDED.text,
       metadata = EXCLUDED.metadata,
@@ -150,6 +154,13 @@
     DELETE FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
       AND object_id = #{objectId,jdbcType=VARCHAR}
+  </delete>
+
+  <delete id="deleteByObjectPartition">
+    DELETE FROM tb_ai_document_chunk
+    WHERE object_type = #{objectType,jdbcType=VARCHAR}
+      AND object_id = #{objectId,jdbcType=VARCHAR}
+      AND partition_id = #{partitionId,jdbcType=VARCHAR}
   </delete>
 
   <select id="searchByObject" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchParameter"

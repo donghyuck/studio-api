@@ -1,0 +1,165 @@
+ALTER TABLE web_knowledge_source
+    ADD COLUMN IF NOT EXISTS collection_mode VARCHAR(32) NOT NULL DEFAULT 'SINGLE_PAGE',
+    ADD COLUMN IF NOT EXISTS crawl_policy_json LONGTEXT NULL,
+    ADD COLUMN IF NOT EXISTS crawl_policy_hash VARCHAR(64) NULL,
+    ADD COLUMN IF NOT EXISTS current_corpus_revision_id VARCHAR(80) NULL;
+
+CREATE TABLE IF NOT EXISTS web_knowledge_crawl_run (
+    run_id VARCHAR(80) NOT NULL PRIMARY KEY,
+    workspace_id BIGINT NOT NULL,
+    source_id VARCHAR(80) NOT NULL,
+    retry_of_run_id VARCHAR(80) NULL,
+    status VARCHAR(32) NOT NULL,
+    policy_json LONGTEXT NOT NULL,
+    policy_hash VARCHAR(64) NOT NULL,
+    requested_by VARCHAR(160) NULL,
+    discovered_count INT NOT NULL DEFAULT 0,
+    fetched_count INT NOT NULL DEFAULT 0,
+    indexed_count INT NOT NULL DEFAULT 0,
+    unchanged_count INT NOT NULL DEFAULT 0,
+    updated_count INT NOT NULL DEFAULT 0,
+    removed_count INT NOT NULL DEFAULT 0,
+    failed_count INT NOT NULL DEFAULT 0,
+    skipped_count INT NOT NULL DEFAULT 0,
+    response_bytes BIGINT NOT NULL DEFAULT 0,
+    normalized_chars BIGINT NOT NULL DEFAULT 0,
+    truncated BOOLEAN NOT NULL DEFAULT FALSE,
+    truncation_reason VARCHAR(80) NULL,
+    error_code VARCHAR(80) NULL,
+    cancel_requested_at TIMESTAMP(6) NULL,
+    lease_owner VARCHAR(160) NULL,
+    lease_expires_at TIMESTAMP(6) NULL,
+    heartbeat_at TIMESTAMP(6) NULL,
+    attempt_no INT NOT NULL DEFAULT 0,
+    started_at TIMESTAMP(6) NULL,
+    completed_at TIMESTAMP(6) NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    updated_at TIMESTAMP(6) NOT NULL,
+    lock_version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_web_crawl_run_source FOREIGN KEY (source_id) REFERENCES web_knowledge_source(source_id),
+    INDEX idx_web_crawl_run_source_status (workspace_id, source_id, status, updated_at),
+    INDEX idx_web_crawl_run_lease (status, lease_expires_at)
+);
+
+CREATE TABLE IF NOT EXISTS web_knowledge_crawl_item (
+    item_id VARCHAR(80) NOT NULL PRIMARY KEY,
+    workspace_id BIGINT NOT NULL,
+    run_id VARCHAR(80) NOT NULL,
+    source_id VARCHAR(80) NOT NULL,
+    normalized_url VARCHAR(2048) NOT NULL,
+    normalized_url_hash VARCHAR(64) NOT NULL,
+    parent_url_hash VARCHAR(64) NULL,
+    depth INT NOT NULL,
+    discovery_order INT NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    page_id VARCHAR(80) NULL,
+    page_revision_id VARCHAR(80) NULL,
+    error_code VARCHAR(80) NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    updated_at TIMESTAMP(6) NOT NULL,
+    lock_version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_web_crawl_item_run FOREIGN KEY (run_id) REFERENCES web_knowledge_crawl_run(run_id),
+    CONSTRAINT fk_web_crawl_item_source FOREIGN KEY (source_id) REFERENCES web_knowledge_source(source_id),
+    UNIQUE INDEX uk_web_crawl_item_url (run_id, normalized_url_hash),
+    INDEX idx_web_crawl_item_frontier (run_id, status, depth, discovery_order)
+);
+
+CREATE TABLE IF NOT EXISTS web_knowledge_page (
+    page_id VARCHAR(80) NOT NULL PRIMARY KEY,
+    workspace_id BIGINT NOT NULL,
+    source_id VARCHAR(80) NOT NULL,
+    normalized_url VARCHAR(2048) NOT NULL,
+    normalized_url_hash VARCHAR(64) NOT NULL,
+    canonical_url VARCHAR(2048) NULL,
+    canonical_url_hash VARCHAR(64) NULL,
+    current_page_revision_id VARCHAR(80) NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    missing_run_count INT NOT NULL DEFAULT 0,
+    first_seen_at TIMESTAMP(6) NOT NULL,
+    last_seen_at TIMESTAMP(6) NOT NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    updated_at TIMESTAMP(6) NOT NULL,
+    lock_version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_web_page_source FOREIGN KEY (source_id) REFERENCES web_knowledge_source(source_id),
+    UNIQUE INDEX uk_web_page_url (workspace_id, source_id, normalized_url_hash),
+    INDEX idx_web_page_source_active (workspace_id, source_id, active, normalized_url_hash)
+);
+
+CREATE TABLE IF NOT EXISTS web_knowledge_page_revision (
+    page_revision_id VARCHAR(80) NOT NULL PRIMARY KEY,
+    workspace_id BIGINT NOT NULL,
+    source_id VARCHAR(80) NOT NULL,
+    page_id VARCHAR(80) NOT NULL,
+    run_id VARCHAR(80) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    title VARCHAR(500) NULL,
+    publisher VARCHAR(300) NULL,
+    language_code VARCHAR(32) NULL,
+    published_at TIMESTAMP(6) NULL,
+    source_modified_at TIMESTAMP(6) NULL,
+    retrieved_at TIMESTAMP(6) NULL,
+    etag VARCHAR(500) NULL,
+    last_modified VARCHAR(500) NULL,
+    content_type VARCHAR(160) NULL,
+    content_length BIGINT NULL,
+    content_hash VARCHAR(64) NULL,
+    normalized_snapshot LONGTEXT NULL,
+    content_preview VARCHAR(500) NULL,
+    metadata_json LONGTEXT NULL,
+    error_code VARCHAR(80) NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    updated_at TIMESTAMP(6) NOT NULL,
+    lock_version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_web_page_revision_source FOREIGN KEY (source_id) REFERENCES web_knowledge_source(source_id),
+    CONSTRAINT fk_web_page_revision_page FOREIGN KEY (page_id) REFERENCES web_knowledge_page(page_id),
+    CONSTRAINT fk_web_page_revision_run FOREIGN KEY (run_id) REFERENCES web_knowledge_crawl_run(run_id),
+    INDEX idx_web_page_revision_run (workspace_id, source_id, run_id, status)
+);
+
+CREATE TABLE IF NOT EXISTS web_knowledge_corpus_revision (
+    corpus_revision_id VARCHAR(80) NOT NULL PRIMARY KEY,
+    workspace_id BIGINT NOT NULL,
+    source_id VARCHAR(80) NOT NULL,
+    run_id VARCHAR(80) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    manifest_hash VARCHAR(64) NOT NULL,
+    policy_hash VARCHAR(64) NOT NULL,
+    embedding_space_id VARCHAR(200) NOT NULL,
+    page_count INT NOT NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    completed_at TIMESTAMP(6) NULL,
+    lock_version BIGINT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_web_corpus_source FOREIGN KEY (source_id) REFERENCES web_knowledge_source(source_id),
+    CONSTRAINT fk_web_corpus_run FOREIGN KEY (run_id) REFERENCES web_knowledge_crawl_run(run_id),
+    INDEX idx_web_corpus_source (workspace_id, source_id, status, created_at)
+);
+
+CREATE TABLE IF NOT EXISTS web_knowledge_corpus_page (
+    corpus_page_id VARCHAR(80) NOT NULL PRIMARY KEY,
+    workspace_id BIGINT NOT NULL,
+    source_id VARCHAR(80) NOT NULL,
+    corpus_revision_id VARCHAR(80) NOT NULL,
+    page_id VARCHAR(80) NOT NULL,
+    page_revision_id VARCHAR(80) NOT NULL,
+    page_order INT NOT NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    CONSTRAINT fk_web_corpus_page_source FOREIGN KEY (source_id) REFERENCES web_knowledge_source(source_id),
+    CONSTRAINT fk_web_corpus_page_corpus FOREIGN KEY (corpus_revision_id)
+        REFERENCES web_knowledge_corpus_revision(corpus_revision_id),
+    CONSTRAINT fk_web_corpus_page_page FOREIGN KEY (page_id) REFERENCES web_knowledge_page(page_id),
+    CONSTRAINT fk_web_corpus_page_revision FOREIGN KEY (page_revision_id)
+        REFERENCES web_knowledge_page_revision(page_revision_id),
+    UNIQUE INDEX uk_web_corpus_page (corpus_revision_id, page_id),
+    INDEX idx_web_corpus_page_manifest (workspace_id, corpus_revision_id, page_order)
+);
+
+CREATE TABLE IF NOT EXISTS web_knowledge_quota_usage (
+    workspace_id BIGINT NOT NULL PRIMARY KEY,
+    source_count BIGINT NOT NULL DEFAULT 0,
+    active_page_count BIGINT NOT NULL DEFAULT 0,
+    normalized_snapshot_bytes BIGINT NOT NULL DEFAULT 0,
+    reserved_page_count BIGINT NOT NULL DEFAULT 0,
+    reserved_snapshot_bytes BIGINT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP(6) NOT NULL,
+    lock_version BIGINT NOT NULL DEFAULT 0
+);

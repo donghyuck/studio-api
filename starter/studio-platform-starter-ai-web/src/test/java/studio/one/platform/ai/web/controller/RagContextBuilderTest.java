@@ -83,7 +83,67 @@ class RagContextBuilderTest {
         assertThat(((List<?>) built.usedResults().get(0).metadata().get("sourceSpans")).stream()
                 .map(value -> Objects.toString(((Map<?, ?>) value).get("chunkId")))
                 .toList())
-                .containsExactly("chunk-1", "chunk-2", "chunk-3");
+                .containsExactly("chunk-2", "chunk-1", "chunk-3");
+    }
+
+    @Test
+    void expandedContextUsesVectorRowIdentityWhenLegacyRowsShareDocumentId() {
+        RagContextBuilder builder = new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList());
+        List<RagSearchResult> candidates = List.of(
+                result("document-11", "author biography", legacyVectorMetadata("row-1", null, "row-2", 0)),
+                result("document-11", "trump war-monger passage", legacyVectorMetadata("row-2", "row-1", "row-3", 1)),
+                result("document-11", "following analysis", legacyVectorMetadata("row-3", "row-2", null, 2)));
+
+        RagContextBuilder.BuildResult built = builder.buildWithDiagnostics(
+                List.of(candidates.get(1)), candidates);
+
+        assertThat(built.usedResults()).hasSize(1);
+        assertThat(((List<?>) built.usedResults().get(0).metadata().get("sourceSpans")).stream()
+                .map(value -> Objects.toString(((Map<?, ?>) value).get("chunkId")))
+                .toList())
+                .containsExactly("row-2", "row-1", "row-3");
+        assertThat(((List<?>) built.usedResults().get(0).metadata().get("sourceSpans")).stream()
+                .map(value -> Objects.toString(((Map<?, ?>) value).get("exactText")))
+                .toList())
+                .containsExactly("trump war-monger passage", "author biography", "following analysis");
+    }
+
+    @Test
+    void compressedExpandedContextKeepsSeedAndRebasesItsSourceSpan() {
+        String previous = "author biography ".repeat(10);
+        String seed = "트럼프는 전쟁광이라는 비판을 받았다.";
+        String next = "following analysis ".repeat(10);
+        RagContextBuilder builder = new RagContextBuilder(
+                8,
+                12_000,
+                80,
+                true,
+                new AiWebRagProperties.ExpansionProperties(),
+                TestWindowChunkContextExpander.asList());
+        List<RagSearchResult> candidates = List.of(
+                result("document-11", previous, legacyVectorMetadata("row-1", null, "row-2", 0)),
+                result("document-11", seed, legacyVectorMetadata("row-2", "row-1", "row-3", 1)),
+                result("document-11", next, legacyVectorMetadata("row-3", "row-2", null, 2)));
+
+        RagContextBuilder.BuildResult built = builder.buildWithDiagnostics(
+                List.of(candidates.get(1)), candidates);
+
+        assertThat(built.usedResults()).hasSize(1);
+        RagSearchResult packed = built.usedResults().get(0);
+        assertThat(packed.content())
+                .hasSize(80)
+                .contains(seed)
+                .doesNotStartWith("author biography");
+        assertThat(((List<?>) packed.metadata().get("sourceSpans")).stream()
+                .map(value -> (Map<?, ?>) value)
+                .findFirst())
+                .get()
+                .satisfies(span -> {
+                    assertThat(span.get("chunkId")).isEqualTo("row-2");
+                    assertThat(span.get("exactText")).isEqualTo(seed);
+                    assertThat(span.get("startOffset")).isEqualTo(packed.content().indexOf(seed));
+                    assertThat(span.get("endOffset")).isEqualTo(packed.content().indexOf(seed) + seed.length());
+                });
     }
 
     @Test
@@ -344,6 +404,20 @@ class RagContextBuilderTest {
                 Map.entry(ChunkMetadata.KEY_OBJECT_TYPE, "attachment"),
                 Map.entry(ChunkMetadata.KEY_OBJECT_ID, "123"),
                 Map.entry(RagContextBuilder.KEY_CHUNK_ID, chunkId),
+                Map.entry(ChunkMetadata.KEY_CHUNK_ORDER, order),
+                Map.entry(ChunkMetadata.KEY_PREVIOUS_CHUNK_ID, previousChunkId == null ? "" : previousChunkId),
+                Map.entry(ChunkMetadata.KEY_NEXT_CHUNK_ID, nextChunkId == null ? "" : nextChunkId));
+    }
+
+    private Map<String, Object> legacyVectorMetadata(
+            String vectorRowId,
+            String previousChunkId,
+            String nextChunkId,
+            int order) {
+        return Map.ofEntries(
+                Map.entry(ChunkMetadata.KEY_OBJECT_TYPE, "attachment"),
+                Map.entry(ChunkMetadata.KEY_OBJECT_ID, "11"),
+                Map.entry("_vectorRowId", vectorRowId),
                 Map.entry(ChunkMetadata.KEY_CHUNK_ORDER, order),
                 Map.entry(ChunkMetadata.KEY_PREVIOUS_CHUNK_ID, previousChunkId == null ? "" : previousChunkId),
                 Map.entry(ChunkMetadata.KEY_NEXT_CHUNK_ID, nextChunkId == null ? "" : nextChunkId));

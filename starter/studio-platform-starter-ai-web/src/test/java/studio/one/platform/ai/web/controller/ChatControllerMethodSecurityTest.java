@@ -20,7 +20,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.web.server.ResponseStatusException;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -95,15 +94,15 @@ class ChatControllerMethodSecurityTest {
     }
 
     @Test
-    void ragChatLetsPartialObjectScopeReachBadRequestValidation() {
+    void ragChatRejectsPartialObjectScopeBeforeControllerExecution() {
         try (SecuredController secured = securedController(Set.of(
                 permission("services:ai_chat", "write"),
                 permission("services:ai_rag", "read")))) {
             ChatController controller = secured.controller();
 
-            assertThrows(ResponseStatusException.class,
+            assertThrows(AccessDeniedException.class,
                     () -> controller.chatWithRag(ragRequest("2001", null), null));
-            assertThrows(ResponseStatusException.class,
+            assertThrows(AccessDeniedException.class,
                     () -> controller.chatWithRag(ragRequest(null, "6"), null));
         }
     }

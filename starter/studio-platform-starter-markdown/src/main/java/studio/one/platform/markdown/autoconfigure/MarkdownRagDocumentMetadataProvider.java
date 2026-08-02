@@ -55,7 +55,7 @@ final class MarkdownRagDocumentMetadataProvider implements RagDocumentMetadataPr
             Map<String, DocumentMetadataField> facts = projection.promptFacts(artifact);
             List<RagSearchResult> results = new ArrayList<>();
             facts.forEach((fieldId, field) -> field.evidence().stream().findFirst()
-                    .filter(evidence -> evidence.blockId() != null
+                    .filter(evidence -> (evidence.blockId() != null || evidence.sourceRef() != null)
                             && evidence.exactText() != null
                             && !evidence.exactText().isBlank())
                     .ifPresent(evidence -> results.add(result(current, artifact, fieldId, field, evidence))));

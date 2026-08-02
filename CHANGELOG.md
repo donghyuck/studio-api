@@ -2,6 +2,73 @@
 
 ## 3.0.0-rc.1
 
+- SITE형 수집 웹 자료의 페이지 revision을 corpus revision과 직접 비교해 검색 결과를 제거하던 문제를
+  수정했다. 선택 corpus의 page partition에 포함되는지를 검증한 뒤 `INDEXED_WEB` 근거로 병합하며,
+  응답에 선택 자료 수와 packed/used origin을 분리한 `evidenceSourceSelection`을 제공한다. 모델이 근거
+  번호를 별도 줄에 출력한 경우에는 기존 번호만 직전 답변 단위에 안전하게 결합하고, 엄격 모드 문장
+  검증은 마침표 뒤 인용도 같은 문장으로 보존한다. 프롬프트는 첨부 문서와 수집한 웹 자료를 모두
+  근거로 명시하고 citation-only 줄 생성을 금지한다.
+- Google GenAI 임베딩 호출에 provider별 `request-timeout`을 실제 SDK call timeout으로 적용하고,
+  재시도 소진 시 `EmbeddingProviderTimeoutException`으로 통일했다. SITE 웹 수집은 시작·fetch·색인 전
+  진행 상태를 독립 트랜잭션으로 확정하며, 임베딩 timeout은 `WEB_CRAWL_EMBEDDING_TIMEOUT`으로 기록해
+  무기한 `PENDING` 대신 제한 시간 안에 실패 상태로 수렴한다.
+- 외부 URL 자료에 기존 `SINGLE_PAGE` 기본값을 유지하면서 선택적인 bounded `SITE` 수집을 추가했다.
+  동일 origin·허용 경로 안에서 sitemap과 HTML link를 durable frontier로 순회하며 page/depth/byte/time,
+  workspace quota, 실행 single-flight와 origin delay를 강제한다. 페이지별 normalized snapshot/revision과
+  vector partition을 만들고 검증된 corpus manifest가 완성된 뒤에만 current corpus를 전환한다.
+  변경 없는 페이지는 재임베딩하지 않으며 실패·취소·잘린 refresh는 기존 corpus를 보존한다.
+  수집 전 bounded preview, run/page 조회와 다음 실행 crawl policy 변경 API를 제공하고 RAG cache는
+  corpus manifest·policy fingerprint를 포함하는 `v9`로 격리한다. 기존 단일 페이지 데이터는 짧은
+  결정적 legacy ID로 metadata-only backfill하며 attachment 색인에는 영향을 주지 않는다. 변경 API는
+  workspace `UPDATE`/`ARCHIVE` 권한을 구분하고, cross-origin redirect를 차단하며, 저장된 RAG 대화는
+  선택했던 모든 웹 source의 현재 접근 권한을 재검사한다.
+- 공개 HTTPS 페이지를 workspace 공유 `web_source`로 비동기 수집·정규화·청킹·색인하고 완료 revision을
+  attachment 또는 독립 RAG Chat의 추가 근거로 선택할 수 있게 했다. SSRF 방지를 위해 최초 URL과 모든
+  same-origin redirect의 scheme·host·A/AAAA 주소를 검증하고 cross-origin redirect,
+  private/loopback/metadata endpoint, 비 HTML MIME,
+  크기·timeout·robots 위반을 차단한다. `INDEXED_WEB`과 `OFFICIAL_EXTERNAL`을 분리하며 문서-외부 비교
+  질의는 양쪽 origin의 packing·인용을 요구한다. cache key는 선택 revision과 embedding identity를
+  포함하는 `v8`로 격리하며 기존 attachment 색인과 데이터는 변경하지 않는다. HTTP connection의 실제
+  DNS resolver가 검증된 공인 주소만 반환하도록 해 사전 DNS 검사와 연결 사이의 rebinding 경계를
+  제거했고, 외부 본문·제목·publisher의 직접 연락처·정부·결제 식별자는 snapshot과 vector 생성 전에
+  결정적으로 마스킹한다. URL 등록 시 embedding deployment와 canonical space도 저장 전에 검증한다.
+- `작가는 누구인가` 같은 서지 질의는 `DOCUMENT_METADATA` artifact를 우선 사용하되, EPUB OPF 등
+  네이티브 메타데이터처럼 본문 block ID 없이 안정적인 source reference만 있는 근거도
+  `SOURCE_VERIFIED`로 제공한다. 과거 문서처럼 metadata artifact가 없으면 빈 결과로 종료하지 않고
+  동일 객체 범위의 기존 RAG 검색으로 fallback한다. 기존 색인과 데이터의 재처리는 필요하지 않다.
+- RAG의 답변 허용 수준과 검색 자료 범위를 분리했다. 기존
+  `STRICT_GROUNDED | GROUNDED_INFERENCE`와 별개로
+  `DOCUMENT_ONLY | DOCUMENT_AND_OFFICIAL_EXTERNAL` source scope를 추가하고, 서버 기본값·상한·
+  provider 가용성으로 유효 범위를 결정한다. 외부자료 비교는 승인된 `ExternalEvidenceProvider`의
+  canonical URL과 exact excerpt만 패킹하며 문서와 외부 근거를 모두 인용해야 한다.
+  기본 공식자료 gateway adapter는 비활성 상태이고 HTTPS endpoint·원문 host exact allowlist,
+  redirect 차단, timeout·응답 크기 상한과 secret 환경변수 주입을 적용한다. 기존 색인·임베딩·DB는
+  변경하지 않으며 cache 계약은 source policy fingerprint를 포함하는 `v7`로 격리한다.
+- RAG 사실 목록 질의를 직업명 사전이 아니라 관계 표현과 질문 종결 구조로 분류한다.
+  `관련있는 수학자는`, `연관된 철학자를 알려줘` 같은 새로운 대상 표현도 별도 단어 추가 없이
+  `FACTUAL_LIST`로 처리하며, 목록 프롬프트는 한 항목당 하나의 대상을 요구한다. 검색된 근거에서
+  조건에 맞는 대상이 없으면 인용 실패로 오표시하지 않고 bounded safe abstention으로 구분한다.
+  검색·packing·인용 응답 스키마는 유지하며 exact cache의 prompt contract는 `rag-grounding-v8`로 격리한다.
+- RAG 검색 fallback이 요청 `minScore` 적용 후 결과가 비었을 때도 keyword-expanded hybrid와 semantic
+  검색을 계속하도록 수정했다. 모든 vector leg가 실패한 완전한 object scope 요청은 동일 객체의 정규화
+  chunk와 embedding metadata filter 안에서만 bounded lexical rescue를 수행한다. `RagAnswerOutcome`으로 검색·packing·인용 실패를 구분하고, 인용 검증
+  실패 시 생성 draft 대신 최대 3개의 bounded `SOURCE_VERIFIED` 원문 후보를 반환한다.
+  `STRICT_GROUNDED`는 문장 단위, `GROUNDED_INFERENCE`는 문단 단위로 인용을 검증한다.
+- 학자·연구자·인물 목록 질의를 `FACTUAL_LIST`로 분류하고 한 항목당 한 명과 인용을 요구한다.
+  순수 목록에서 일부 항목만 인용이 누락된 경우에는 서버 설정으로 활성화한 때에만 해당 항목을 제거하고
+  남은 canonical 목록을 다시 검증한다. 범위 밖 인용, 서술형 응답과 다른 intent는 기존 전체 실패
+  정책을 유지한다. 부분 결과 정보는 sync, SSE, exact cache와 대화 metadata에서 동일하게 보존한다.
+- 동일한 논리 embedding deployment·차원의 기존 색인은 fingerprint가 변경되었더라도 lexical rescue에서만
+  exact-match 원문을 사용할 수 있게 했다. legacy vector row가 문서 ID를 공유하더라도 물리 row identity로
+  검색 seed와 이웃 chunk를 구분하고, 확장 근거의 공개 발췌는 검색 seed 구간을 우선하도록 보완했다.
+  압축된 컨텍스트는 seed를 포함하는 연속 구간을 남기며, lexical rescue의 공개 발췌는 실제 적중 질의어
+  주변을 최대 500자로 제시한다.
+  해석형 답변은 직접 사실과 해석을 구분한 인용 가능한 단일 문단으로 제한해 불필요한 무인용 문단 생성을 줄였다.
+- RAG SSE는 검증 전 답변 delta를 공개하지 않고 `complete.canonicalContent`만 전달한다. 공개 reference는
+  `CITED | RETRIEVED_ONLY`, 500자 이하 `exactText`, 정제된 locator로 제한하고 내부 ID와 raw sourceRef를
+  제거했다. exact cache 계약은 `v6`, prompt는 `rag-grounding-v7`, validator는
+  `rag-answer-validator-v3`로 격리했다.
+
 - AI/RAG 전체 모듈 경계, 색인, 근거·인용, SSE, 운영 진단을 연결하는 문서 진입점을 추가했다.
   누락돼 있던 document-metadata와 chunking-runtime README를 보완하고 루트·AI starter·Markdown
   문서에서 동일한 기준 문서로 탐색할 수 있도록 정리했다.
@@ -38,6 +105,11 @@
   authorization과 최신 evidence packing 이후에만 조회하며 principal/object/model/retrieval/prompt/
   evidence fingerprint가 일치할 때 provider 생성을 생략한다. citation이 `INDEX_VALID`인 답변만
   versioned JSON으로 저장하고 Redis 장애는 기본 fail-open miss로 처리한다.
+
+- RAG 답변 범위를 `STRICT_GROUNDED | GROUNDED_INFERENCE`로 명시하고 서버 기본값·최대값과 요청 선택을
+  `ResolvedRagAnswerPolicy`로 통합했다. 동기/SSE/cache/retry가 동일한 정책 snapshot을 사용하며,
+  cache key는 정책 fingerprint를 포함하는 v3로 격리한다. attachment object scope는 도메인 접근 권한을
+  다시 확인하고 일반 regenerate를 통한 RAG 정책 우회를 차단한다.
 
 - AI Web과 AI core starter의 개발 artifact 버전이 일시적으로 어긋난 환경에서도 선택적 JDBC vector
   projection 구현 class가 없으면 해당 auto-configuration을 조건 평가 전에 건너뛰도록 classpath guard를

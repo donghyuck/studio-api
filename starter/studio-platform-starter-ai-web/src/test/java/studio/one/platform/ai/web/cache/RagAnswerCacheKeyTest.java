@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
+import studio.one.platform.ai.web.controller.RagAnswerMode;
+import studio.one.platform.ai.web.controller.ResolvedRagAnswerPolicy;
 
 class RagAnswerCacheKeyTest {
 
@@ -50,6 +52,34 @@ class RagAnswerCacheKeyTest {
                         "principal:user-a", request, "  Why War?  ", "chat-default", "evidence-a"))
                 .isNotEqualTo(RagAnswerCacheKey.create(
                         "principal:user-a", request, "why war?", "chat-default", "evidence-a"));
+    }
+
+    @Test
+    void effectiveModeAndPolicyFingerprintIsolateCacheEntries() {
+        ChatRagRequestDto request = request("attachment", "11");
+
+        RagAnswerCacheKey strict = RagAnswerCacheKey.create(
+                "principal:user-a", request, "Question", "chat-default", "evidence-a",
+                policy(RagAnswerMode.STRICT_GROUNDED, "policy-a"));
+        RagAnswerCacheKey inference = RagAnswerCacheKey.create(
+                "principal:user-a", request, "Question", "chat-default", "evidence-a",
+                policy(RagAnswerMode.GROUNDED_INFERENCE, "policy-a"));
+        RagAnswerCacheKey changedPolicy = RagAnswerCacheKey.create(
+                "principal:user-a", request, "Question", "chat-default", "evidence-a",
+                policy(RagAnswerMode.STRICT_GROUNDED, "policy-b"));
+
+        assertThat(strict).isNotEqualTo(inference).isNotEqualTo(changedPolicy);
+    }
+
+    private ResolvedRagAnswerPolicy policy(RagAnswerMode mode, String fingerprint) {
+        return new ResolvedRagAnswerPolicy(
+                mode,
+                mode,
+                ResolvedRagAnswerPolicy.Source.REQUEST,
+                false,
+                ResolvedRagAnswerPolicy.ReasonCode.NONE,
+                "v1",
+                fingerprint);
     }
 
     private ChatRagRequestDto request(String objectType, String objectId) {

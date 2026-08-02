@@ -52,7 +52,7 @@ property set을 함께 복원한다.
 ## 레포지토리 구성
 ```
 starter/                         # Spring Boot 스타터 모음 (자동 구성)
-studio-application-modules/      # 애플리케이션 기능 모듈 (attachment, avatar, embedding pipeline, template, mail)
+studio-application-modules/      # 애플리케이션 기능 모듈 (attachment, web knowledge, avatar, embedding pipeline, template, mail)
 studio-platform/                 # 코어 플랫폼 라이브러리
 studio-platform-objecttype/      # objectType 레지스트리/정책/런타임 검증 구현
 studio-platform-ai/              # AI/RAG 공통 계약과 포트
@@ -84,9 +84,19 @@ studio-platform-workspace-default/ # Workspace JPA 기본 구현
 - `studio-platform-chunking`, `studio-platform-chunking-runtime`: chunking 계약과 전략/context expansion 구현
 - `studio-platform-document-metadata`, `studio-platform-markdown`: 문서 의미 metadata와 Markdown revision/pipeline 계약
 - `studio-platform-thumbnail`, `studio-platform-storage`, `studio-platform-identity`: 썸네일 생성, 저장소, 식별 공통
-- `studio-application-modules/*`: attachment, avatar, embedding pipeline, template, mail
+- `studio-application-modules/*`: attachment, 공개 HTTPS 단일 페이지·bounded 사이트 수집/색인, avatar, embedding pipeline, template, mail
 
 세부 설정, 엔드포인트, 확장 포인트는 각 모듈 README를 참고한다.
+외부 URL 자료는 기본적으로 한 페이지만 수집하며, 선택적인 `SITE` 모드는 sitemap과 링크를 동일
+origin·허용 경로·서버 budget 안에서만 따라간다. 페이지별 변경 이력과 고정 corpus revision을 사용하므로
+refresh 중에도 RAG 근거가 바뀌지 않는다. 자세한 구성은
+[`studio-application-starter-web-knowledge`](starter/studio-application-starter-web-knowledge/README.md)를 참고한다.
+
+RAG 답변 범위는 검색 정책과 분리된 서버 정책으로 관리한다. 서버 기본값·최대 허용 모드와 요청의
+`answerMode`를 한 번 해석한 결과를 프롬프트, 인용 검증, exact cache, SSE 완료 이벤트와 대화 metadata가
+공유한다. `STRICT_GROUNDED`는 문서에 직접 명시된 사실만, `GROUNDED_INFERENCE`는 문서 근거에서의
+합리적 해석까지 허용한다. 상세 계약과 rollout 설정은
+[`studio-platform-starter-ai-web`](starter/studio-platform-starter-ai-web/README.md)을 참고한다.
 
 ## AI/RAG 한눈에 보기
 

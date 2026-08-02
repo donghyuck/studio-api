@@ -83,8 +83,17 @@ import studio.one.platform.ai.web.controller.RagChunkingSimulationController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagChatRetrievalService;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
+import studio.one.platform.ai.web.controller.RagAnswerFinalizer;
+import studio.one.platform.ai.web.controller.RagAnswerPolicyResolver;
+import studio.one.platform.ai.web.controller.RagAnswerPolicyValidator;
+import studio.one.platform.ai.web.controller.RagAnswerPromptComposer;
+import studio.one.platform.ai.web.controller.RagCitationValidator;
+import studio.one.platform.ai.web.controller.RagExternalEvidenceService;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
 import studio.one.platform.ai.web.controller.RagObjectAuthorizationRouter;
+import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
+import studio.one.platform.ai.core.rag.indexed.IndexedRagSourceProvider;
+import studio.one.platform.ai.core.rag.external.ExternalEvidenceProvider;
 import studio.one.platform.ai.web.controller.RagIndexJobEndpointSecurity;
 import studio.one.platform.ai.web.controller.RagRetrievalEvaluationController;
 import studio.one.platform.ai.web.controller.RagRetrievalEvaluationJobService;
@@ -97,6 +106,7 @@ import studio.one.platform.ai.web.controller.RagRetrievalPolicyUsageStore;
 import studio.one.platform.ai.web.controller.RagRetrievalRecommendationService;
 import studio.one.platform.ai.web.controller.RagRetrievalEvaluationRunner;
 import studio.one.platform.ai.web.controller.RagRetrievalEvaluationStore;
+import studio.one.platform.ai.web.controller.RagSourcePolicyResolver;
 import studio.one.platform.ai.web.controller.VectorController;
 import studio.one.platform.ai.web.controller.VectorVisualizationMgmtController;
 import studio.one.platform.ai.web.cache.RagAnswerCache;
@@ -131,8 +141,10 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 public class AiWebAutoConfiguration {
 
     @Bean(name = "ragObjectAuthorizationRouter")
-    RagObjectAuthorizationRouter ragObjectAuthorizationRouter(ApplicationContext applicationContext) {
-        return new RagObjectAuthorizationRouter(applicationContext);
+    RagObjectAuthorizationRouter ragObjectAuthorizationRouter(
+            ApplicationContext applicationContext,
+            ObjectProvider<RagObjectAuthorizer> authorizers) {
+        return new RagObjectAuthorizationRouter(applicationContext, authorizers.orderedStream().toList());
     }
 
     @Bean
@@ -149,6 +161,51 @@ public class AiWebAutoConfiguration {
             ObjectProvider<RagDocumentMetadataProvider> metadataProviders) {
         return new RagChatRetrievalService(
                 ragPipelineService, properties.getRetrieval(), metadataProviders.stream().toList());
+    }
+
+    @Bean
+    RagAnswerPolicyResolver ragAnswerPolicyResolver(AiWebRagProperties properties) {
+        return new RagAnswerPolicyResolver(properties.getAnswerPolicy());
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = "studio.ai.endpoints.rag.external-sources",
+            name = "enabled",
+            havingValue = "true")
+    @ConditionalOnMissingBean(name = "officialEvidenceGatewayProvider")
+    ExternalEvidenceProvider officialEvidenceGatewayProvider(
+            AiWebRagProperties properties,
+            ObjectMapper objectMapper) {
+        return new OfficialEvidenceGatewayProvider(properties.getExternalSources(), objectMapper);
+    }
+
+    @Bean
+    RagExternalEvidenceService ragExternalEvidenceService(
+            ObjectProvider<ExternalEvidenceProvider> providers) {
+        return new RagExternalEvidenceService(providers.orderedStream().toList());
+    }
+
+    @Bean
+    RagSourcePolicyResolver ragSourcePolicyResolver(
+            AiWebRagProperties properties,
+            RagExternalEvidenceService externalEvidenceService) {
+        return new RagSourcePolicyResolver(
+                properties.getSourcePolicy(),
+                externalEvidenceService.available());
+    }
+
+    @Bean
+    RagAnswerPromptComposer ragAnswerPromptComposer() {
+        return new RagAnswerPromptComposer();
+    }
+
+    @Bean
+    RagAnswerFinalizer ragAnswerFinalizer(AiWebRagProperties properties) {
+        return new RagAnswerFinalizer(
+                new RagCitationValidator(),
+                new RagAnswerPolicyValidator(),
+                properties.getAnswerPolicy().isFactualListPartialAnswerEnabled());
     }
 
     @Bean
@@ -184,8 +241,15 @@ public class AiWebAutoConfiguration {
             RagRetrievalPolicyStore ragRetrievalPolicyStore,
             RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore,
             AiModelUsageStore modelUsageStore,
-            ObjectProvider<RagAnswerCache> ragAnswerCacheProvider) {
-        return new ChatController(providerRegistry, ragPipelineService, ragChatRetrievalService,
+            ObjectProvider<RagAnswerCache> ragAnswerCacheProvider,
+            RagAnswerPolicyResolver ragAnswerPolicyResolver,
+            RagAnswerPromptComposer ragAnswerPromptComposer,
+            RagAnswerFinalizer ragAnswerFinalizer,
+            RagObjectAuthorizationRouter ragObjectAuthorizationRouter,
+            RagSourcePolicyResolver ragSourcePolicyResolver,
+            RagExternalEvidenceService ragExternalEvidenceService,
+            ObjectProvider<IndexedRagSourceProvider> indexedRagSourceProviders) {
+        ChatController controller = new ChatController(providerRegistry, ragPipelineService, ragChatRetrievalService,
                 ragContextBuilder,
                 ragProperties.getDiagnostics().isAllowClientDebug(),
                 chatMemoryStore,
@@ -198,7 +262,15 @@ public class AiWebAutoConfiguration {
                 ragRetrievalPolicyStore,
                 ragRetrievalPolicyUsageStore,
                 modelUsageStore,
-                ragAnswerCacheProvider.getIfAvailable(RagAnswerCache::noop));
+                ragAnswerCacheProvider.getIfAvailable(RagAnswerCache::noop),
+                ragAnswerPolicyResolver,
+                ragAnswerPromptComposer,
+                ragAnswerFinalizer,
+                ragObjectAuthorizationRouter,
+                ragSourcePolicyResolver,
+                ragExternalEvidenceService);
+        controller.setIndexedRagSourceProviders(indexedRagSourceProviders.orderedStream().toList());
+        return controller;
     }
 
     @Bean

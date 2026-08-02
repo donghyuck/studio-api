@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
 import studio.one.platform.ai.core.MetadataFilter;
@@ -85,16 +86,42 @@ public class RagChatRetrievalService {
             Integer requestedTopK,
             boolean exposeDiagnostics,
             boolean metadataQuery) {
+        return retrieve(
+                request,
+                resolvedQuery,
+                objectType,
+                objectId,
+                defaultTopK,
+                defaultMinScore,
+                requestedTopK,
+                exposeDiagnostics,
+                metadataQuery,
+                Set.of());
+    }
+
+    public RetrievalResult retrieve(
+            ChatRagRequestDto request,
+            String resolvedQuery,
+            String objectType,
+            String objectId,
+            int defaultTopK,
+            double defaultMinScore,
+            Integer requestedTopK,
+            boolean exposeDiagnostics,
+            boolean metadataQuery,
+            Set<String> partitionIds) {
         if (metadataQuery && objectType != null && objectId != null) {
             List<RagSearchResult> metadata = metadataProviders.stream()
                     .filter(provider -> provider.supports(objectType))
                     .flatMap(provider -> provider.find(objectType, objectId).stream())
                     .limit(Math.max(1, defaultTopK))
                     .toList();
-            return new RetrievalResult(metadata, RetrievalDebug.disabled());
+            if (!metadata.isEmpty()) {
+                return new RetrievalResult(metadata, RetrievalDebug.disabled());
+            }
         }
         RetrievalPlan plan = RetrievalPlan.from(request, properties, defaultTopK, defaultMinScore);
-        MetadataFilter baseFilter = baseFilter(objectType, objectId);
+        MetadataFilter baseFilter = withPartitions(baseFilter(objectType, objectId), partitionIds);
         Strategy requestedStrategy = Strategy.from(plan.requestedStrategy());
         RetrievalResolution resolution = resolveStrategy(request, requestedStrategy, objectType, objectId);
         Strategy resolvedStrategy = resolution.strategy();
@@ -221,7 +248,8 @@ public class RagChatRetrievalService {
                 request.debug(),
                 request.retrievalStrategy(),
                 request.retrievalOptions(),
-                deploymentId);
+                deploymentId,
+                request.answerMode());
     }
 
     private boolean hasExplicitEmbeddingSelection(ChatRagRequestDto request) {
@@ -315,6 +343,21 @@ public class RagChatRetrievalService {
         Map<String, Object> equals = new LinkedHashMap<>(filter.equalsCriteria());
         equals.put(key, value);
         return MetadataFilter.of(equals, filter.inCriteria(), filter.rangeCriteria());
+    }
+
+    private MetadataFilter withPartitions(MetadataFilter filter, Set<String> partitionIds) {
+        if (partitionIds == null || partitionIds.isEmpty()) {
+            return filter;
+        }
+        Map<String, List<Object>> in = new LinkedHashMap<>(filter.inCriteria());
+        in.put("partitionId", partitionIds.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .map(value -> (Object) value)
+                .toList());
+        return MetadataFilter.of(filter.equalsCriteria(), in, filter.rangeCriteria());
     }
 
     private List<RagSearchResult> merge(List<LegResult> legs, int finalTopK, boolean dedupe, double distilledScoreBoost) {

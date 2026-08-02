@@ -28,6 +28,18 @@ class AiWebRagPropertiesTest {
         assertThat(properties.getChunkPreview().getMaxInputChars()).isEqualTo(200_000);
         assertThat(properties.getChunkPreview().getMaxPreviewChunks()).isEqualTo(500);
         assertThat(properties.getDiagnostics().isAllowClientDebug()).isFalse();
+        assertThat(properties.getAnswerPolicy().getDefaultMode())
+                .isEqualTo(studio.one.platform.ai.web.controller.RagAnswerMode.GROUNDED_INFERENCE);
+        assertThat(properties.getAnswerPolicy().getMaximumMode())
+                .isEqualTo(studio.one.platform.ai.web.controller.RagAnswerMode.GROUNDED_INFERENCE);
+        assertThat(properties.getAnswerPolicy().isClientSelectionEnabled()).isTrue();
+        assertThat(properties.getAnswerPolicy().isFactualListPartialAnswerEnabled()).isFalse();
+        assertThat(properties.getSourcePolicy().getDefaultScope())
+                .isEqualTo(studio.one.platform.ai.web.controller.RagSourceScope.DOCUMENT_ONLY);
+        assertThat(properties.getSourcePolicy().isClientSelectionEnabled()).isFalse();
+        assertThat(properties.getExternalSources().isEnabled()).isFalse();
+        assertThat(properties.getExternalSources().getTimeout()).isEqualTo(java.time.Duration.ofSeconds(8));
+        assertThat(properties.getExternalSources().getMaxResults()).isEqualTo(8);
     }
 
     @Test
@@ -44,7 +56,22 @@ class AiWebRagPropertiesTest {
                 Map.entry("studio.ai.endpoints.rag.chunk-preview.enabled", "false"),
                 Map.entry("studio.ai.endpoints.rag.chunk-preview.max-input-chars", "1000"),
                 Map.entry("studio.ai.endpoints.rag.chunk-preview.max-preview-chunks", "25"),
-                Map.entry("studio.ai.endpoints.rag.diagnostics.allow-client-debug", "true"))));
+                Map.entry("studio.ai.endpoints.rag.diagnostics.allow-client-debug", "true"),
+                Map.entry("studio.ai.endpoints.rag.answer-policy.default-mode", "STRICT_GROUNDED"),
+                Map.entry("studio.ai.endpoints.rag.answer-policy.maximum-mode", "STRICT_GROUNDED"),
+                Map.entry("studio.ai.endpoints.rag.answer-policy.client-selection-enabled", "false"),
+                Map.entry("studio.ai.endpoints.rag.answer-policy.factual-list-partial-answer-enabled", "true"),
+                Map.entry("studio.ai.endpoints.rag.source-policy.client-selection-enabled", "true"),
+                Map.entry("studio.ai.endpoints.rag.external-sources.enabled", "true"),
+                Map.entry("studio.ai.endpoints.rag.external-sources.gateway-url",
+                        "https://evidence.internal.example/api/search"),
+                Map.entry("studio.ai.endpoints.rag.external-sources.api-key", "test-secret"),
+                Map.entry("studio.ai.endpoints.rag.external-sources.gateway-allowed-hosts",
+                        "evidence.internal.example"),
+                Map.entry("studio.ai.endpoints.rag.external-sources.source-allowed-hosts",
+                        "open.law.go.kr,law.go.kr"),
+                Map.entry("studio.ai.endpoints.rag.external-sources.timeout", "3s"),
+                Map.entry("studio.ai.endpoints.rag.external-sources.max-results", "5"))));
 
         AiWebRagProperties properties = new Binder(ConfigurationPropertySources.get(environment))
                 .bind("studio.ai.endpoints.rag", Bindable.of(AiWebRagProperties.class))
@@ -61,5 +88,21 @@ class AiWebRagPropertiesTest {
         assertThat(properties.getChunkPreview().getMaxInputChars()).isEqualTo(1000);
         assertThat(properties.getChunkPreview().getMaxPreviewChunks()).isEqualTo(25);
         assertThat(properties.getDiagnostics().isAllowClientDebug()).isTrue();
+        assertThat(properties.getAnswerPolicy().getDefaultMode())
+                .isEqualTo(studio.one.platform.ai.web.controller.RagAnswerMode.STRICT_GROUNDED);
+        assertThat(properties.getAnswerPolicy().getMaximumMode())
+                .isEqualTo(studio.one.platform.ai.web.controller.RagAnswerMode.STRICT_GROUNDED);
+        assertThat(properties.getAnswerPolicy().isClientSelectionEnabled()).isFalse();
+        assertThat(properties.getAnswerPolicy().isFactualListPartialAnswerEnabled()).isTrue();
+        assertThat(properties.getSourcePolicy().isClientSelectionEnabled()).isTrue();
+        assertThat(properties.getExternalSources().isEnabled()).isTrue();
+        assertThat(properties.getExternalSources().getGatewayUrl())
+                .isEqualTo("https://evidence.internal.example/api/search");
+        assertThat(properties.getExternalSources().getGatewayAllowedHosts())
+                .containsExactly("evidence.internal.example");
+        assertThat(properties.getExternalSources().getSourceAllowedHosts())
+                .containsExactlyInAnyOrder("open.law.go.kr", "law.go.kr");
+        assertThat(properties.getExternalSources().getTimeout()).isEqualTo(java.time.Duration.ofSeconds(3));
+        assertThat(properties.getExternalSources().getMaxResults()).isEqualTo(5);
     }
 }

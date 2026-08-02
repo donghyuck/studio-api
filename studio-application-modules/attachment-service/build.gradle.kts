@@ -22,6 +22,7 @@ dependencies {
     compileOnly(project(":studio-platform")) 
     api(project(":studio-platform-objecttype"))
     api(project(":studio-platform-identity"))
+    compileOnly(project(":studio-platform-ai"))
     compileOnly(project(":studio-platform-data")) 
     api(project(":studio-platform-textract"))
     api(project(":studio-platform-storage"))

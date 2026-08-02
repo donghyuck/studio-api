@@ -46,6 +46,14 @@ class PgVectorJdbcMapperSqlContractTest {
     }
 
     @Test
+    void partitionDeleteUsesPhysicalPartitionColumnWithinObjectScope() throws Exception {
+        assertThat(sql("DELETE_BY_OBJECT_PARTITION_SQL"))
+                .contains("object_type = :objectType")
+                .contains("object_id = :objectId")
+                .contains("partition_id = :partitionId");
+    }
+
+    @Test
     void filteredSearchSqlSeparatesMetadataParametersFromOrderByClause() throws Exception {
         String filteredSql = filteredSql("SEARCH_BY_OBJECT_SQL", new PgVectorSearchParameter(
                 new PGvector(new float[] {0.1f, 0.2f}),

@@ -17,9 +17,9 @@ public record MarkdownReextractRequest(
         String embeddingProvider,
         String embeddingModel,
         Integer embeddingDimension,
-        boolean useLlmKeywordExtraction,
+        Boolean useLlmKeywordExtraction,
         String skillExtractionMode,
-        boolean generateSkillEmbeddings,
+        Boolean generateSkillEmbeddings,
         String skillEmbeddingProvider,
         String skillEmbeddingModel,
         Integer skillEmbeddingDimension,
@@ -30,6 +30,11 @@ public record MarkdownReextractRequest(
         String documentProfile,
         String documentSemanticType,
         String metadataEnrichmentMode) {
+
+    public MarkdownReextractRequest {
+        useLlmKeywordExtraction = Boolean.TRUE.equals(useLlmKeywordExtraction);
+        generateSkillEmbeddings = Boolean.TRUE.equals(generateSkillEmbeddings);
+    }
 
     public MarkdownReextractRequest(
             boolean runChunking,

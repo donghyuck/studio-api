@@ -390,7 +390,7 @@ class ChatControllerTest {
     }
 
     @Test
-    void ragStreamWritesIncrementalAnswerAndRagMetadata() throws Exception {
+    void ragStreamWithholdsDraftAndWritesCanonicalRagMetadata() throws Exception {
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult(
                         "doc-1",
@@ -425,10 +425,8 @@ class ChatControllerTest {
                 .contains("event: rag_status")
                 .contains("\"stage\":\"retrieval_started\"")
                 .contains("\"stage\":\"retrieval_complete\"")
-                .contains("event: delta")
-                .contains("\"delta\":\"요약\"")
-                .contains("\"delta\":\" 답변\"")
-                .contains("event: usage")
+                .doesNotContain("event: delta", "\"delta\":\"요약\"", "\"delta\":\" 답변\"")
+                .doesNotContain("event: usage")
                 .contains("event: complete")
                 .contains("\"ragReferences\"")
                 .contains("\"sourceName\":\"sample.pdf\"")
@@ -436,7 +434,7 @@ class ChatControllerTest {
                 .contains("\"retrievalMs\"")
                 .contains("\"generationMs\"")
                 .contains("\"totalMs\"")
-                .contains("\"canonicalContent\":\"제공된 문서 근거만으로는 답변을 확정할 수 없습니다.\"")
+                .contains("\"canonicalContent\":\"관련 근거는 찾았지만 생성 답변의 인용 검증에 실패했습니다. 아래 검색된 근거 후보를 확인해 주세요.\"")
                 .contains("\"citationValidationStatus\":\"MISSING_CITATION\"")
                 .contains("\"requestId\"");
         verify(defaultChatPort).stream(any(ChatRequest.class));
@@ -488,10 +486,11 @@ class ChatControllerTest {
                 .containsEntry("canonicalContent", "grounded answer [1]")
                 .containsEntry("citationValidationStatus", "INDEX_VALID");
         assertThat(references).singleElement().satisfies(reference -> assertThat(reference)
-                .containsEntry("revisionId", "revision-1")
-                .containsEntry("chunkId", "chunk-1"));
+                .containsEntry("usageStatus", "CITED")
+                .containsEntry("exactText", "exact indexed excerpt")
+                .doesNotContainKeys("revisionId", "chunkId", "sourceRef"));
         assertThat(sse)
-                .contains("event: delta")
+                .doesNotContain("event: delta")
                 .contains("event: complete")
                 .contains("\"canonicalContent\":\"grounded answer [1]\"")
                 .contains("\"citationValidationStatus\":\"INDEX_VALID\"")
@@ -522,12 +521,12 @@ class ChatControllerTest {
 
         assertThat(output.toString(StandardCharsets.UTF_8))
                 .contains("event: rag_status")
-                .contains("event: delta")
-                .contains("제공된 RAG 문서에서 확인할 수 없습니다.")
+                .doesNotContain("event: delta")
                 .contains("event: complete")
                 .contains("\"ragSkippedChat\":true")
                 .contains("\"ragSkipReason\":\"NO_RAG_RESULTS\"")
-                .contains("\"canonicalContent\":\"제공된 RAG 문서에서 확인할 수 없습니다.\"")
+                .contains("\"canonicalContent\":\"검색 기준을 통과한 문서 구간이 없습니다.\"")
+                .contains("\"reasonCode\":\"NO_RETRIEVAL_RESULTS\"")
                 .contains("\"citationValidationStatus\":\"NO_PACKED_EVIDENCE\"");
         verify(defaultChatPort, times(0)).stream(any(ChatRequest.class));
         verify(defaultChatPort, times(0)).chat(any(ChatRequest.class));
@@ -818,21 +817,16 @@ class ChatControllerTest {
         assertThat(response.answer()).isEqualTo("default [1]");
         assertThat(response.content()).isEqualTo("default [1]");
         assertThat(references.get(0))
-                .containsEntry("index", 1)
-                .containsEntry("documentId", "doc-1")
+                .containsEntry("citationIndex", 1)
+                .containsEntry("usageStatus", "CITED")
                 .containsEntry("sourceName", "original-sample.pdf")
-                .containsEntry("originalFileName", "original-sample.pdf")
-                .containsEntry("sourceFileName", "original-sample.pdf")
                 .containsEntry("title", "Sample Document")
-                .containsEntry("citationLabel", "근거 1")
-                .containsEntry("chunkId", "chunk-1")
-                .containsEntry("chunkOrder", 7)
                 .containsEntry("score", 0.9d)
-                .containsEntry("excerpt", "file text")
+                .containsEntry("exactText", "file text")
                 .containsEntry("page", 3)
-                .containsEntry("pageNumber", 3)
-                .containsEntry("sourceRef", "page[3]");
-        assertThat(references.get(0)).doesNotContainKeys("content", "metadata");
+                .containsEntry("locator", "페이지 3");
+        assertThat(references.get(0)).doesNotContainKeys(
+                "content", "metadata", "documentId", "chunkId", "sourceRef");
     }
 
     @Test
@@ -880,8 +874,9 @@ class ChatControllerTest {
         List<Map<String, Object>> references = (List<Map<String, Object>>) response.metadata().get("ragReferences");
         assertThat(references).singleElement()
                 .satisfies(reference -> assertThat(reference)
-                        .containsEntry("documentId", "doc-body")
-                        .containsEntry("excerpt", "The actual argument from the chapter."));
+                        .containsEntry("usageStatus", "RETRIEVED_ONLY")
+                        .containsEntry("exactText", "The actual argument from the chapter.")
+                        .doesNotContainKey("documentId"));
     }
 
     @Test
@@ -928,12 +923,12 @@ class ChatControllerTest {
 
         assertThat(response.messages())
                 .extracting(message -> message.role() + ":" + message.content())
-                .containsExactly("assistant:제공된 RAG 문서에서 확인할 수 없습니다.");
+                .containsExactly("assistant:검색 기준을 통과한 문서 구간이 없습니다.");
         assertThat(response.model()).isEqualTo("gemini-2.5-flash");
         assertThat(response.metadata())
                 .containsEntry("ragSkippedChat", true)
                 .containsEntry("ragSkipReason", "NO_RAG_RESULTS")
-                .containsEntry("canonicalContent", "제공된 RAG 문서에서 확인할 수 없습니다.")
+                .containsEntry("canonicalContent", "검색 기준을 통과한 문서 구간이 없습니다.")
                 .containsEntry("citationValidationStatus", "NO_PACKED_EVIDENCE")
                 .containsEntry("ragReferences", List.of());
         Map<String, Object> summary = (Map<String, Object>) response.metadata().get("ragRetrievalSummary");
@@ -1038,7 +1033,9 @@ class ChatControllerTest {
         assertThat(first.content()).isEqualTo("supported answer [1]");
         assertThat(second.content()).isEqualTo(first.content());
         assertThat(second.metadata()).containsEntry("ragAnswerCache", "HIT");
-        assertThat(stream).contains("event: delta", "event: complete", "\"ragAnswerCache\":\"HIT\"");
+        assertThat(stream)
+                .doesNotContain("event: delta")
+                .contains("event: complete", "\"ragAnswerCache\":\"HIT\"");
         assertThat(stream).doesNotContain("event: usage");
         verify(defaultChatPort, times(1)).chat(any(ChatRequest.class));
     }
@@ -1304,10 +1301,10 @@ class ChatControllerTest {
         assertThat(policyMetadata)
                 .containsEntry("applied", true)
                 .containsEntry("objectType", "attachment")
-                .containsEntry("objectId", "123")
                 .containsEntry("retrievalStrategy", "hybrid")
                 .containsEntry("questionSetId", "reqs-1")
                 .containsEntry("evaluationRunId", "reval-1");
+        assertThat(policyMetadata).doesNotContainKey("objectId");
         assertThat(usageStore.list("attachment", "123")).singleElement()
                 .satisfies(usage -> {
                     assertThat(usage.retrievalStrategy()).isEqualTo("hybrid");
@@ -1434,7 +1431,7 @@ class ChatControllerTest {
         assertThat(chatCaptor.getValue().messages().get(0).content())
                 .contains("first plot fragment")
                 .contains("second plot fragment")
-                .contains("각 주요 사실, 판단, 요약 항목 끝에는 이를 직접 뒷받침하는 근거 번호")
+                .contains("각 실질 문단과 목록 항목의 같은 줄 끝에는 이를 뒷받침하는 근거 번호")
                 .contains("요양 또는 치료 시설을 근거 없이 병원으로 바꾸지 마세요")
                 .contains("영화, 책, 이야기를 원본 전체의 줄거리로 오인하지 마세요");
     }
@@ -1598,7 +1595,9 @@ class ChatControllerTest {
         assertThat(chatCaptor.getValue().messages().get(0).content())
                 .contains("문서에 명시된 내용만 답변하세요.")
                 .contains("문서에 분류명이 없다는 이유만으로 답변을 거부하지 말고")
-                .contains("가능한 대안 해석", "확신도");
+                .contains("정확히 한 문단")
+                .contains("'문서 사실:'과 '해석:'")
+                .contains("확신도");
         assertThat(response.metadata())
                 .containsEntry("ragQueryIntent", "INTERPRETIVE_ANALYSIS")
                 .containsEntry("ragRetrievalMode", "SEMANTIC_SEARCH")
@@ -1905,10 +1904,10 @@ class ChatControllerTest {
         List<Map<String, Object>> references = (List<Map<String, Object>>) response.metadata().get("ragReferences");
         assertThat(references).hasSize(1);
         assertThat(references.get(0))
-                .containsEntry("documentId", "doc-1")
                 .containsEntry("sourceName", "large.pdf")
-                .containsEntry("chunkId", "chunk-1");
-        assertThat((String) references.get(0).get("content"))
+                .containsEntry("usageStatus", "RETRIEVED_ONLY")
+                .doesNotContainKeys("documentId", "chunkId");
+        assertThat((String) references.get(0).get("exactText"))
                 .isEqualTo(rawContent.substring(0, 24))
                 .doesNotContain(rawContent);
 
@@ -2151,8 +2150,9 @@ class ChatControllerTest {
         List<Map<String, Object>> references = (List<Map<String, Object>>) response.metadata().get("ragReferences");
         assertThat(references).hasSize(1);
         assertThat(references.get(0))
-                .containsEntry("content", "seed body")
-                .containsEntry("chunkId", "chunk-2");
+                .containsEntry("exactText", "seed body")
+                .containsEntry("usageStatus", "RETRIEVED_ONLY")
+                .doesNotContainKey("chunkId");
     }
 
     @Test

@@ -1,5 +1,7 @@
 package studio.one.platform.ai.autoconfigure.config;
 
+import java.time.Duration;
+
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +31,8 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
     }
 
     static final class GoogleGenAiEmbeddingPortFactory implements ProviderEmbeddingPortFactory {
+
+        private static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
         @Override
         public AiAdapterProperties.ProviderType supportedType() {
@@ -117,7 +121,10 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
                     indexTaskType,
                     queryTaskType,
                     provider.getGoogleEmbedding().getTaskType(),
-                    taskTypeSupported);
+                    taskTypeSupported,
+                    provider.getEmbedding().getRequestTimeout() == null
+                            ? DEFAULT_REQUEST_TIMEOUT
+                            : provider.getEmbedding().getRequestTimeout());
         }
 
         private static String requireText(String value, String message) {

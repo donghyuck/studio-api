@@ -104,6 +104,37 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     }
 
     @Override
+    public boolean supportsObjectPartitions() {
+        return true;
+    }
+
+    @Override
+    public void deleteByObjectPartition(String objectType, String objectId, String partitionId) {
+        mapper.deleteByObjectPartition(
+                Objects.requireNonNull(objectType, "objectType"),
+                Objects.requireNonNull(objectId, "objectId"),
+                Objects.requireNonNull(partitionId, "partitionId"));
+    }
+
+    @Override
+    public void replaceByObjectPartition(
+            String objectType,
+            String objectId,
+            String partitionId,
+            List<VectorDocument> documents) {
+        Runnable replacement = () -> {
+            deleteByObjectPartition(objectType, objectId, partitionId);
+            upsertInternal(documents);
+        };
+        if (transactionTemplate == null) {
+            log.warn("TransactionTemplate unavailable; replaceByObjectPartition will execute non-atomically.");
+            replacement.run();
+            return;
+        }
+        transactionTemplate.executeWithoutResult(status -> replacement.run());
+    }
+
+    @Override
     public void replaceByObject(String objectType, String objectId, List<VectorDocument> documents) {
         if (transactionTemplate == null) {
             log.warn("TransactionTemplate unavailable; replaceByObject will execute non-atomically. "
