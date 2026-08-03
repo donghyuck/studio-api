@@ -3,7 +3,9 @@
 [![release](https://img.shields.io/badge/release-3.0.0--rc.1-blue.svg)](https://github.com/donghyuck/studio-api/tree/3.x)
 [![license](https://img.shields.io/badge/license-APACHE-blue.svg)](LICENSE.md)
 
-모듈화된 Spring Boot 기반 백엔드 플랫폼. 인증/인가, 사용자/그룹 관리, 파일·첨부 관리, 템플릿, 메일, 실시간 메시징, AI 임베딩/RAG 파이프라인을 공통 컴포넌트와 스타터로 제공한다. 설정은 `spring.*`, `studio.features.<module>.*`, `studio.<module>.*`의 3층 모델을 따른다.
+모듈화된 Spring Boot 기반 백엔드 플랫폼. 인증/인가, 사용자/그룹 관리, 파일·첨부 관리, 템플릿,
+메일, 실시간 메시징, AI 임베딩/RAG 파이프라인과 공개 HTTPS 자료 수집·색인을 공통 컴포넌트와
+스타터로 제공한다. 설정은 `spring.*`, `studio.features.<module>.*`, `studio.<module>.*`의 3층 모델을 따른다.
 
 ## 빠른 시작
 1. JDK 17을 준비한다. 빌드는 저장소의 Gradle Wrapper를 사용한다.
@@ -52,7 +54,9 @@ property set을 함께 복원한다.
 ## 레포지토리 구성
 ```
 starter/                         # Spring Boot 스타터 모음 (자동 구성)
+  studio-application-starter-web-knowledge/ # URL 수집·색인 자동 구성
 studio-application-modules/      # 애플리케이션 기능 모듈 (attachment, web knowledge, avatar, embedding pipeline, template, mail)
+  web-knowledge-service/         # 공개 HTTPS 단일 페이지·bounded 사이트 수집과 revision/corpus 관리
 studio-platform/                 # 코어 플랫폼 라이브러리
 studio-platform-objecttype/      # objectType 레지스트리/정책/런타임 검증 구현
 studio-platform-ai/              # AI/RAG 공통 계약과 포트
@@ -92,6 +96,17 @@ origin·허용 경로·서버 budget 안에서만 따라간다. 페이지별 변
 refresh 중에도 RAG 근거가 바뀌지 않는다. 자세한 구성은
 [`studio-application-starter-web-knowledge`](starter/studio-application-starter-web-knowledge/README.md)를 참고한다.
 
+### 외부 URL RAG 사용 흐름
+
+1. 애플리케이션에 web knowledge, AI web, chunking starter와 embedding provider를 추가한다.
+2. `/api/workspaces/{workspaceId}/ai/rag/web-sources`에 공개 HTTPS URL을 등록한다.
+3. `COMPLETED` 상태의 page revision 또는 corpus revision을 선택해 RAG 요청의 `indexedWebSources`에 넣는다.
+4. 답변의 `INDEXED_WEB` reference에서 canonical URL, locator와 exact excerpt를 확인한다.
+
+`SINGLE_PAGE`는 입력한 한 페이지만 처리한다. `SITE`는 별도 활성화가 필요하며 동일 origin·허용 경로와
+depth/page/time/size budget 안에서만 수집한다. 수집 중인 mutable source가 아니라 완료된 revision을
+질문에 고정하므로 refresh와 동시에 질의해도 답변 근거가 바뀌지 않는다.
+
 RAG 답변 범위는 검색 정책과 분리된 서버 정책으로 관리한다. 서버 기본값·최대 허용 모드와 요청의
 `answerMode`를 한 번 해석한 결과를 프롬프트, 인용 검증, exact cache, SSE 완료 이벤트와 대화 metadata가
 공유한다. `STRICT_GROUNDED`는 문서에 직접 명시된 사실만, `GROUNDED_INFERENCE`는 문서 근거에서의
@@ -107,20 +122,22 @@ Studio One의 RAG는 파일이나 도메인 원문을 검색 가능한 작은 �
 
 ![Studio One AI/RAG 전체 흐름](docs/ai-rag/images/ai-rag-overview.svg)
 
-그림의 위쪽은 문서 색인 경로다. Attachment나 Markdown 원문을 정규화하고 문서 metadata를 추출한 뒤,
-검색에 적합한 chunk로 분할한다. 각 chunk는 선택한 embedding deployment로 vector화되며 원문 위치,
-revision과 object scope를 함께 저장한다.
+그림의 위쪽은 자료 색인 경로다. Attachment·Markdown뿐 아니라 수집한 공개 HTTPS 페이지를 정규화하고
+metadata를 추출한 뒤 검색에 적합한 chunk로 분할한다. `SINGLE_PAGE`는 페이지 revision을, `SITE`는
+완료된 페이지 집합을 고정한 corpus revision을 사용한다. 각 chunk는 선택한 embedding deployment로
+vector화되며 원문 위치, revision과 `DOCUMENT` 또는 `INDEXED_WEB` origin을 함께 저장한다.
 
 아래쪽은 근거 기반 답변 경로다. 요청 권한과 질의 의도를 확인하고 같은 object scope에서 관련 chunk를
 검색한다. 실제 prompt와 화면의 근거 목록은 하나의 `PackedEvidenceSet`에서 만들어진다. 생성된 답변은
-citation 번호와 원문 span 검증을 통과해야 canonical 답변으로 확정되며, SSE 화면도 마지막
-`complete.canonicalContent`를 최종 결과로 사용한다.
+citation 번호와 원문 span 검증을 통과해야 canonical 답변으로 확정된다. SSE는 생성 중 상태만 보내며
+검증 전 draft 본문은 노출하지 않고 마지막 `complete.canonicalContent`를 최종 결과로 사용한다.
 
 ### 구성요소
 
 | 구성요소 | 쉬운 설명 | 주요 모듈 |
 |---|---|---|
 | 원문 연결 | Attachment, Markdown, 도메인 데이터를 RAG 입력으로 연결 | `content-embedding-pipeline`, `studio-platform-markdown` |
+| 외부 웹 수집 | 공개 HTTPS 한 페이지 또는 제한된 사이트를 안전하게 수집하고 고정 revision으로 색인 | `web-knowledge-service`, `studio-application-starter-web-knowledge` |
 | 문서 metadata | 책·논문·보고서 유형과 제목·저자·발간일의 근거를 관리 | `studio-platform-document-metadata`, starter-markdown |
 | 청킹 | 긴 문서를 검색 가능한 단위로 나누고 원문 위치와 문맥 관계를 보존 | `studio-platform-chunking`, `studio-platform-chunking-runtime` |
 | 모델 카탈로그 | 채팅·임베딩 모델의 capability와 workload를 공통 관리 | `studio-platform-ai-model-catalog` |
@@ -161,6 +178,7 @@ dependencies {
 - workspace tree/member/permission API가 필요하면 `:starter:studio-platform-starter-workspace`
 - STOMP/WebSocket 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
 - 첨부/아바타/템플릿/메일 같은 기능 모듈은 각 application starter를 추가
+- 공개 URL을 workspace RAG 자료로 사용하면 `:starter:studio-application-starter-web-knowledge`를 추가
 - RAG indexing용 chunking 전략이 필요하면 `:starter:studio-platform-starter-chunking`
 - 독립 썸네일 생성이 필요하면 `:starter:studio-platform-thumbnail-starter`를 추가한다. attachment starter는 이 스타터를 포함한다.
 - XML SQL mapper는 MyBatis convention으로 통일한다. mapper XML은 `classpath*:mybatis/**/*.xml` 경로를 사용한다.
@@ -181,6 +199,17 @@ implementation(project(":starter:studio-application-starter-attachment"))
 implementation(project(":studio-application-modules:content-embedding-pipeline"))
 implementation(project(":starter:studio-platform-starter-chunking"))
 implementation(project(":starter:studio-platform-starter-ai"))
+implementation("org.springframework.ai:spring-ai-starter-model-openai")
+
+// 첨부 + 수집 웹 자료를 함께 사용하는 RAG 앱
+implementation(project(":starter:studio-platform-starter"))
+implementation(project(":starter:studio-platform-starter-security"))
+implementation(project(":starter:studio-platform-starter-workspace"))
+implementation(project(":starter:studio-application-starter-attachment"))
+implementation(project(":starter:studio-platform-starter-chunking"))
+implementation(project(":starter:studio-platform-starter-ai"))
+implementation(project(":starter:studio-platform-starter-ai-web"))
+implementation(project(":starter:studio-application-starter-web-knowledge"))
 implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
 // 실시간 알림 앱
@@ -279,6 +308,7 @@ application modules
 | `:studio-application-modules:content-embedding-pipeline` | `compileOnly :studio-platform`, `compileOnly :studio-platform-data`, `compileOnly :studio-platform-textract`, `compileOnly :studio-platform-chunking`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-security`, `compileOnly :studio-platform-ai`, `compileOnly :starter:studio-platform-starter-chunking`, `compileOnly :studio-application-modules:attachment-service` |
 | `:studio-application-modules:mail-service` | `compileOnly :studio-platform`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-data` |
 | `:studio-application-modules:template-service` | `compileOnly :studio-platform`, `compileOnly :studio-platform-data`, `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-security` |
+| `:studio-application-modules:web-knowledge-service` | `api :studio-platform`, `api :studio-platform-identity`, `api :studio-platform-workspace`, `api :studio-platform-ai`, `api :studio-platform-chunking`, `implementation :studio-platform-chunking-runtime`, `implementation :studio-platform-textract` |
 | `:studio-application-modules:wiki-service` | `api :studio-platform`, `api :studio-platform-identity`, `api :studio-platform-workspace` |
 
 ### Starter modules
@@ -304,6 +334,7 @@ application modules
 | `:starter:studio-application-starter-avatar` | `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :studio-application-modules:avatar-service` |
 | `:starter:studio-application-starter-mail` | `implementation :studio-platform`, `compileOnly :studio-platform-realtime`, `implementation :studio-platform-autoconfigure`, `implementation :starter:studio-platform-starter`, `api :studio-application-modules:mail-service` |
 | `:starter:studio-application-starter-template` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :studio-application-modules:template-service` |
+| `:starter:studio-application-starter-web-knowledge` | `api :studio-platform-autoconfigure`, `api :studio-platform-identity`, `api :studio-platform-workspace`, `api :studio-platform-ai`, `api :studio-platform-chunking`, `api :studio-application-modules:web-knowledge-service`, AI/RAG·chunking runtime은 `compileOnly` |
 | `:starter:studio-application-starter-wiki` | `api :studio-platform-autoconfigure`, `api :studio-platform`, `api :studio-platform-identity`, `api :studio-platform-workspace`, `api :studio-application-modules:wiki-service` |
 
 `studio-platform-starter-objecttype`는 objectType 구현 모듈을 전이 노출하지만, 기반 계약과 data helper는
@@ -427,6 +458,12 @@ studio:
       metrics-enabled: true
       audit-enabled: true
   ai:
+    indexed-web:
+      enabled: true
+      max-selected-sources: 10
+      crawl:
+        # 운영에서는 SINGLE_PAGE 회귀 확인 후 SITE 수집을 활성화한다.
+        site-crawl-enabled: false
     routing:
       default-chat-provider: openai
       default-embedding-provider: openai
@@ -484,6 +521,8 @@ studio:
 - 사용자 기본 구현: `studio-platform-user-default/README.md`
 - 3.x 업그레이드 기준선: `docs/dev/3x-upgrade-baseline.md`
 - AI/RAG 아키텍처: `docs/ai-rag/README.md`
+- URL 수집·색인 스타터: `starter/studio-application-starter-web-knowledge/README.md`
+- Indexed Web RAG 클라이언트 연동: `docs/plans/client-indexed-web-rag-integration-guide.md`
 - RAG cache 운영 절차: `docs/dev/redis-rag-cache-rollout.md`
 - 변경 이력: `CHANGELOG.md`
 - 보안 운영 규칙: `SECURITY.md`
@@ -495,4 +534,4 @@ studio:
 - 보안: `studio-platform-security`, `studio-platform-security-acl`
 - 사용자: `studio-platform-user`, `studio-platform-user-default`
 - 부가기능: `studio-platform-objecttype`, `studio-platform-realtime`, `studio-platform-storage`, `studio-platform-ai`
-- 애플리케이션 모듈: `attachment-service`, `avatar-service`, `content-embedding-pipeline`, `template-service`, `mail-service`
+- 애플리케이션 모듈: `attachment-service`, `avatar-service`, `content-embedding-pipeline`, `web-knowledge-service`, `template-service`, `mail-service`

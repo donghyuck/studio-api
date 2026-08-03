@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
   <title id="title">Studio One AI/RAG 전체 흐름</title>
-  <desc id="desc">문서 색인과 근거 기반 답변이 공통 벡터 저장소와 원문 근거를 통해 연결되는 구조</desc>
+  <desc id="desc">첨부 문서와 수집 웹 자료의 색인 및 근거 기반 답변이 공통 벡터 저장소와 원문 근거를 통해 연결되는 구조</desc>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#f7f7ff"/>
@@ -38,8 +38,8 @@
     <rect width="174" height="112" rx="16" fill="#f5f2ff" stroke="#cfc4ff"/>
     <text x="87" y="31" text-anchor="middle" class="box-title">원문 입력</text>
     <text x="87" y="56" text-anchor="middle" class="box-copy">Attachment · Markdown</text>
-    <text x="87" y="78" text-anchor="middle" class="box-copy">도메인 객체</text>
-    <text x="87" y="99" text-anchor="middle" class="module">source adapters</text>
+    <text x="87" y="78" text-anchor="middle" class="box-copy">수집 URL · 도메인 객체</text>
+    <text x="87" y="99" text-anchor="middle" class="module">adapters / web-knowledge</text>
   </g>
   <path d="M 252 250 L 291 250" stroke="#7157d9" stroke-width="3" marker-end="url(#arrowPurple)"/>
 
@@ -93,8 +93,8 @@
   <g transform="translate(298 446)">
     <rect width="190" height="112" rx="16" fill="#eef8ff" stroke="#b8def4"/>
     <text x="95" y="31" text-anchor="middle" class="box-title">검색 · 문맥 확장</text>
-    <text x="95" y="56" text-anchor="middle" class="box-copy">semantic · metadata</text>
-    <text x="95" y="78" text-anchor="middle" class="box-copy">previous · parent · next</text>
+    <text x="95" y="56" text-anchor="middle" class="box-copy">DOCUMENT · INDEXED_WEB</text>
+    <text x="95" y="78" text-anchor="middle" class="box-copy">semantic · metadata · context</text>
     <text x="95" y="99" text-anchor="middle" class="module">RagChatRetrievalService</text>
   </g>
   <path d="M 494 502 L 533 502" stroke="#2680c2" stroke-width="3" marker-end="url(#arrowBlue)"/>
@@ -110,9 +110,9 @@
 
   <g transform="translate(766 446)">
     <rect width="174" height="112" rx="16" fill="#eef8ff" stroke="#b8def4"/>
-    <text x="87" y="31" text-anchor="middle" class="box-title">답변 생성</text>
+    <text x="87" y="31" text-anchor="middle" class="box-title">답변 생성 (내부)</text>
     <text x="87" y="56" text-anchor="middle" class="box-copy">근거 context + 질문</text>
-    <text x="87" y="78" text-anchor="middle" class="box-copy">sync 또는 SSE draft</text>
+    <text x="87" y="78" text-anchor="middle" class="box-copy">미검증 draft 비공개</text>
     <text x="87" y="99" text-anchor="middle" class="module">ChatPort</text>
   </g>
   <path d="M 946 502 L 985 502" stroke="#2680c2" stroke-width="3" marker-end="url(#arrowBlue)"/>
@@ -121,14 +121,14 @@
     <rect width="174" height="112" rx="16" fill="#e5f5ff" stroke="#75bce7"/>
     <text x="87" y="31" text-anchor="middle" class="box-title">인용 검증 · 확정</text>
     <text x="87" y="56" text-anchor="middle" class="box-copy">canonical content</text>
-    <text x="87" y="78" text-anchor="middle" class="box-copy">exact excerpt · reference</text>
+    <text x="87" y="78" text-anchor="middle" class="box-copy">SSE complete · exact excerpt</text>
     <text x="87" y="99" text-anchor="middle" class="module">RagAnswerFinalizer</text>
   </g>
 
   <path d="M 1079 306 L 1079 352 Q 1079 366 1065 366 L 413 366 Q 393 366 393 382 L 393 440"
         fill="none" stroke="#708399" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#arrowBlue)"/>
   <rect x="677" y="353" width="162" height="26" rx="13" fill="#ffffff" stroke="#c9d4df"/>
-  <text x="758" y="371" text-anchor="middle" class="arrow-label">같은 object scope 검색</text>
+  <text x="758" y="371" text-anchor="middle" class="arrow-label">권한 확인된 revision 검색</text>
 
   <g transform="translate(64 648)">
     <circle cx="9" cy="9" r="8" fill="#7157d9"/>
