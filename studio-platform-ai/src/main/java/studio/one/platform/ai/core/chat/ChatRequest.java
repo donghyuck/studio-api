@@ -16,6 +16,8 @@ public final class ChatRequest {
     private final Integer topK;
     private final Integer maxOutputTokens;
     private final List<String> stopSequences;
+    private final String responseMimeType;
+    private final String responseSchema;
 
     private ChatRequest(Builder builder) {
         Objects.requireNonNull(builder.messages, "messages");
@@ -31,6 +33,8 @@ public final class ChatRequest {
         this.stopSequences = builder.stopSequences == null
                 ? Collections.emptyList()
                 : List.copyOf(builder.stopSequences);
+        this.responseMimeType = builder.responseMimeType;
+        this.responseSchema = builder.responseSchema;
     }
 
     public List<ChatMessage> messages() {
@@ -61,6 +65,14 @@ public final class ChatRequest {
         return Collections.unmodifiableList(stopSequences);
     }
 
+    public String responseMimeType() {
+        return responseMimeType;
+    }
+
+    public String responseSchema() {
+        return responseSchema;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -74,6 +86,8 @@ public final class ChatRequest {
         private Integer topK;
         private Integer maxOutputTokens;
         private List<String> stopSequences;
+        private String responseMimeType;
+        private String responseSchema;
 
         private Builder() {
         }
@@ -110,6 +124,16 @@ public final class ChatRequest {
 
         public Builder stopSequences(List<String> stopSequences) {
             this.stopSequences = stopSequences;
+            return this;
+        }
+
+        public Builder responseMimeType(String responseMimeType) {
+            this.responseMimeType = responseMimeType;
+            return this;
+        }
+
+        public Builder responseSchema(String responseSchema) {
+            this.responseSchema = responseSchema;
             return this;
         }
 

@@ -14,6 +14,8 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.server.ResponseStatusException;
 
+import studio.one.platform.error.ErrorType;
+import studio.one.platform.exception.PlatformRuntimeException;
 import studio.one.platform.service.I18n;
 
 class GlobalExceptionHandlerTest {
@@ -57,6 +59,22 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getStatus()).isEqualTo(501);
         assertThat(response.getBody().getDetail()).isEqualTo("Company-scoped user listing is not supported");
+    }
+
+    @Test
+    void preservesClassifiedRuntimeErrorStatusAndCode() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/test");
+        PlatformRuntimeException exception = new PlatformRuntimeException(
+                ErrorType.of("error.test.upstream", HttpStatus.BAD_GATEWAY),
+                "safe log message");
+
+        var response = handler.handlePlatform(exception, request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(502);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(502);
+        assertThat(response.getBody().getCode()).isEqualTo("error.test.upstream");
+        assertThat(response.getBody().getDetail()).isEqualTo("error.test.upstream");
     }
 
     @Test

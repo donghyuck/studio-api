@@ -43,6 +43,7 @@ import studio.one.platform.documentmetadata.DocumentSemanticType;
 import studio.one.platform.documentmetadata.DocumentSemanticTypeSelection;
 import studio.one.platform.documentmetadata.MetadataEnrichmentMode;
 import studio.one.platform.markdown.application.MarkdownDocumentMetadataService;
+import studio.one.platform.markdown.application.MarkdownMetadataEnrichmentException;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
 import studio.one.platform.markdown.application.port.MarkdownMetadataEnrichmentPort;
 import studio.one.platform.markdown.application.port.MarkdownNormalizationPort;
@@ -52,7 +53,8 @@ import studio.one.platform.markdown.domain.MarkdownRevision;
 
 final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadataEnrichmentPort {
 
-    private static final String EXTRACTOR_VERSION = "document-metadata-native-v1";
+    private static final String EXTRACTOR_VERSION = "document-metadata-native-v2";
+    private static final Set<String> INSIGHT_FIELDS = Set.of("summary", "keywords");
     private static final Pattern EMAIL = Pattern.compile("(?i)\\b[\\w.%+-]+@[\\w.-]+\\.[A-Z]{2,}\\b");
     private static final Pattern PHONE = Pattern.compile(
             "(?<!\\d)(?:\\+\\d{1,3}[ -]?)?(?:\\d{2,4}[- ]\\d{3,4}[- ]\\d{4})(?!\\d)");
@@ -126,10 +128,30 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
 
     @Override
     public DocumentMetadataArtifact preview(MarkdownRevision revision, MarkdownPipelineOptions options) {
+        return generate(revision, options, false);
+    }
+
+    @Override
+    public DocumentMetadataArtifact regenerate(MarkdownRevision revision, MarkdownPipelineOptions options) {
+        DocumentMetadataArtifact artifact = generate(revision, options, true);
+        repository.upsertResource(new MarkdownResource(
+                artifact.artifactId(),
+                revision.revisionId(),
+                MarkdownDocumentMetadataService.RESOURCE_TYPE,
+                MarkdownDocumentMetadataService.RESOURCE_NAME,
+                null,
+                write(artifact)));
+        return artifact;
+    }
+
+    private DocumentMetadataArtifact generate(
+            MarkdownRevision revision,
+            MarkdownPipelineOptions options,
+            boolean force) {
         NormalizedDocument document = normalizedDocument(revision.revisionId());
         String fingerprint = fingerprint(revision, document, options);
         Optional<DocumentMetadataArtifact> existing = existingArtifact(revision.revisionId());
-        if (existing.filter(artifact -> fingerprint.equals(artifact.fingerprint())).isPresent()) {
+        if (!force && existing.filter(artifact -> fingerprint.equals(artifact.fingerprint())).isPresent()) {
             return existing.orElseThrow();
         }
 
@@ -141,12 +163,21 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
 
         if (mode != MetadataEnrichmentMode.OFF && needsLlm(detection, fields)) {
             try {
-                LlmResult llm = enrichWithLlm(document, detection.type());
+                LlmResult llm = enrichWithLlm(document, detection.type(), force);
                 detection = detection.merge(llm);
                 mergeMissing(fields, llm.fields());
+                if (mode == MetadataEnrichmentMode.REQUIRED && missingInsights(fields)) {
+                    throw MarkdownMetadataEnrichmentException.invalidResponse(
+                            properties.getLlmDeploymentId(),
+                            new IllegalStateException("Required summary or keywords are missing"));
+                }
             } catch (RuntimeException ex) {
                 if (mode == MetadataEnrichmentMode.REQUIRED) {
-                    throw new IllegalStateException("Required document metadata enrichment failed", ex);
+                    if (ex instanceof MarkdownMetadataEnrichmentException classified) {
+                        throw classified;
+                    }
+                    throw MarkdownMetadataEnrichmentException.upstreamUnavailable(
+                            properties.getLlmDeploymentId(), ex);
                 }
                 warnings.add("LLM_ENRICHMENT_FAILED");
             }
@@ -269,35 +300,63 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
         if (detection.confidence() < properties.getTypeConfidenceThreshold()) {
             return true;
         }
-        return schemas.require(detection.type()).fields().stream()
+        boolean schemaGap = schemas.require(detection.type()).fields().stream()
                 .filter(field -> field.required() || field.recommended())
                 .anyMatch(descriptor -> {
                     DocumentMetadataField value = fields.get(descriptor.fieldId());
                     return value == null || value.confidence() < properties.getFieldConfidenceThreshold();
                 });
+        if (schemaGap) {
+            return true;
+        }
+        return INSIGHT_FIELDS.stream().anyMatch(fieldId -> needsInsightField(fieldId, fields.get(fieldId)));
     }
 
-    private LlmResult enrichWithLlm(NormalizedDocument document, DocumentSemanticType currentType) {
+    private boolean needsInsightField(String fieldId, DocumentMetadataField field) {
+        if (field == null || field.normalizedValues().isEmpty()) {
+            return true;
+        }
+        return "keywords".equals(fieldId) && field.confidence() < properties.getFieldConfidenceThreshold();
+    }
+
+    private boolean missingInsights(Map<String, DocumentMetadataField> fields) {
+        return INSIGHT_FIELDS.stream().anyMatch(fieldId -> {
+            DocumentMetadataField field = fields.get(fieldId);
+            return field == null || field.normalizedValues().isEmpty();
+        });
+    }
+
+    private LlmResult enrichWithLlm(
+            NormalizedDocument document,
+            DocumentSemanticType currentType,
+            boolean insightsOnly) {
         ModelDeployment deployment = requireDeployment();
-        String dossier = dossier(document, schemas.require(currentType));
+        String dossier = dossier(document, schemas.require(currentType), insightsOnly);
         ChatRequest request = ChatRequest.builder()
                 .messages(List.of(
                         ChatMessage.system(systemPrompt),
                         ChatMessage.user(dossier)))
                 .temperature(0.0d)
-                .maxOutputTokens(1800)
+                .maxOutputTokens(4096)
+                .responseMimeType("application/json")
+                .responseSchema(metadataResponseSchema(currentType, insightsOnly))
                 .build();
-        String content = deployments.chatPort(deployment.deploymentId()).chat(request).messages().stream()
-                .filter(message -> message.role() == ChatMessageRole.ASSISTANT)
-                .map(ChatMessage::content)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Metadata model returned no assistant message"));
+        String content;
+        try {
+            content = deployments.chatPort(deployment.deploymentId()).chat(request).messages().stream()
+                    .filter(message -> message.role() == ChatMessageRole.ASSISTANT)
+                    .map(ChatMessage::content)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("Metadata model returned no assistant message"));
+        } catch (RuntimeException ex) {
+            throw MarkdownMetadataEnrichmentException.upstreamUnavailable(deployment.deploymentId(), ex);
+        }
         return parseLlm(content, document, currentType);
     }
 
     private LlmResult parseLlm(String content, NormalizedDocument document, DocumentSemanticType fallbackType) {
         try {
-            JsonNode root = objectMapper.readTree(stripFence(content));
+            JsonNode root = objectMapper.readTree(extractJsonObject(content));
             DocumentSemanticType type = parseType(root.path("semanticType").asText(), fallbackType);
             double confidence = clamp(root.path("confidence").asDouble(0.0d));
             String subject = safeSubject(root.path("subject").isNull() ? null : root.path("subject").asText());
@@ -333,14 +392,56 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
             }
             return new LlmResult(type, subject, confidence, fields);
         } catch (RuntimeException ex) {
-            throw new IllegalStateException("Metadata model returned invalid JSON", ex);
+            throw MarkdownMetadataEnrichmentException.invalidResponse(
+                    properties.getLlmDeploymentId(), ex);
         }
     }
 
-    private String dossier(NormalizedDocument document, DocumentMetadataSchema schema) {
+    private String metadataResponseSchema(DocumentSemanticType currentType, boolean insightsOnly) {
+        Map<String, Object> valueSchema = Map.of("type", "string");
+        Map<String, Object> fieldSchema = Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "values", Map.of("type", "array", "items", valueSchema),
+                        "evidenceText", valueSchema),
+                "required", List.of("values", "evidenceText"));
+        Map<String, Object> fieldProperties = new LinkedHashMap<>();
+        (insightsOnly
+                ? INSIGHT_FIELDS.stream()
+                : schemas.require(currentType).fields().stream().map(DocumentMetadataFieldDescriptor::fieldId))
+                .distinct()
+                .sorted()
+                .forEach(fieldId -> fieldProperties.put(fieldId, fieldSchema));
+
+        Map<String, Object> properties = new LinkedHashMap<>();
+        properties.put("semanticType", Map.of(
+                "type", "string",
+                "enum", List.of("GENERAL", "BOOK", "ACADEMIC_PAPER", "THESIS", "REPORT",
+                        "POLICY", "MANUAL", "PRESENTATION", "UNKNOWN")));
+        properties.put("subject", Map.of("type", "string", "nullable", true));
+        properties.put("confidence", Map.of("type", "number", "minimum", 0.0d, "maximum", 1.0d));
+        properties.put("fields", Map.of(
+                "type", "object",
+                "properties", fieldProperties,
+                "required", List.of("summary", "keywords")));
+        return write(Map.of(
+                "type", "object",
+                "properties", properties,
+                "required", List.of("semanticType", "confidence", "fields")));
+    }
+
+    private String dossier(
+            NormalizedDocument document,
+            DocumentMetadataSchema schema,
+            boolean insightsOnly) {
         StringBuilder result = new StringBuilder();
         result.append("Allowed fields: ")
-                .append(schema.fields().stream().map(DocumentMetadataFieldDescriptor::fieldId).toList())
+                .append(insightsOnly
+                        ? INSIGHT_FIELDS.stream().sorted().toList()
+                        : schema.fields().stream().map(DocumentMetadataFieldDescriptor::fieldId).toList())
+                .append("\\nOutput language: ")
+                .append(outputLanguage(document))
+                .append(". Write summary prose and keywords in this language.")
                 .append("\\nBlocks:\\n");
         int count = 0;
         for (NormalizedBlock block : document.blocks()) {
@@ -357,6 +458,32 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
             count++;
         }
         return result.toString();
+    }
+
+    private static String outputLanguage(NormalizedDocument document) {
+        Optional<String> metadataLanguage = document.metadata().entrySet().stream()
+                .filter(entry -> "language".equals(canonicalKey(entry.getKey())))
+                .map(Map.Entry::getValue)
+                .flatMap(value -> safeValues(value, "language").stream())
+                .map(value -> value.trim().toLowerCase(Locale.ROOT))
+                .findFirst();
+        String language = metadataLanguage.orElseGet(() -> containsHangul(sample(document)) ? "ko" : "en");
+        if (language.startsWith("ko") || language.startsWith("kor")) {
+            return "Korean (ko)";
+        }
+        if (language.startsWith("ja") || language.startsWith("jpn")) {
+            return "Japanese (ja)";
+        }
+        if (language.startsWith("zh") || language.startsWith("chi") || language.startsWith("zho")) {
+            return "Chinese (zh)";
+        }
+        return "English (en)";
+    }
+
+    private static boolean containsHangul(String value) {
+        return value != null && value.codePoints().anyMatch(codePoint ->
+                (codePoint >= 0xAC00 && codePoint <= 0xD7A3)
+                        || (codePoint >= 0x3131 && codePoint <= 0x318E));
     }
 
     private DocumentMetadataQuality quality(DocumentSemanticType type,
@@ -385,15 +512,15 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
 
     private ModelDeployment requireDeployment() {
         if (deployments == null) {
-            throw new IllegalStateException("ModelDeploymentRegistry is not configured");
+            throw MarkdownMetadataEnrichmentException.modelConfiguration(
+                    properties.getLlmDeploymentId(), null);
         }
         String deploymentId = safeText(properties.getLlmDeploymentId(), 200);
         return deployments.find(deploymentId)
                 .filter(ModelDeployment::enabled)
                 .filter(deployment -> deployment.workload() == ModelWorkload.CHAT)
                 .filter(deployment -> deployment.definition().structuredOutput())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Metadata deployment must be enabled CHAT with structured output: " + deploymentId));
+                .orElseThrow(() -> MarkdownMetadataEnrichmentException.modelConfiguration(deploymentId, null));
     }
 
     private void validateConfiguredDeployment() {
@@ -408,6 +535,7 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
                 + sha256(document.chunkableText()) + "\n"
                 + schemas.schemaVersion() + "\n"
                 + EXTRACTOR_VERSION + "\n"
+                + sha256(systemPrompt) + "\n"
                 + options.semanticTypeSelection().name() + "\n"
                 + options.enrichmentMode().name() + "\n"
                 + nullToEmpty(properties.getLlmDeploymentId());
@@ -583,11 +711,11 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
         return (dot > 0 ? name.substring(0, dot) : name).replace('_', ' ').trim();
     }
 
-    private String write(DocumentMetadataArtifact artifact) {
+    private String write(Object value) {
         try {
-            return objectMapper.writeValueAsString(artifact);
+            return objectMapper.writeValueAsString(value);
         } catch (Exception ex) {
-            throw new IllegalStateException("Failed to serialize document metadata", ex);
+            throw new IllegalStateException("Failed to serialize document metadata JSON", ex);
         }
     }
 
@@ -626,6 +754,38 @@ final class DefaultMarkdownMetadataEnrichmentService implements MarkdownMetadata
             }
         }
         return text;
+    }
+
+    static String extractJsonObject(String value) {
+        String text = stripFence(value);
+        int start = text.indexOf('{');
+        if (start < 0) {
+            return text;
+        }
+        int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        for (int index = start; index < text.length(); index++) {
+            char current = text.charAt(index);
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\') {
+                    escaped = true;
+                } else if (current == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (current == '"') {
+                inString = true;
+            } else if (current == '{') {
+                depth++;
+            } else if (current == '}' && --depth == 0) {
+                return text.substring(start, index + 1);
+            }
+        }
+        return text.substring(start);
     }
 
     private static String safeSubject(String value) {

@@ -69,4 +69,50 @@ class BuiltInDocumentMetadataSchemaRegistryTest {
         assertThat(new DocumentMetadataProjectionPolicy().compact(artifact))
                 .containsEntry("docPublicationYear", "1951");
     }
+
+    @Test
+    void compactProjectionIncludesBoundedSummaryAndKeywords() {
+        DocumentMetadataField summary = new DocumentMetadataField(
+                "summary",
+                List.of("핵심 내용 ".repeat(120)),
+                List.of("핵심 내용 ".repeat(120)),
+                0.7,
+                DocumentMetadataProvenance.INFERRED,
+                List.of());
+        DocumentMetadataField keywords = new DocumentMetadataField(
+                "keywords",
+                List.of("  정책  ", "권한", "요약".repeat(50)),
+                List.of("  정책  ", "권한", "요약".repeat(50)),
+                0.9,
+                DocumentMetadataProvenance.NATIVE_STRUCTURED,
+                List.of());
+        DocumentMetadataArtifact artifact = new DocumentMetadataArtifact(
+                "dmeta-3", "mrev-3", "v1", "native-v1", "hash",
+                new DocumentMetadataClassification(null, null, DocumentSemanticTypeSelection.AUTO,
+                        DocumentSemanticType.BOOK, null, "HUMANITIES", 0.9, "rules-v1",
+                        null, null, null, null),
+                DocumentMetadataQuality.COMPLETE,
+                Map.of("summary", summary, "keywords", keywords),
+                List.of());
+
+        assertThat(new DocumentMetadataProjectionPolicy().compact(artifact))
+                .containsEntry("docKeywords", List.of("정책", "권한", "요약".repeat(40)))
+                .containsKey("docSummary");
+        assertThat(((String) new DocumentMetadataProjectionPolicy().compact(artifact).get("docSummary")).length())
+                .isLessThanOrEqualTo(DocumentMetadataProjectionPolicy.MAX_SUMMARY_CHARS);
+    }
+
+    @Test
+    void commonSchemaContainsKeywordAndSummaryFields() {
+        DocumentMetadataSchema general = registry.require(DocumentSemanticType.GENERAL);
+
+        assertThat(general.fields())
+                .filteredOn(field -> field.fieldId().equals("keywords"))
+                .singleElement()
+                .satisfies(field -> assertThat(field.recommended()).isTrue());
+        assertThat(general.fields())
+                .filteredOn(field -> field.fieldId().equals("summary"))
+                .singleElement()
+                .satisfies(field -> assertThat(field.label()).isEqualTo("요약"));
+    }
 }

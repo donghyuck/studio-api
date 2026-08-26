@@ -9,7 +9,7 @@ import studio.one.platform.documentmetadata.DocumentMetadataFieldDescriptor.Valu
 
 public final class BuiltInDocumentMetadataSchemaRegistry implements DocumentMetadataSchemaRegistry {
 
-    public static final String VERSION = "2026.07.1";
+    public static final String VERSION = "2026.08.1";
     private final List<DocumentMetadataSchema> schemas;
 
     public BuiltInDocumentMetadataSchemaRegistry() {
@@ -106,8 +106,8 @@ public final class BuiltInDocumentMetadataSchemaRegistry implements DocumentMeta
                 field("creators", "작성자", false, true, true, ValueType.TEXT),
                 field("organizations", "기관/소속", false, false, true, ValueType.TEXT),
                 field("language", "언어", false, false, false, ValueType.TEXT),
-                field("keywords", "키워드", false, false, true, ValueType.TEXT),
-                field("summary", "요약", false, false, false, ValueType.LONG_TEXT),
+                field("keywords", "키워드", false, true, true, ValueType.TEXT),
+                field("summary", "요약", false, true, false, ValueType.LONG_TEXT),
                 field("identifiers", "식별자", false, false, true, ValueType.IDENTIFIER),
                 field("dates", "관련 날짜", false, false, true, ValueType.PARTIAL_DATE));
     }

@@ -5,6 +5,7 @@ import java.util.Objects;
 import tools.jackson.databind.ObjectMapper;
 
 import studio.one.platform.documentmetadata.DocumentMetadataArtifact;
+import studio.one.platform.documentmetadata.DocumentMetadataProjectionPolicy;
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.domain.MarkdownDocument;
 import studio.one.platform.markdown.domain.MarkdownResource;
@@ -17,13 +18,33 @@ public class MarkdownDocumentMetadataService {
 
     private final MarkdownRepository repository;
     private final ObjectMapper objectMapper;
+    private final DocumentMetadataProjectionPolicy projectionPolicy;
 
     public MarkdownDocumentMetadataService(MarkdownRepository repository, ObjectMapper objectMapper) {
+        this(repository, objectMapper, new DocumentMetadataProjectionPolicy());
+    }
+
+    MarkdownDocumentMetadataService(
+            MarkdownRepository repository,
+            ObjectMapper objectMapper,
+            DocumentMetadataProjectionPolicy projectionPolicy) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.projectionPolicy = projectionPolicy == null ? new DocumentMetadataProjectionPolicy() : projectionPolicy;
     }
 
     public DocumentMetadataArtifact get(String documentId, String requestedRevisionId) {
+        return load(documentId, requestedRevisionId);
+    }
+
+    public DocumentMetadataSummaryView getSummary(String documentId, String requestedRevisionId) {
+        return DocumentMetadataSummaryView.from(
+                documentId,
+                load(documentId, requestedRevisionId),
+                projectionPolicy);
+    }
+
+    private DocumentMetadataArtifact load(String documentId, String requestedRevisionId) {
         MarkdownDocument document = repository.findDocument(documentId)
                 .orElseThrow(() -> new MarkdownDocumentNotFoundException("Markdown document not found: " + documentId));
         String revisionId = hasText(requestedRevisionId) ? requestedRevisionId : document.currentRevisionId();

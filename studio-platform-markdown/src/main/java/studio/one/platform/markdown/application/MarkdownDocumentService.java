@@ -369,7 +369,13 @@ public class MarkdownDocumentService {
     }
 
     public MarkdownPipelineProgress getPipelineProgress(String documentId) {
-        MarkdownRevision revision = latestRevision(documentId);
+        return getPipelineProgress(documentId, null);
+    }
+
+    public MarkdownPipelineProgress getPipelineProgress(String documentId, String revisionId) {
+        MarkdownRevision revision = hasText(revisionId)
+                ? requiredRevision(documentId, revisionId)
+                : latestRevision(documentId);
         MarkdownPipelineExecution execution = repository.findPipelineExecution(revision.revisionId())
                 .orElseGet(() -> legacyPipelineExecution(revision));
         return new MarkdownPipelineProgress(execution, pipelinePort.latestChunkingProgress(revision),
@@ -996,22 +1002,48 @@ public class MarkdownDocumentService {
     }
 
     public List<MarkdownLocator> getLocators(String documentId) {
+        return getLocators(documentId, null);
+    }
+
+    public List<MarkdownLocator> getLocators(String documentId, String revisionId) {
         MarkdownDocument document = requireDocument(documentId);
-        return document.currentRevisionId() == null ? List.of() : locatorsWithNormalizedProvenance(document.currentRevisionId());
+        String effectiveRevisionId = hasText(revisionId)
+                ? requiredRevision(documentId, revisionId).revisionId()
+                : document.currentRevisionId();
+        return effectiveRevisionId == null ? List.of() : locatorsWithNormalizedProvenance(effectiveRevisionId);
     }
 
     public List<MarkdownLocator> getProvenance(String documentId) {
-        return getLocators(documentId);
+        return getProvenance(documentId, null);
+    }
+
+    public List<MarkdownLocator> getProvenance(String documentId, String revisionId) {
+        return getLocators(documentId, revisionId);
     }
 
     public List<MarkdownResource> getResources(String documentId) {
+        return getResources(documentId, null);
+    }
+
+    public List<MarkdownResource> getResources(String documentId, String revisionId) {
         MarkdownDocument document = requireDocument(documentId);
-        return document.currentRevisionId() == null ? List.of()
-                : repository.findResources(document.currentRevisionId());
+        String effectiveRevisionId = hasText(revisionId)
+                ? requiredRevision(documentId, revisionId).revisionId()
+                : document.currentRevisionId();
+        return effectiveRevisionId == null ? List.of()
+                : repository.findResources(effectiveRevisionId);
     }
 
     public MarkdownExtractionResult reextract(String documentId, MarkdownPipelineOptions options, String requestedBy) {
         return reextract(documentId, options, false, requestedBy);
+    }
+
+    private MarkdownRevision requiredRevision(String documentId, String revisionId) {
+        requireDocument(documentId);
+        return repository.findRevision(revisionId)
+                .filter(value -> documentId.equals(value.documentId()))
+                .orElseThrow(() -> new MarkdownDocumentNotFoundException(
+                        "Markdown revision not found: " + revisionId));
     }
 
     public MarkdownExtractionResult reextract(String documentId, MarkdownPipelineOptions options,

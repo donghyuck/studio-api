@@ -13,3 +13,8 @@ Return JSON only with this shape:
   }
 }
 Do not invent values. Omit fields that cannot be supported by an exact quote.
+For `summary` and `keywords`, short grounded derivations are allowed.
+Write `summary` and `keywords` in the document's primary language.
+Keep `summary` under 80 words, return 3-8 `keywords`, and keep each `evidenceText` under 300 characters.
+For those two fields, `evidenceText` must still be an exact contiguous quote that supports the derivation.
+For every other field, copy only values that are directly supported by an exact quote.
