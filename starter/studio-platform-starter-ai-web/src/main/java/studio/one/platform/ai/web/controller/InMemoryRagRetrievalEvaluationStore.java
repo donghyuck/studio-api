@@ -52,6 +52,17 @@ public class InMemoryRagRetrievalEvaluationStore implements RagRetrievalEvaluati
                 .toList();
     }
 
+    @Override
+    public synchronized List<RagRetrievalEvaluationResponseDto> listByObject(String objectType, String objectId) {
+        return runs.values().stream()
+                .filter(result -> objectType == null
+                        ? result.objectType() == null
+                        : result.objectType() != null && objectType.equalsIgnoreCase(result.objectType()))
+                .filter(result -> java.util.Objects.equals(objectId, result.objectId()))
+                .sorted(Comparator.comparing(RagRetrievalEvaluationResponseDto::createdAt).reversed())
+                .toList();
+    }
+
     private void trim() {
         while (runs.size() > maxRuns) {
             String firstKey = new ArrayList<>(runs.keySet()).get(0);

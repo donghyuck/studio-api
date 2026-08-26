@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.rag.usability.RagObjectUsabilityEvidenceContributor;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
@@ -263,6 +264,13 @@ public class MarkdownAutoConfiguration {
     RagObjectMetadataContributor markdownRagObjectMetadataContributor(
             MarkdownRepository repository, ObjectMapper objectMapper) {
         return new MarkdownRagObjectMetadataContributor(repository, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "markdownRagObjectUsabilityEvidenceContributor")
+    RagObjectUsabilityEvidenceContributor markdownRagObjectUsabilityEvidenceContributor(
+            MarkdownRepository repository, ObjectMapper objectMapper) {
+        return new MarkdownRagObjectUsabilityEvidenceContributor(repository, objectMapper);
     }
 
     @Bean

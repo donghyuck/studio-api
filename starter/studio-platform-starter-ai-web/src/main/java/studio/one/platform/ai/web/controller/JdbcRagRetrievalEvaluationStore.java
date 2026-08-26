@@ -79,6 +79,19 @@ public class JdbcRagRetrievalEvaluationStore implements RagRetrievalEvaluationSt
         return jdbcTemplate.query(sql, Map.of("questionSetId", questionSetId), rowMapper);
     }
 
+    @Override
+    public List<RagRetrievalEvaluationResponseDto> listByObject(String objectType, String objectId) {
+        String sql = """
+                SELECT result_json
+                FROM tb_ai_rag_retrieval_evaluation
+                WHERE LOWER(object_type) = LOWER(:objectType)
+                  AND object_id = :objectId
+                ORDER BY created_at DESC, run_id DESC
+                LIMIT 100
+                """;
+        return jdbcTemplate.query(sql, Map.of("objectType", objectType, "objectId", objectId), rowMapper);
+    }
+
     private MapSqlParameterSource params(RagRetrievalEvaluationResponseDto result) {
         return new MapSqlParameterSource()
                 .addValue("runId", result.runId())
