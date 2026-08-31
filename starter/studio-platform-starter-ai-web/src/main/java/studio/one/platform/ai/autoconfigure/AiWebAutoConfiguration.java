@@ -92,9 +92,18 @@ import studio.one.platform.ai.web.controller.RagExternalEvidenceService;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
 import studio.one.platform.ai.web.controller.RagObjectAuthorizationRouter;
 import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
+import studio.one.platform.ai.core.rag.usability.RagObjectUsabilityEvidenceContributor;
 import studio.one.platform.ai.core.rag.indexed.IndexedRagSourceProvider;
 import studio.one.platform.ai.core.rag.external.ExternalEvidenceProvider;
 import studio.one.platform.ai.web.controller.RagIndexJobEndpointSecurity;
+import studio.one.platform.ai.web.controller.DocumentUsabilityController;
+import studio.one.platform.ai.web.controller.DocumentUsabilityPolicyResolver;
+import studio.one.platform.ai.web.controller.DocumentUsabilityService;
+import studio.one.platform.ai.web.controller.DocumentAutoEvaluationController;
+import studio.one.platform.ai.web.controller.DocumentAutoEvaluationService;
+import studio.one.platform.ai.web.controller.DocumentRagEvaluationProjectionService;
+import studio.one.platform.ai.web.controller.DocumentQuestionSuggestionController;
+import studio.one.platform.ai.web.controller.DocumentQuestionSuggestionService;
 import studio.one.platform.ai.web.controller.RagRetrievalEvaluationController;
 import studio.one.platform.ai.web.controller.RagRetrievalEvaluationJobService;
 import studio.one.platform.ai.web.controller.RagRetrievalEvaluationJobStore;
@@ -248,6 +257,7 @@ public class AiWebAutoConfiguration {
             RagObjectAuthorizationRouter ragObjectAuthorizationRouter,
             RagSourcePolicyResolver ragSourcePolicyResolver,
             RagExternalEvidenceService ragExternalEvidenceService,
+            ObjectProvider<DocumentQuestionSuggestionService> questionSuggestionService,
             ObjectProvider<IndexedRagSourceProvider> indexedRagSourceProviders) {
         ChatController controller = new ChatController(providerRegistry, ragPipelineService, ragChatRetrievalService,
                 ragContextBuilder,
@@ -270,6 +280,7 @@ public class AiWebAutoConfiguration {
                 ragSourcePolicyResolver,
                 ragExternalEvidenceService);
         controller.setIndexedRagSourceProviders(indexedRagSourceProviders.orderedStream().toList());
+        controller.setQuestionSuggestionsEnabled(questionSuggestionService.getIfAvailable() != null);
         return controller;
     }
 
@@ -644,6 +655,80 @@ public class AiWebAutoConfiguration {
                 ragPipelineProperties.getObjectScope().getMaxListLimit(),
                 sourceNameResolvers.orderedStream().toList(),
                 metadataContributors.orderedStream().toList());
+    }
+
+    @Bean
+    DocumentUsabilityPolicyResolver documentUsabilityPolicyResolver() {
+        return new DocumentUsabilityPolicyResolver();
+    }
+
+    @Bean
+    @ConditionalOnBean(RagIndexJobService.class)
+    DocumentUsabilityService documentUsabilityService(
+            RagIndexJobService ragIndexJobService,
+            RagPipelineService ragPipelineService,
+            @Nullable VectorStorePort vectorStorePort,
+            ObjectProvider<RagObjectUsabilityEvidenceContributor> evidenceContributors,
+            DocumentUsabilityPolicyResolver policyResolver,
+            DocumentRagEvaluationProjectionService evaluationProjectionService) {
+        return new DocumentUsabilityService(
+                ragIndexJobService,
+                ragPipelineService,
+                vectorStorePort,
+                evidenceContributors.orderedStream().toList(),
+                policyResolver,
+                evaluationProjectionService);
+    }
+
+    @Bean
+    @ConditionalOnBean(DocumentUsabilityService.class)
+    DocumentUsabilityController documentUsabilityController(DocumentUsabilityService service) {
+        return new DocumentUsabilityController(service);
+    }
+
+    @Bean
+    DocumentRagEvaluationProjectionService documentRagEvaluationProjectionService(
+            RagRetrievalEvaluationStore evaluationStore,
+            RagRetrievalEvaluationQuestionSetStore questionSetStore,
+            ObjectMapper objectMapper) {
+        return new DocumentRagEvaluationProjectionService(evaluationStore, questionSetStore, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnBean({DocumentUsabilityService.class, VectorStorePort.class})
+    DocumentAutoEvaluationService documentAutoEvaluationService(
+            DocumentUsabilityService usabilityService,
+            VectorStorePort vectorStorePort,
+            RagRetrievalEvaluationQuestionSetStore questionSetStore,
+            RagRetrievalEvaluationRunner evaluationRunner,
+            DocumentRagEvaluationProjectionService projectionService) {
+        return new DocumentAutoEvaluationService(
+                usabilityService, vectorStorePort, questionSetStore, evaluationRunner, projectionService);
+    }
+
+    @Bean
+    @ConditionalOnBean(DocumentAutoEvaluationService.class)
+    DocumentAutoEvaluationController documentAutoEvaluationController(DocumentAutoEvaluationService service) {
+        return new DocumentAutoEvaluationController(service);
+    }
+
+    @Bean
+    @ConditionalOnBean({DocumentUsabilityService.class, VectorStorePort.class})
+    DocumentQuestionSuggestionService documentQuestionSuggestionService(
+            DocumentUsabilityService usabilityService,
+            VectorStorePort vectorStorePort,
+            ObjectProvider<RagObjectMetadataContributor> metadataContributors) {
+        return new DocumentQuestionSuggestionService(
+                usabilityService,
+                vectorStorePort,
+                metadataContributors.orderedStream().toList());
+    }
+
+    @Bean
+    @ConditionalOnBean(DocumentQuestionSuggestionService.class)
+    DocumentQuestionSuggestionController documentQuestionSuggestionController(
+            DocumentQuestionSuggestionService service) {
+        return new DocumentQuestionSuggestionController(service);
     }
 
     @Bean

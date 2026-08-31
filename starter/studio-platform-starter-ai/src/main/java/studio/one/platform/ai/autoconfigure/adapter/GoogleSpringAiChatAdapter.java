@@ -71,6 +71,12 @@ public class GoogleSpringAiChatAdapter extends SpringAiChatAdapter {
         if (!request.stopSequences().isEmpty()) {
             builder.stopSequences(request.stopSequences());
         }
+        if (request.responseMimeType() != null && !request.responseMimeType().isBlank()) {
+            builder.responseMimeType(request.responseMimeType());
+        }
+        if (request.responseSchema() != null && !request.responseSchema().isBlank()) {
+            builder.responseSchema(request.responseSchema());
+        }
         return builder.build();
     }
 }

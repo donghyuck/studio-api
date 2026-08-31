@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import studio.one.platform.documentmetadata.DocumentMetadataArtifact;
+import studio.one.platform.markdown.application.DocumentMetadataSummaryView;
 import studio.one.platform.markdown.application.MarkdownDocumentMetadataService;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -28,5 +29,14 @@ public class MarkdownDocumentMetadataController {
             @PathVariable String id,
             @RequestParam(required = false) String revisionId) {
         return ApiResponse.ok(service.get(id, revisionId));
+    }
+
+    @GetMapping("/{id}/metadata/summary")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read') "
+            + "and @endpointAuthz.can('features:attachment','read')")
+    public ApiResponse<DocumentMetadataSummaryView> metadataSummary(
+            @PathVariable String id,
+            @RequestParam(required = false) String revisionId) {
+        return ApiResponse.ok(service.getSummary(id, revisionId));
     }
 }

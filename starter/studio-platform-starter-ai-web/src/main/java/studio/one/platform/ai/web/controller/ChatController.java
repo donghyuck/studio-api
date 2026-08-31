@@ -97,6 +97,7 @@ import studio.one.platform.ai.web.dto.RagRetrievalPolicyDto;
 import studio.one.platform.ai.web.dto.RagRetrievalPolicyUsageDto;
 import studio.one.platform.ai.web.dto.RagAnswerPolicyCapabilitiesDto;
 import studio.one.platform.ai.web.dto.RagChatCapabilitiesDto;
+import studio.one.platform.ai.web.dto.RagQuestionSuggestionCapabilitiesDto;
 import studio.one.platform.ai.web.dto.IndexedWebCapabilitiesDto;
 import studio.one.platform.ai.web.dto.RagRegenerateRequestDto;
 import studio.one.platform.ai.web.dto.RagSourcePolicyCapabilitiesDto;
@@ -183,6 +184,7 @@ public class ChatController {
     private RagObjectAuthorizationRouter ragObjectAuthorizationRouter;
     private List<IndexedRagSourceProvider> indexedRagSourceProviders = List.of();
     private final RagQueryIntentClassifier ragQueryIntentClassifier = RagQueryIntentClassifier.rules();
+    private boolean questionSuggestionsEnabled;
     private final RagDocumentOverviewAssembler documentOverviewAssembler = new RagDocumentOverviewAssembler();
     private final RagDocumentMapReduceOverview documentMapReduceOverview = new RagDocumentMapReduceOverview();
 
@@ -545,6 +547,10 @@ public class ChatController {
         this.indexedRagSourceProviders = providers == null ? List.of() : List.copyOf(providers);
     }
 
+    public void setQuestionSuggestionsEnabled(boolean enabled) {
+        this.questionSuggestionsEnabled = enabled;
+    }
+
     private int indexedWebMaxSources() {
         return indexedRagSourceProviders.stream()
                 .mapToInt(IndexedRagSourceProvider::maxSelectedSources)
@@ -731,7 +737,11 @@ public class ChatController {
         return ResponseEntity.ok(ApiResponse.ok(new RagChatCapabilitiesDto(
                 answerPolicyCapabilities(),
                 sourcePolicy,
-                indexedWebCapabilities())));
+                indexedWebCapabilities(),
+                new RagQuestionSuggestionCapabilitiesDto(
+                        questionSuggestionsEnabled,
+                        DocumentQuestionSuggestionPolicy.CONTRACT_VERSION,
+                        DocumentQuestionSuggestionPolicy.MAX_SUGGESTIONS))));
     }
 
     private IndexedWebCapabilitiesDto indexedWebCapabilities() {

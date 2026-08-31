@@ -13,6 +13,10 @@ public interface MarkdownMetadataEnrichmentPort {
         throw new UnsupportedOperationException("Metadata preview is not supported");
     }
 
+    default DocumentMetadataArtifact regenerate(MarkdownRevision revision, MarkdownPipelineOptions options) {
+        throw new UnsupportedOperationException("Metadata regeneration is not supported");
+    }
+
     static MarkdownMetadataEnrichmentPort noop() {
         return (revision, options) -> {
         };

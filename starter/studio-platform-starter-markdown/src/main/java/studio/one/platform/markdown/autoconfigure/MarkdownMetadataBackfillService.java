@@ -7,7 +7,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -48,6 +50,7 @@ public final class MarkdownMetadataBackfillService {
     private final TaskExecutor executor;
     private final ObjectProvider<RagPipelineService> ragPipelineProvider;
     private final DocumentMetadataProjectionPolicy projectionPolicy = new DocumentMetadataProjectionPolicy();
+    private final Set<String> activeRegenerations = ConcurrentHashMap.newKeySet();
 
     public MarkdownMetadataBackfillService(
             NamedParameterJdbcTemplate jdbc,
@@ -94,6 +97,48 @@ public final class MarkdownMetadataBackfillService {
         refreshCounts(jobId);
         executor.execute(() -> process(jobId, normalized));
         return get(jobId);
+    }
+
+    public DocumentMetadataArtifact regenerate(String documentId, String requestedRevisionId) {
+        var document = repository.findDocument(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Markdown document not found: " + documentId));
+        String currentRevisionId = document.currentRevisionId();
+        if (currentRevisionId == null || currentRevisionId.isBlank()) {
+            throw new IllegalStateException("Markdown document has no current revision: " + documentId);
+        }
+        if (requestedRevisionId != null && !requestedRevisionId.isBlank()
+                && !currentRevisionId.equals(requestedRevisionId)) {
+            throw new IllegalStateException("Metadata regeneration is allowed only for the current revision");
+        }
+        MarkdownRevision revision = repository.findRevision(currentRevisionId)
+                .orElseThrow(() -> new IllegalArgumentException("Markdown revision not found: " + currentRevisionId));
+        if (revision.status() != MarkdownRevisionStatus.COMPLETED) {
+            throw new IllegalStateException("Metadata regeneration requires a completed revision");
+        }
+
+        if (!activeRegenerations.add(currentRevisionId)) {
+            throw new IllegalStateException("Metadata regeneration is already in progress");
+        }
+        try {
+            MarkdownPipelineOptions options = options(revision, new Settings(null, "REQUIRED"));
+            DocumentMetadataArtifact generated = enrichment.regenerate(revision, options);
+            String latestRevisionId = repository.findDocument(documentId)
+                    .map(value -> value.currentRevisionId())
+                    .orElse(null);
+            if (!currentRevisionId.equals(latestRevisionId)) {
+                throw new IllegalStateException("Current revision changed during metadata regeneration");
+            }
+            VectorPatchPlan vectorPatch = vectorPatchPlan(revision, generated);
+            if (vectorPatch.blocked()) {
+                throw new IllegalStateException(vectorPatch.errorCode());
+            }
+            if (vectorPatch.requiresPatch()) {
+                patchVectors(vectorPatch, generated);
+            }
+            return generated;
+        } finally {
+            activeRegenerations.remove(currentRevisionId);
+        }
     }
 
     public List<JobView> list(int limit) {

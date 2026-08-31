@@ -95,6 +95,8 @@ vector compact metadata:
 - `docAuthors` 최대 5개
 - `docPublicationYear`
 - `docOrganization`
+- `docKeywords` 최대 8개
+- `docSummary` 최대 480자
 
 `DocumentMetadataProjectionPolicy.promptFacts(...)`는 source-verified field만 반환한다.
 projection 정책을 변경할 때는 vector payload 크기, 개인정보, 기존 index 호환성을 함께 검토한다.

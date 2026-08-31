@@ -228,8 +228,10 @@ public class MarkdownDocumentController {
 
     @GetMapping("/{id}/pipeline/progress")
     @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
-    public ApiResponse<MarkdownPipelineProgress> pipelineProgress(@PathVariable String id) {
-        return ApiResponse.ok(service.getPipelineProgress(id));
+    public ApiResponse<MarkdownPipelineProgress> pipelineProgress(
+            @PathVariable String id,
+            @RequestParam(required = false) String revisionId) {
+        return ApiResponse.ok(service.getPipelineProgress(id, revisionId));
     }
 
     @PostMapping("/{id}/pipeline/estimate")
@@ -275,21 +277,30 @@ public class MarkdownDocumentController {
     }
 
     @GetMapping("/{id}/locators")
-    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
-    public ApiResponse<List<MarkdownLocator>> locators(@PathVariable String id) {
-        return ApiResponse.ok(service.getLocators(id));
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read') "
+            + "and @endpointAuthz.can('features:attachment','read')")
+    public ApiResponse<List<MarkdownLocator>> locators(
+            @PathVariable String id,
+            @RequestParam(required = false) String revisionId) {
+        return ApiResponse.ok(service.getLocators(id, revisionId));
     }
 
     @GetMapping("/{id}/provenance")
-    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
-    public ApiResponse<List<MarkdownLocator>> provenance(@PathVariable String id) {
-        return ApiResponse.ok(service.getProvenance(id));
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read') "
+            + "and @endpointAuthz.can('features:attachment','read')")
+    public ApiResponse<List<MarkdownLocator>> provenance(
+            @PathVariable String id,
+            @RequestParam(required = false) String revisionId) {
+        return ApiResponse.ok(service.getProvenance(id, revisionId));
     }
 
     @GetMapping("/{id}/resources")
-    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
-    public ApiResponse<List<MarkdownResource>> resources(@PathVariable String id) {
-        return ApiResponse.ok(service.getResources(id));
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read') "
+            + "and @endpointAuthz.can('features:attachment','read')")
+    public ApiResponse<List<MarkdownResource>> resources(
+            @PathVariable String id,
+            @RequestParam(required = false) String revisionId) {
+        return ApiResponse.ok(service.getResources(id, revisionId));
     }
 
     @PostMapping("/{id}/reextract")

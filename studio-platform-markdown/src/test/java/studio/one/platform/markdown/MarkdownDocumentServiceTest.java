@@ -1071,6 +1071,86 @@ class MarkdownDocumentServiceTest {
     }
 
     @Test
+    void readsMetadataArtifactsForExplicitRevision() {
+        InMemoryRepository repository = new InMemoryRepository();
+        Instant now = Instant.parse("2026-08-14T00:00:00Z");
+        repository.saveDocument(new MarkdownDocument("mdoc-1", 17L, "mrev-current", now, now));
+        repository.saveRevision(new MarkdownRevision(
+                "mrev-old", "mdoc-1", 17L, null, null,
+                "TEXTRACT", "textract-1", "{}", "opt-old", "src-old",
+                "content-old", "# old", "sample.pdf", "pdf",
+                "attachment", "17", MarkdownRevisionStatus.COMPLETED,
+                null, null, now.minusSeconds(20), now.minusSeconds(19), now.minusSeconds(18), now.minusSeconds(17)));
+        repository.saveRevision(new MarkdownRevision(
+                "mrev-current", "mdoc-1", 17L, null, null,
+                "TEXTRACT", "textract-1", "{}", "opt-current", "src-current",
+                "content-current", "# current", "sample.pdf", "pdf",
+                "attachment", "17", MarkdownRevisionStatus.COMPLETED,
+                null, null, now.minusSeconds(10), now.minusSeconds(9), now.minusSeconds(8), now.minusSeconds(7)));
+        repository.replaceLocators("mrev-old", List.of(new MarkdownLocator(
+                "mloc-old", "mrev-old", "heading", 1, "Old heading", 0, 10, "page[1]/block[1]", null)));
+        repository.replaceLocators("mrev-current", List.of(new MarkdownLocator(
+                "mloc-current", "mrev-current", "heading", 2, "Current heading", 11, 20, "page[2]/block[1]", null)));
+        repository.replaceResources("mrev-old", List.of(new MarkdownResource(
+                "mres-old", "mrev-old", "NORMALIZED_DOCUMENT", "old.json", null, "{\"old\":true}")));
+        repository.replaceResources("mrev-current", List.of(new MarkdownResource(
+                "mres-current", "mrev-current", "NORMALIZED_DOCUMENT", "current.json", null, "{\"current\":true}")));
+        repository.savePipelineExecution(new MarkdownPipelineExecution(
+                "mrev-old", MarkdownPipelineExecutionStatus.COMPLETED,
+                MarkdownPipelineStage.COMPLETED, MarkdownPipelineStage.RAG_INDEX,
+                1, null, null, now.minusSeconds(20), now.minusSeconds(18), now.minusSeconds(17)));
+        repository.savePipelineExecution(new MarkdownPipelineExecution(
+                "mrev-current", MarkdownPipelineExecutionStatus.RUNNING,
+                MarkdownPipelineStage.RAG_INDEX, MarkdownPipelineStage.CHUNKING,
+                2, null, null, now.minusSeconds(10), null, now.minusSeconds(7)));
+        MarkdownDocumentService service = service(repository, new SourcePort(),
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Native", "textract-1", List.of(), List.of()),
+                MarkdownPipelinePort.noop());
+
+        List<MarkdownLocator> locators = service.getLocators("mdoc-1", "mrev-old");
+        List<MarkdownLocator> provenance = service.getProvenance("mdoc-1", "mrev-old");
+        List<MarkdownResource> resources = service.getResources("mdoc-1", "mrev-old");
+        var progress = service.getPipelineProgress("mdoc-1", "mrev-old");
+
+        assertEquals(List.of("mloc-old"), locators.stream().map(MarkdownLocator::locatorId).toList());
+        assertEquals(locators, provenance);
+        assertEquals(List.of("mres-old"), resources.stream().map(MarkdownResource::resourceId).toList());
+        assertEquals("mrev-old", progress.pipeline().revisionId());
+    }
+
+    @Test
+    void rejectsRevisionThatDoesNotBelongToDocumentForMetadataArtifacts() {
+        InMemoryRepository repository = new InMemoryRepository();
+        Instant now = Instant.parse("2026-08-14T00:00:00Z");
+        repository.saveDocument(new MarkdownDocument("mdoc-1", 17L, "mrev-1", now, now));
+        repository.saveDocument(new MarkdownDocument("mdoc-2", 18L, "mrev-2", now, now));
+        repository.saveRevision(new MarkdownRevision(
+                "mrev-1", "mdoc-1", 17L, null, null,
+                "TEXTRACT", "textract-1", "{}", "opt-1", "src-1",
+                "content-1", "# one", "sample-1.pdf", "pdf",
+                "attachment", "17", MarkdownRevisionStatus.COMPLETED,
+                null, null, now.minusSeconds(10), now.minusSeconds(9), now.minusSeconds(8), now.minusSeconds(7)));
+        repository.saveRevision(new MarkdownRevision(
+                "mrev-2", "mdoc-2", 18L, null, null,
+                "TEXTRACT", "textract-1", "{}", "opt-2", "src-2",
+                "content-2", "# two", "sample-2.pdf", "pdf",
+                "attachment", "18", MarkdownRevisionStatus.COMPLETED,
+                null, null, now.minusSeconds(20), now.minusSeconds(19), now.minusSeconds(18), now.minusSeconds(17)));
+        MarkdownDocumentService service = service(repository, new SourcePort(),
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Native", "textract-1", List.of(), List.of()),
+                MarkdownPipelinePort.noop());
+
+        assertThrows(MarkdownDocumentNotFoundException.class,
+                () -> service.getLocators("mdoc-1", "mrev-2"));
+        assertThrows(MarkdownDocumentNotFoundException.class,
+                () -> service.getResources("mdoc-1", "mrev-2"));
+        assertThrows(MarkdownDocumentNotFoundException.class,
+                () -> service.getPipelineProgress("mdoc-1", "mrev-2"));
+    }
+
+    @Test
     void persistsPipelineOptionsAndExpandsSkillDependencies() throws Exception {
         InMemoryRepository repository = new InMemoryRepository();
         SourcePort sources = new SourcePort();
@@ -1101,6 +1181,82 @@ class MarkdownDocumentServiceTest {
         assertEquals("kure", stored.get("skillEmbeddingProvider"));
         assertEquals("nlpai-lab/KURE-v1", stored.get("skillEmbeddingModel"));
         assertEquals(1024, stored.get("skillEmbeddingDimension"));
+    }
+
+    @Test
+    void locatorsAndResourcesCanBeReadFromExplicitRevision() throws Exception {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Hello", "textract-1", List.of(), List.of()),
+                MarkdownPipelinePort.noop());
+        String documentId = "mdoc-revisions";
+        String oldRevisionId = "mrev-old";
+        String currentRevisionId = "mrev-current";
+        repository.saveDocument(new MarkdownDocument(documentId, 1L, currentRevisionId, CLOCK.instant(), CLOCK.instant()));
+        repository.saveRevision(new MarkdownRevision(
+                oldRevisionId,
+                documentId,
+                1L,
+                null,
+                null,
+                "TEXTRACT",
+                "native",
+                new ObjectMapper().writeValueAsString(MarkdownPipelineOptions.none()),
+                "options-old",
+                "source-old",
+                "content-old",
+                "# Old",
+                "old.pdf",
+                "pdf",
+                null,
+                null,
+                MarkdownRevisionStatus.COMPLETED,
+                null,
+                null,
+                CLOCK.instant(),
+                CLOCK.instant(),
+                CLOCK.instant(),
+                CLOCK.instant()));
+        repository.saveRevision(new MarkdownRevision(
+                currentRevisionId,
+                documentId,
+                1L,
+                null,
+                null,
+                "TEXTRACT",
+                "native",
+                new ObjectMapper().writeValueAsString(MarkdownPipelineOptions.none()),
+                "options-current",
+                "source-current",
+                "content-current",
+                "# Current",
+                "current.pdf",
+                "pdf",
+                null,
+                null,
+                MarkdownRevisionStatus.COMPLETED,
+                null,
+                null,
+                CLOCK.instant(),
+                CLOCK.instant(),
+                CLOCK.instant(),
+                CLOCK.instant()));
+        repository.replaceLocators(oldRevisionId, List.of(
+                new MarkdownLocator("loc-old", oldRevisionId, "SECTION", 1, "Old", 0, 10, "page[1]/block[1]", null)));
+        repository.replaceLocators(currentRevisionId, List.of(
+                new MarkdownLocator("loc-current", currentRevisionId, "SECTION", 2, "Current", 0, 14, "page[2]/block[1]", null)));
+        repository.replaceResources(oldRevisionId, List.of(
+                new MarkdownResource("res-old", oldRevisionId, "IMAGE", "old.png", 10L, "{\"label\":\"old\"}")));
+        repository.replaceResources(currentRevisionId, List.of(
+                new MarkdownResource("res-current", currentRevisionId, "IMAGE", "current.png", 20L, "{\"label\":\"current\"}")));
+
+        assertEquals("loc-current", service.getLocators(documentId).get(0).locatorId());
+        assertEquals("loc-old", service.getLocators(documentId, oldRevisionId).get(0).locatorId());
+        assertEquals("res-current", service.getResources(documentId).get(0).resourceId());
+        assertEquals("res-old", service.getResources(documentId, oldRevisionId).get(0).resourceId());
+        assertEquals(service.getLocators(documentId, oldRevisionId), service.getProvenance(documentId, oldRevisionId));
     }
 
     @Test

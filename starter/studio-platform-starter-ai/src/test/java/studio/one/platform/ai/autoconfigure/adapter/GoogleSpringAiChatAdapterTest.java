@@ -54,6 +54,8 @@ class GoogleSpringAiChatAdapterTest {
                 .topK(20)
                 .maxOutputTokens(100)
                 .stopSequences(List.of("STOP"))
+                .responseMimeType("application/json")
+                .responseSchema("{\"type\":\"object\"}")
                 .build());
 
         assertThat(response.model()).isEqualTo("gemini-2.5-flash");
@@ -69,6 +71,8 @@ class GoogleSpringAiChatAdapterTest {
         assertThat(options.getTopK()).isEqualTo(20);
         assertThat(options.getMaxOutputTokens()).isEqualTo(100);
         assertThat(options.getStopSequences()).containsExactly("STOP");
+        assertThat(options.getResponseMimeType()).isEqualTo("application/json");
+        assertThat(options.getResponseSchema()).isEqualTo("{\"type\":\"object\"}");
     }
 
     @Test

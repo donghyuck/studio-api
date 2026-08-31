@@ -30,6 +30,8 @@ Attachment를 안정적인 Markdown 지식 원본으로 변환하고 Revision �
 - `GET /api/markdown-documents/{id}/locators`
 - `GET /api/markdown-documents/{id}/resources`
 - `GET /api/markdown-documents/{id}/metadata?revisionId=...`
+- `GET /api/markdown-documents/{id}/metadata/summary?revisionId=...`
+- `POST /api/markdown-documents/{id}/metadata/reextract?revisionId=...`
 - `GET /api/document-metadata/schemas`
 - `POST /api/markdown-documents/{id}/reextract`
 - `POST /api/markdown-documents/{id}/resume`
@@ -84,8 +86,32 @@ Skill 추출 LLM이 아니라 추출된 후보의 후속 embedding에만 사용�
 ## 문서 metadata와 backfill
 
 metadata artifact는 revision별 `DOCUMENT_METADATA` resource로 한 번 저장한다. vector에는 전체 artifact가
-아니라 `docMetadataId`, 의미 유형, 제목, 제한된 저자, 발간 연도와 조직만 projection한다.
+아니라 `docMetadataId`, 의미 유형, 제목, 제한된 저자, 발간 연도, 조직, bounded `docKeywords`,
+`docSummary`만 projection한다.
 RAG metadata 질의에는 source-verified field만 사용한다.
+
+현재 완료 revision의 요약·키워드 보강만 다시 시도하려면 `metadata/reextract`를 사용한다. 이 API는 기존
+artifact fingerprint가 같아도 LLM enrichment를 강제로 다시 실행하고 성공 결과와 bounded vector metadata를
+갱신한다. 새 revision, Markdown 변환, chunking, embedding은 실행하지 않으며 Markdown manage와 AI RAG write
+권한을 모두 요구한다. 과거 revision ID를 지정한 요청은 현재 문서 결과를 덮어쓰지 않도록 거부한다.
+Google GenAI 요청에는 `application/json` MIME을 사용한다. 일반 enrichment는 감지된 문서 유형의 metadata
+field를 허용하고, 재추출은 `summary`·`keywords`만 허용한 response schema와 문서 주 언어를 전달한다.
+요약은 80단어 이내, 키워드는 3~8개로 제한하며 최대 출력은 4,096 tokens로 제한한다.
+Provider가 JSON 앞뒤에 설명을 추가해도 문자열 내부 중괄호를 보존하면서 첫 번째 완결된 JSON object만 파싱한다.
+모델 설정 오류는 `error.markdown.metadata.model-configuration`, provider 호출 실패는
+`error.markdown.metadata.upstream-unavailable`, JSON/schema 해석 실패는
+`error.markdown.metadata.invalid-response`로 구분해 반환한다. 로그에는 deployment와 cause type만 남기며
+원문 dossier, provider message, credential은 기록하지 않는다.
+
+원문 언어 summary·keywords는 canonical metadata로 유지한다. 사용자가 한국어 표시를 요청하면 다음 API가
+summary·keywords만 한국어로 번역해 별도 `DOCUMENT_METADATA_TRANSLATION_KO` resource에 저장한다.
+
+- `GET /api/markdown-documents/{id}/metadata/translations?revisionId=...&language=ko`
+- `POST /api/markdown-documents/{id}/metadata/translations?revisionId=...&language=ko`
+
+번역 cache key는 revision, source artifact, source summary·keywords hash, target language로 구성한다. 원문이
+한국어면 provider를 호출하지 않으며, 같은 source hash의 POST는 저장본을 반환한다. 번역본은 표시 전용으로
+vector projection, chunking, embedding, RAG evidence, 추천 질문 keyword를 변경하지 않는다.
 
 기존 완료 revision은 관리 API로 metadata-only backfill할 수 있다.
 

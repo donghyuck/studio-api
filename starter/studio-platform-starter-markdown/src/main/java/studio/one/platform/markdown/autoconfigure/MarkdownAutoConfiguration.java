@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.rag.usability.RagObjectUsabilityEvidenceContributor;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
@@ -136,6 +137,38 @@ public class MarkdownAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnBean(MarkdownMetadataBackfillService.class)
+    MarkdownDocumentMetadataRegenerationController markdownDocumentMetadataRegenerationController(
+            MarkdownMetadataBackfillService service) {
+        return new MarkdownDocumentMetadataRegenerationController(service);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    DefaultMarkdownMetadataTranslationService markdownMetadataTranslationService(
+            MarkdownDocumentMetadataService metadataService,
+            MarkdownRepository repository,
+            ObjectMapper objectMapper,
+            ObjectProvider<ModelDeploymentRegistry> deployments,
+            MarkdownProperties properties) {
+        return new DefaultMarkdownMetadataTranslationService(
+                metadataService,
+                repository,
+                objectMapper,
+                deployments.getIfAvailable(),
+                properties.getMetadata(),
+                Clock.systemUTC());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    MarkdownDocumentMetadataTranslationController markdownDocumentMetadataTranslationController(
+            DefaultMarkdownMetadataTranslationService service) {
+        return new MarkdownDocumentMetadataTranslationController(service);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     @ConditionalOnBean(AttachmentService.class)
     MarkdownSourcePort markdownSourcePort(AttachmentService attachmentService, MarkdownProperties properties) {
         return new AttachmentMarkdownSourceAdapter(attachmentService, properties.getMaxSourceBytes());
@@ -231,6 +264,13 @@ public class MarkdownAutoConfiguration {
     RagObjectMetadataContributor markdownRagObjectMetadataContributor(
             MarkdownRepository repository, ObjectMapper objectMapper) {
         return new MarkdownRagObjectMetadataContributor(repository, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "markdownRagObjectUsabilityEvidenceContributor")
+    RagObjectUsabilityEvidenceContributor markdownRagObjectUsabilityEvidenceContributor(
+            MarkdownRepository repository, ObjectMapper objectMapper) {
+        return new MarkdownRagObjectUsabilityEvidenceContributor(repository, objectMapper);
     }
 
     @Bean
