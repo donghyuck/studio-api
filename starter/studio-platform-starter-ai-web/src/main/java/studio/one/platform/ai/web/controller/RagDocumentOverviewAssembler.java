@@ -40,6 +40,22 @@ final class RagDocumentOverviewAssembler {
                 fullCoverage);
     }
 
+    List<RagSearchResult> representativeResults(List<RagSearchResult> results, int maximum) {
+        List<RagSearchResult> ordered = ordered(results);
+        int count = Math.min(ordered.size(), Math.max(0, maximum));
+        if (count == 0) {
+            return List.of();
+        }
+        List<RagSearchResult> selected = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) {
+            int sourceIndex = count == 1
+                    ? 0
+                    : (int) Math.round((double) index * (ordered.size() - 1) / (count - 1));
+            selected.add(ordered.get(sourceIndex));
+        }
+        return List.copyOf(selected);
+    }
+
     private String header(Map<String, Object> metadata) {
         StringBuilder header = new StringBuilder(HEADER_PREFIX);
         appendIdentity(header, "문서 제목", firstText(metadata, "documentTitle", "title"));

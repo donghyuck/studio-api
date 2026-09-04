@@ -15,6 +15,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import studio.one.platform.identity.ApplicationPrincipal;
@@ -32,6 +33,10 @@ import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
 import studio.one.platform.workspace.application.command.WorkspaceMemberListQuery;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
 import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
+import studio.one.platform.workspace.application.error.WorkspaceValidationException;
+import studio.one.platform.team.application.usecase.TeamAuthorizationPort;
+import studio.one.platform.team.domain.model.TeamPermissionActions;
+import studio.one.platform.workspace.domain.model.WorkspaceAccessMode;
 import studio.one.platform.workspace.web.dto.request.WorkspaceActivateRequest;
 import studio.one.platform.workspace.web.dto.request.WorkspaceArchiveRequest;
 import studio.one.platform.workspace.web.dto.request.WorkspaceCreateRequest;
@@ -45,6 +50,72 @@ class WorkspaceControllerTest {
                 .contains("${studio.features.workspace.web.public-base-path:/api/workspaces}");
         assertThat(WorkspaceMgmtController.class.getAnnotation(RequestMapping.class).value())
                 .contains("${studio.features.workspace.web.mgmt-base-path:/api/mgmt/workspaces}");
+        assertThat(TeamWorkspaceController.class.getAnnotation(RequestMapping.class).value())
+                .contains("${studio.features.team.web.public-base-path:/api/teams}/{teamId}/workspaces");
+    }
+
+    @Test
+    void teamWorkspaceTreeUsesAuthenticatedNonAdminContextAndTeamReadSecurity() throws Exception {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        TeamAuthorizationPort teamAuthorization = org.mockito.Mockito.mock(TeamAuthorizationPort.class);
+        WorkspaceRef root = workspace();
+        var tree = new studio.one.platform.workspace.domain.model.WorkspaceTreeNode(root, List.of());
+        when(treeService.getRootsByTeamId(eq(7L), any())).thenReturn(List.of(root));
+        when(treeService.getTree(eq(root.id()), any())).thenReturn(tree);
+        TeamWorkspaceController controller = new TeamWorkspaceController(
+                treeService,
+                teamAuthorization,
+                principalProvider("member", false));
+
+        var response = controller.tree(7L);
+
+        assertThat(response.getBody()).isNotNull();
+        ArgumentCaptor<WorkspaceAccessContext> contextCaptor = ArgumentCaptor.forClass(WorkspaceAccessContext.class);
+        verify(treeService).getRootsByTeamId(eq(7L), contextCaptor.capture());
+        assertThat(contextCaptor.getValue().userId()).isEqualTo(10L);
+        assertThat(contextCaptor.getValue().platformAdmin()).isFalse();
+        verify(treeService).getTree(eq(root.id()), eq(contextCaptor.getValue()));
+
+        PreAuthorize preAuthorize = TeamWorkspaceController.class
+                .getMethod("tree", Long.class)
+                .getAnnotation(PreAuthorize.class);
+        assertThat(preAuthorize.value()).isEqualTo("@endpointAuthz.can('features:team','read')");
+    }
+
+    @Test
+    void teamWorkspaceManagementUsesFixedTeamScopeAndTeamPermissions() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        TeamAuthorizationPort teamAuthorization = org.mockito.Mockito.mock(TeamAuthorizationPort.class);
+        var pageable = PageRequest.of(0, 20);
+        when(treeService.list(any(), eq(pageable), any()))
+                .thenReturn(new PageImpl<>(List.of(workspace()), pageable, 1));
+        when(treeService.createRoot(any(CreateRootWorkspaceCommand.class))).thenReturn(workspace());
+        TeamWorkspaceController controller = new TeamWorkspaceController(
+                treeService,
+                teamAuthorization,
+                principalProvider("member", false));
+
+        controller.list(7L, "docs", null, null, false, pageable);
+        controller.createRoot(7L, new WorkspaceCreateRequest(
+                null, null, "Docs", "docs", WorkspaceVisibility.PRIVATE, WorkspaceAccessMode.INHERIT));
+
+        verify(teamAuthorization).assertGranted(7L, 10L, TeamPermissionActions.WORKSPACE_READ);
+        verify(teamAuthorization).assertGranted(7L, 10L, TeamPermissionActions.WORKSPACE_CREATE);
+        ArgumentCaptor<WorkspaceListQuery> listCaptor = ArgumentCaptor.forClass(WorkspaceListQuery.class);
+        verify(treeService).list(listCaptor.capture(), eq(pageable), any());
+        assertThat(listCaptor.getValue().teamId()).isEqualTo(7L);
+        assertThat(listCaptor.getValue().companyId()).isNull();
+        ArgumentCaptor<CreateRootWorkspaceCommand> createCaptor =
+                ArgumentCaptor.forClass(CreateRootWorkspaceCommand.class);
+        verify(treeService).createRoot(createCaptor.capture());
+        assertThat(createCaptor.getValue().teamId()).isEqualTo(7L);
+        assertThat(createCaptor.getValue().companyId()).isNull();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.createRoot(
+                7L,
+                new WorkspaceCreateRequest(
+                        null, 8L, "Other", "other", WorkspaceVisibility.PRIVATE, WorkspaceAccessMode.INHERIT)))
+                .isInstanceOf(WorkspaceValidationException.class);
     }
 
     @Test
@@ -105,7 +176,7 @@ class WorkspaceControllerTest {
     }
 
     @Test
-    void mgmtControllerUsesPlatformAdminAccessContext() {
+    void mgmtControllerRequiresTeamScopeAndUsesPlatformAdminAccessContext() {
         WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
         WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
         WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
@@ -116,12 +187,24 @@ class WorkspaceControllerTest {
                 permissionService,
                 principalProvider("admin", false));
 
-        controller.createRoot(new WorkspaceCreateRequest(7L, "Acme", "acme", WorkspaceVisibility.PRIVATE));
+        controller.createRoot(new WorkspaceCreateRequest(
+                null, 7L, "Team Workspace", "team-workspace",
+                WorkspaceVisibility.PRIVATE, WorkspaceAccessMode.INHERIT));
 
         ArgumentCaptor<CreateRootWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateRootWorkspaceCommand.class);
         verify(treeService).createRoot(captor.capture());
-        assertThat(captor.getValue().companyId()).isEqualTo(7L);
+        assertThat(captor.getValue().companyId()).isNull();
+        assertThat(captor.getValue().teamId()).isEqualTo(7L);
         assertThat(captor.getValue().actor().platformAdmin()).isTrue();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.createRoot(
+                new WorkspaceCreateRequest(7L, "Legacy", "legacy", WorkspaceVisibility.PRIVATE)))
+                .isInstanceOf(WorkspaceValidationException.class)
+                .hasMessageContaining("Company assignment");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.createRoot(
+                new WorkspaceCreateRequest("Unscoped", "unscoped", WorkspaceVisibility.PRIVATE)))
+                .isInstanceOf(WorkspaceValidationException.class)
+                .hasMessageContaining("teamId is required");
     }
 
     @Test

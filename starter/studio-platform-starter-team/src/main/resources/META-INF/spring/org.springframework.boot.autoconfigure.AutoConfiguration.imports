@@ -1,0 +1,4 @@
+studio.one.platform.team.autoconfigure.TeamAutoConfiguration
+studio.one.platform.team.autoconfigure.TeamWebAutoConfiguration
+studio.one.platform.team.autoconfigure.TeamMigrationAutoConfiguration
+studio.one.platform.team.autoconfigure.TeamMigrationWebAutoConfiguration

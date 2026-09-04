@@ -254,6 +254,17 @@ public class DefaultWebKnowledgeSourceService implements WebKnowledgeSourceServi
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public WebKnowledgePageDetailView getPage(Long workspaceId, String sourceId, String pageId) {
+        WebKnowledgeSourceEntity source = requireSource(workspaceId, sourceId);
+        if (!WebKnowledgeCollectionMode.SITE.name().equals(source.collectionMode())
+                || siteCrawlCoordinator == null) {
+            throw new NoSuchElementException("WEB_PAGE_NOT_FOUND");
+        }
+        return siteCrawlCoordinator.getPage(workspaceId, sourceId, pageId);
+    }
+
+    @Override
     @Transactional
     public WebKnowledgeSourceView updateCrawlPolicy(
             Long workspaceId,

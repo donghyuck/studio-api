@@ -3,10 +3,13 @@ package studio.one.platform.ai.web.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
+import studio.one.platform.ai.core.rag.team.TeamKnowledgeManifest;
+import studio.one.platform.ai.core.rag.team.TeamRagScopeResolver;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 
 class RagObjectAuthorizationRouterTest {
@@ -26,10 +29,27 @@ class RagObjectAuthorizationRouterTest {
         RagObjectAuthorizationRouter router = new RagObjectAuthorizationRouter(null, List.of(allowed));
         assertThat(router.canRead(request("attachment", "11"))).isTrue();
         assertThat(router.canRead("attachment", "11")).isTrue();
+        assertThat(router.canReadAll("attachment", List.of("11", "12"))).isTrue();
 
         RagObjectAuthorizationRouter failing =
                 new RagObjectAuthorizationRouter(null, List.of(authorizer(false, true)));
         assertThat(failing.canRead(request("attachment", "11"))).isFalse();
+        assertThat(failing.canReadAll("attachment", List.of("11", "12"))).isFalse();
+    }
+
+    @Test
+    void delegatesTeamRequestToAuthorizedScopeResolver() {
+        TeamRagScopeResolver resolver = org.mockito.Mockito.mock(TeamRagScopeResolver.class);
+        org.mockito.Mockito.when(resolver.resolveAuthorized(7L, 2L)).thenReturn(Optional.of(
+                TeamKnowledgeManifest.create(7L, 2L, "corpus-1", "permission-1", List.of())));
+        RagObjectAuthorizationRouter router = new RagObjectAuthorizationRouter(
+                null, List.of(), () -> resolver);
+        ChatRagRequestDto request = new ChatRagRequestDto(
+                null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null,
+                null, null, null, null, 7L, 2L);
+
+        assertThat(router.canRead(request)).isTrue();
     }
 
     private RagObjectAuthorizer authorizer(boolean allowed, boolean fail) {

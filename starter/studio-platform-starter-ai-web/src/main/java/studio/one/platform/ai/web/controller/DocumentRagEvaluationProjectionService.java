@@ -91,6 +91,9 @@ public final class DocumentRagEvaluationProjectionService {
     }
 
     private Map<String, Object> automaticMetadata(String questionSetId) {
+        if (questionSetId == null || questionSetId.isBlank()) {
+            return null;
+        }
         RagRetrievalEvaluationQuestionSetDto questionSet = questionSetStore.find(questionSetId).orElse(null);
         if (questionSet == null || questionSet.description() == null) {
             return null;

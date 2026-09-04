@@ -66,6 +66,39 @@ class ChatControllerStoredRagScopeAuthorizationTest {
         assertThat(ChatController.canReadStoredRagScope(Map.of(), router)).isFalse();
     }
 
+    @Test
+    void rechecksStoredTeamCitationsBeforeExposure() {
+        RagObjectAuthorizationRouter router = mock(RagObjectAuthorizationRouter.class);
+        TeamRagCitationGuard guard = mock(TeamRagCitationGuard.class);
+        when(router.canReadRagService()).thenReturn(true);
+        Map<String, Object> metadata = Map.of(
+                "teamRagScope", Map.of(
+                        "teamId", 7L,
+                        "workspaceId", 2L,
+                        "corpusRevisionId", "corpus-1",
+                        "corpusFingerprint", "fingerprint-1",
+                        "permissionVersion", "permission-1"),
+                "teamRagCitations", List.of(Map.of(
+                        "workspaceId", 2L,
+                        "objectType", "attachment",
+                        "objectId", "10",
+                        "revisionId", "rev-1")));
+        when(guard.canReadStoredScope(
+                new studio.one.platform.ai.web.cache.TeamRagCacheScope(
+                        7L, 2L, "corpus-1", "fingerprint-1", "permission-1"),
+                List.of(new TeamRagCitationRef(2L, "attachment", "10", "rev-1"))))
+                .thenReturn(true);
+
+        assertThat(ChatController.canReadStoredRagScope(metadata, router, guard)).isTrue();
+
+        when(guard.canReadStoredScope(
+                new studio.one.platform.ai.web.cache.TeamRagCacheScope(
+                        7L, 2L, "corpus-1", "fingerprint-1", "permission-1"),
+                List.of(new TeamRagCitationRef(2L, "attachment", "10", "rev-1"))))
+                .thenReturn(false);
+        assertThat(ChatController.canReadStoredRagScope(metadata, router, guard)).isFalse();
+    }
+
     private Map<String, Object> indexedSources(String... sourceIds) {
         List<Map<String, Object>> sources = java.util.Arrays.stream(sourceIds)
                 .map(sourceId -> Map.<String, Object>of(

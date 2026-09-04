@@ -133,6 +133,26 @@ class RagAnswerFinalizerTest {
     }
 
     @Test
+    void retainsOnlyCitedInterpretiveParagraphsAndAddsAConcreteLimitation() {
+        RagAnswerFinalizer.FinalizedAnswer answer = finalizer.finalizeAnswer(
+                "문서 사실과 해석을 결합한 첫 번째 문단입니다. [1]\n\n"
+                        + "두 번째 문단은 인용이 없으므로 제거되어야 합니다.",
+                evidenceSet,
+                policy(RagAnswerMode.GROUNDED_INFERENCE),
+                new RagQueryIntentClassifier.Classification(
+                        RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS,
+                        1.0d,
+                        "TEST"));
+
+        assertThat(answer.outcome().type()).isEqualTo(RagAnswerOutcome.Type.ANSWERED);
+        assertThat(answer.outcome().partial()).isTrue();
+        assertThat(answer.outcome().omittedValidationUnitCount()).isEqualTo(1);
+        assertThat(answer.canonicalContent())
+                .contains("첫 번째 문단", "확인 한계", "인용이 없는 생성 문장은 제외")
+                .doesNotContain("두 번째 문단");
+    }
+
+    @Test
     void doesNotPartiallyRetainListWithOutOfRangeCitation() {
         RagAnswerFinalizer enabled = new RagAnswerFinalizer(
                 new RagCitationValidator(),

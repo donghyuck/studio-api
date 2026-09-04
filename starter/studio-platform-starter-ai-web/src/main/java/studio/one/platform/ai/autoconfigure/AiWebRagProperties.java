@@ -197,6 +197,8 @@ public class AiWebRagProperties {
         private int structureTopK = 5;
         private int ideaBlockTopK = 5;
         private int finalTopK = 5;
+        private int teamMaxObjectScopes = 32;
+        private int teamMaxWorkspaces = 1_000;
         private boolean dedupe = true;
         private double distilledScoreBoost = 0.0d;
         private double minRecommendationHitRate = 0.3d;
@@ -232,6 +234,22 @@ public class AiWebRagProperties {
 
         public void setFinalTopK(int finalTopK) {
             this.finalTopK = Math.max(1, finalTopK);
+        }
+
+        public int getTeamMaxObjectScopes() {
+            return teamMaxObjectScopes;
+        }
+
+        public void setTeamMaxObjectScopes(int teamMaxObjectScopes) {
+            this.teamMaxObjectScopes = Math.max(1, Math.min(64, teamMaxObjectScopes));
+        }
+
+        public int getTeamMaxWorkspaces() {
+            return teamMaxWorkspaces;
+        }
+
+        public void setTeamMaxWorkspaces(int teamMaxWorkspaces) {
+            this.teamMaxWorkspaces = Math.max(1, Math.min(10_000, teamMaxWorkspaces));
         }
 
         public boolean isDedupe() {

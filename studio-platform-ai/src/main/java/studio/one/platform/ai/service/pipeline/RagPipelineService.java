@@ -1,5 +1,8 @@
 package studio.one.platform.ai.service.pipeline;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -7,11 +10,14 @@ import java.util.Set;
 
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
+import studio.one.platform.ai.core.rag.RagObjectScope;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.constant.ServiceNames;
 
 public interface RagPipelineService {
+
+    int MAX_AGGREGATE_OBJECT_SCOPES = 64;
 
     String SERVICE_NAME = ServiceNames.Features.PREFIX + ":ai:rag-pipeline-service";
 
@@ -39,6 +45,55 @@ public interface RagPipelineService {
     List<RagSearchResult> search(RagSearchRequest request);
 
     List<RagSearchResult> searchByObject(RagSearchRequest request, String objectType, String objectId);
+
+    /**
+     * Searches a bounded set of existing object scopes and returns a globally ranked result set.
+     * Implementations can override this to perform one provider-native query. The default keeps
+     * existing stores compatible and never depends on Team metadata being copied into vectors.
+     */
+    default List<RagSearchResult> searchByObjects(
+            RagSearchRequest request,
+            List<RagObjectScope> requestedScopes,
+            int maxScopes) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        if (maxScopes <= 0 || maxScopes > MAX_AGGREGATE_OBJECT_SCOPES) {
+            throw new IllegalArgumentException(
+                    "maxScopes must be between 1 and " + MAX_AGGREGATE_OBJECT_SCOPES);
+        }
+        List<RagObjectScope> scopes = requestedScopes == null
+                ? List.of()
+                : requestedScopes.stream().distinct().toList();
+        if (scopes.size() > maxScopes) {
+            throw new IllegalArgumentException("object scope count exceeds maxScopes: " + maxScopes);
+        }
+        List<ScopedResult> candidates = new ArrayList<>();
+        for (RagObjectScope scope : scopes) {
+            List<RagSearchResult> results;
+            if (!scope.partitionIds().isEmpty() && supportsObjectPartitions()) {
+                results = searchByObjectPartitions(
+                        request, scope.objectType(), scope.objectId(), scope.partitionIds());
+            } else {
+                results = searchByObject(request, scope.objectType(), scope.objectId());
+                if (!scope.partitionIds().isEmpty()) {
+                    results = results.stream()
+                            .filter(result -> scope.partitionIds().contains(
+                                    String.valueOf(result.metadata().get("partitionId"))))
+                            .toList();
+                }
+            }
+            if (results != null) {
+                results.forEach(result -> candidates.add(new ScopedResult(scope, result)));
+            }
+        }
+        Map<String, RagSearchResult> deduplicated = new LinkedHashMap<>();
+        candidates.stream()
+                .sorted(Comparator.comparingDouble(
+                        (ScopedResult candidate) -> candidate.result().score()).reversed())
+                .forEach(candidate -> deduplicated.putIfAbsent(candidate.dedupeKey(), candidate.result()));
+        return deduplicated.values().stream().limit(request.topK()).toList();
+    }
 
     default List<RagSearchResult> searchByObjectPartitions(
             RagSearchRequest request,
@@ -106,4 +161,22 @@ public interface RagPipelineService {
      * Calling from a different thread than the one that executed search returns empty.
      */
     Optional<RagRetrievalDiagnostics> latestDiagnostics();
+
+    record ScopedResult(RagObjectScope scope, RagSearchResult result) {
+
+        String dedupeKey() {
+            Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
+            Object chunkId = metadata.get("documentChunkId");
+            if (chunkId == null) {
+                chunkId = metadata.get("_documentChunkId");
+            }
+            if (chunkId == null) {
+                chunkId = metadata.get("chunkId");
+            }
+            String resultId = chunkId == null || chunkId.toString().isBlank()
+                    ? result.documentId() + ":" + Integer.toHexString(result.content().hashCode())
+                    : chunkId.toString();
+            return scope.objectType() + ":" + scope.objectId() + ":" + resultId;
+        }
+    }
 }

@@ -357,7 +357,8 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                 .addValue("limit", parameter.getLimit())
                 .addValue("objectType", parameter.getObjectType())
                 .addValue("objectId", parameter.getObjectId())
-                .addValue("objectTypes", parameter.getObjectTypes());
+                .addValue("objectTypes", parameter.getObjectTypes())
+                .addValue("objectIds", parameter.getObjectIds());
         addMetadataParams(params, parameter);
         return params;
     }
@@ -419,6 +420,9 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
         }
         if (!parameter.getObjectTypes().isEmpty()) {
             conditions.add("object_type IN (:objectTypes)");
+        }
+        if (!parameter.getObjectIds().isEmpty()) {
+            conditions.add("object_id IN (:objectIds)");
         }
         conditions.add("embedding IS NOT NULL");
         conditions.add("embedding_dimension = :embeddingDimension");

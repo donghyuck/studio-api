@@ -73,6 +73,7 @@ import studio.one.platform.ai.core.chat.ChatStreamEventType;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
+import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.indexed.IndexedRagSourceProvider;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
@@ -88,6 +89,7 @@ import studio.one.platform.ai.web.dto.ChatResponseDto;
 import studio.one.platform.ai.web.cache.RagAnswerCache;
 import studio.one.platform.ai.web.cache.RagAnswerCacheKey;
 import studio.one.platform.ai.web.cache.RagCachedAnswer;
+import studio.one.platform.ai.web.cache.TeamRagCacheScope;
 import studio.one.platform.ai.web.dto.ConversationActionRequestDto;
 import studio.one.platform.ai.web.dto.ConversationDetailDto;
 import studio.one.platform.ai.web.dto.ConversationMessageDto;
@@ -101,6 +103,7 @@ import studio.one.platform.ai.web.dto.RagQuestionSuggestionCapabilitiesDto;
 import studio.one.platform.ai.web.dto.IndexedWebCapabilitiesDto;
 import studio.one.platform.ai.web.dto.RagRegenerateRequestDto;
 import studio.one.platform.ai.web.dto.RagSourcePolicyCapabilitiesDto;
+import studio.one.platform.ai.web.dto.TeamRagCapabilitiesDto;
 import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
@@ -134,6 +137,7 @@ public class ChatController {
             "문서와 외부 자료를 비교하려면 양쪽에서 인용 가능한 근거가 모두 필요합니다. 현재는 한쪽 근거가 부족합니다.";
     private static final int INTERPRETIVE_MIN_TOP_K = 8;
     private static final double INTERPRETIVE_MAX_MIN_SCORE = 0.55d;
+    private static final int INTERPRETIVE_FALLBACK_MAX_CHUNKS = 12;
     private static final int MAX_OVERVIEW_SOURCE_CHUNKS = 2_000;
     private static final int MAX_WHOLE_DOCUMENT_CONTEXT_CHARS = 300_000;
     private static final int MAP_REDUCE_OVERVIEW_THRESHOLD_CHARS = 80_000;
@@ -146,6 +150,11 @@ public class ChatController {
             각 문장은 줄바꿈 없이 작성하고 문장 끝에 반드시 이를 뒷받침하는 인용을 붙이세요.
             뒷받침할 근거가 없는 문장은 만들지 마세요.
             문서에 분류명이 없다는 이유만으로 답변을 거부하지 말고, 관련 근거 자체가 없을 때만 확인할 수 없다고 답하세요.
+            """;
+    private static final String INTERPRETIVE_COVERAGE_FALLBACK_PROMPT = """
+            관련 구간의 직접 검색이 실패하여 문서 전체 범위의 대표 구간을 근거로 제공합니다.
+            대표 구간만으로 확인되지 않는 내용은 추측하거나 단정하지 말고, 확인 가능한 범위와 한계를 답변에 명시하세요.
+            결론을 먼저 정한 뒤 근거를 끼워 맞추지 말고, 제공된 대표 구간에서 실제로 확인되는 사실만 종합하세요.
             """;
     private static final String DOCUMENT_SUMMARY_PROMPT = """
             이 질문은 원본 문서 전체의 요약 또는 줄거리를 요구합니다.
@@ -184,7 +193,14 @@ public class ChatController {
     private RagObjectAuthorizationRouter ragObjectAuthorizationRouter;
     private List<IndexedRagSourceProvider> indexedRagSourceProviders = List.of();
     private final RagQueryIntentClassifier ragQueryIntentClassifier = RagQueryIntentClassifier.rules();
+    private final InterpretiveRetrievalQueryPlanner interpretiveRetrievalQueryPlanner =
+            new InterpretiveRetrievalQueryPlanner();
+    private final InterpretiveEvidenceFallback interpretiveEvidenceFallback =
+            new InterpretiveEvidenceFallback();
     private boolean questionSuggestionsEnabled;
+    private TeamRagRetrievalService teamRagRetrievalService;
+    private TeamRagCitationGuard teamRagCitationGuard;
+    private int teamRagMaxObjectScopes;
     private final RagDocumentOverviewAssembler documentOverviewAssembler = new RagDocumentOverviewAssembler();
     private final RagDocumentMapReduceOverview documentMapReduceOverview = new RagDocumentMapReduceOverview();
 
@@ -551,6 +567,17 @@ public class ChatController {
         this.questionSuggestionsEnabled = enabled;
     }
 
+    public void setTeamRagServices(
+            TeamRagRetrievalService retrievalService,
+            TeamRagCitationGuard citationGuard,
+            int maxObjectScopes) {
+        this.teamRagRetrievalService = retrievalService;
+        this.teamRagCitationGuard = citationGuard;
+        this.teamRagMaxObjectScopes = retrievalService == null
+                ? 0
+                : Math.max(1, Math.min(64, maxObjectScopes));
+    }
+
     private int indexedWebMaxSources() {
         return indexedRagSourceProviders.stream()
                 .mapToInt(IndexedRagSourceProvider::maxSelectedSources)
@@ -741,7 +768,12 @@ public class ChatController {
                 new RagQuestionSuggestionCapabilitiesDto(
                         questionSuggestionsEnabled,
                         DocumentQuestionSuggestionPolicy.CONTRACT_VERSION,
-                        DocumentQuestionSuggestionPolicy.MAX_SUGGESTIONS))));
+                        DocumentQuestionSuggestionPolicy.MAX_SUGGESTIONS),
+                new TeamRagCapabilitiesDto(
+                        teamRagRetrievalService != null && teamRagCitationGuard != null,
+                        teamRagMaxObjectScopes,
+                        true,
+                        "team-scope-v1"))));
     }
 
     private IndexedWebCapabilitiesDto indexedWebCapabilities() {
@@ -811,7 +843,10 @@ public class ChatController {
         if (cached.isPresent()) {
             CachedRagHit hit = cached.get();
             RagAnswerFinalizer.FinalizedAnswer finalized = ragAnswerFinalizer.finalizeAnswer(
-                    hit.answer().canonicalContent(),
+                    ensureInterpretiveFallbackLimitation(
+                            hit.answer().canonicalContent(),
+                            prepared.evidenceSet(),
+                            interpretiveCoverageFallback(prepared)),
                     prepared.evidenceSet(),
                     prepared.answerPolicy(),
                     prepared.queryIntent());
@@ -847,13 +882,17 @@ public class ChatController {
                 chatPort(deploymentOrProvider(prepared.chat())),
                 toDomainChatRequest(prepared.augmentedChat()),
                 AiModelUsageRequestKind.RAG);
-        long generationElapsedMs = elapsedMillis(generationStartedNanos);
         RagAnswerFinalizer.FinalizedAnswer finalized =
                 finalizeRagResponse(
                         response,
                         prepared.evidenceSet(),
                         prepared.answerPolicy(),
-                        prepared.queryIntent());
+                        prepared.queryIntent(),
+                        interpretiveCoverageFallback(prepared));
+        CitationRepairResult citationRepair = repairInterpretiveCitations(prepared, response, finalized);
+        response = citationRepair.response();
+        finalized = citationRepair.finalized();
+        long generationElapsedMs = elapsedMillis(generationStartedNanos);
         response = canonicalResponse(response, finalized.canonicalContent());
         response = responseWithMetadata(response, ragTurnMetadata(
                 prepared,
@@ -869,6 +908,7 @@ public class ChatController {
         extraMetadata.put("citationValidationStatus", finalized.validation().status().name());
         extraMetadata.put("answerPolicyValidationStatus", finalized.policyValidation().status().name());
         extraMetadata.put("ragAnswerCache", ragAnswerCache.enabled() ? "MISS" : "BYPASS");
+        extraMetadata.put("ragCitationRepair", citationRepair.status());
         extraMetadata.putAll(ragOutcomeMetadata(prepared, finalized.outcome()));
         cacheRagAnswer(prepared, principal, response.model(), finalized);
         logSlowRagChat(prepared, generationElapsedMs);
@@ -886,6 +926,10 @@ public class ChatController {
                 ragAnswerPolicyResolver.resolve(originalRequest.answerMode());
         ResolvedRagSourcePolicy sourcePolicy =
                 ragSourcePolicyResolver.resolve(originalRequest.sourceScope());
+        boolean hasTeamScope = originalRequest.teamId() != null;
+        if (hasTeamScope && (teamRagRetrievalService == null || teamRagCitationGuard == null)) {
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "TEAM_RAG_NOT_AVAILABLE");
+        }
         ObjectScope objectScope = resolveObjectScope(originalRequest.objectType(), originalRequest.objectId());
         RagEvidenceSourceSelection indexedSelection = RagEvidenceSourceSelection.resolve(
                 originalRequest.indexedWebSources(),
@@ -904,12 +948,30 @@ public class ChatController {
         double minScore = effectiveMinScore(request);
         String objectType = objectScope.objectType();
         String objectId = objectScope.objectId();
+        String resolvedRagQuery = resolveRagQuery(request);
+        boolean interpretiveRetrievalEnabled =
+                queryIntent.intent() == RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS
+                        && answerPolicy.effectiveMode() == RagAnswerMode.GROUNDED_INFERENCE
+                        && (objectScope.hasFilter() || hasTeamScope);
+        InterpretiveRetrievalQueryPlanner.Plan interpretivePlan = interpretiveRetrievalEnabled
+                ? interpretiveRetrievalQueryPlanner.plan(
+                        resolvedRagQuery,
+                        chat,
+                        objectScope.hasFilter()
+                                ? ragChatRetrievalService.documentTitle(objectType, objectId).orElse(null)
+                                : null)
+                : new InterpretiveRetrievalQueryPlanner.Plan(List.of(resolvedRagQuery), false, false);
 
         List<RagSearchResult> ragResults;
         boolean hasFilter = objectScope.hasFilter();
         boolean hasIndexedSources = !indexedSelection.indexedSources().isEmpty();
         String retrievalMode = "SEMANTIC_SEARCH";
         RagChatRetrievalService.RetrievalDebug retrievalDebug = RagChatRetrievalService.RetrievalDebug.disabled();
+        int interpretiveQueryCount = 0;
+        boolean interpretiveCoverageFallback = false;
+        int interpretiveFallbackSourceChunkCount = 0;
+        boolean interpretiveFallbackFullCoverage = false;
+        TeamRagRetrievalService.RetrievalResult teamRetrieval = null;
         long retrievalStartedNanos = System.nanoTime();
 
         boolean objectCandidateResults = false;
@@ -923,7 +985,25 @@ public class ChatController {
         boolean overviewRequested = hasFilter
                 && usesOverviewRetrieval(queryIntent.intent())
                 && ((ragQuery != null && !ragQuery.isBlank()) || implicitOverviewRequest);
-        if (overviewRequested) {
+        if (hasTeamScope) {
+            ChatRagRequestDto teamRequest = request;
+            List<RagSearchRequest> teamQueries = interpretivePlan.queries().stream()
+                    .map(query -> teamSearchRequest(teamRequest, query, ragTopK, minScore))
+                    .toList();
+            teamRetrieval = teamRagRetrievalService.retrieveQueries(
+                    request.teamId(),
+                    request.workspaceId(),
+                    teamQueries)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "TEAM_RAG_SCOPE_NOT_FOUND"));
+            ragResults = teamRetrieval.results();
+            interpretiveQueryCount = teamRetrieval.executedQueryCount();
+            interpretiveCoverageFallback = teamRetrieval.coverageFallback();
+            objectCandidateResults = true;
+            retrievalMode = teamRetrieval.executedQueryCount() > 1
+                    ? "TEAM_MULTI_QUERY_SEARCH"
+                    : "TEAM_SEMANTIC_SEARCH";
+        } else if (overviewRequested) {
             List<RagSearchResult> objectResults = ragPipelineService.listByObject(
                     objectType,
                     objectId,
@@ -962,20 +1042,21 @@ public class ChatController {
             objectCandidateResults = true;
             retrievalMode = "DOCUMENT_CHUNKS";
         } else {
-            String resolvedQuery = resolveRagQuery(request);
             if (hasFilter || !hasIndexedSources) {
-                RagChatRetrievalService.RetrievalResult retrieval = ragChatRetrievalService.retrieve(
+                InterpretiveRetrievalBatch retrieval = retrieveDocumentQueries(
                         request,
-                        resolvedQuery,
+                        interpretivePlan.queries(),
                         objectType,
                         objectId,
                         ragTopK,
                         minScore,
                         requestedTopK(request),
                         shouldExposeDiagnostics(request),
-                        queryIntent.intent() == RagQueryIntentClassifier.Intent.DOCUMENT_METADATA);
+                        queryIntent.intent() == RagQueryIntentClassifier.Intent.DOCUMENT_METADATA,
+                        interpretiveRetrievalEnabled);
                 ragResults = retrieval.results();
                 retrievalDebug = retrieval.debug();
+                interpretiveQueryCount = retrieval.executedQueryCount();
             } else {
                 ragResults = List.of();
             }
@@ -992,6 +1073,24 @@ public class ChatController {
                 minScore,
                 queryIntent);
         ragResults = filterEvidenceResults(ragResults);
+        if (ragResults.isEmpty() && interpretiveRetrievalEnabled && !hasTeamScope) {
+            try {
+                ObjectChunks completeChunks = completeOverviewChunks(objectType, objectId, List.of());
+                List<RagSearchResult> representative = documentOverviewAssembler.representativeResults(
+                        completeChunks.results(), INTERPRETIVE_FALLBACK_MAX_CHUNKS);
+                ragResults = filterEvidenceResults(representative);
+                if (!ragResults.isEmpty()) {
+                    interpretiveCoverageFallback = true;
+                    interpretiveFallbackSourceChunkCount = completeChunks.results().size();
+                    interpretiveFallbackFullCoverage = completeChunks.complete();
+                    objectCandidateResults = true;
+                    retrievalMode = "INTERPRETIVE_DOCUMENT_COVERAGE";
+                }
+            } catch (RuntimeException ex) {
+                log.warn("Interpretive document coverage fallback failed: objectType={}, errorType={}",
+                        objectType, ex.getClass().getSimpleName());
+            }
+        }
         if (documentOverview != null) {
             documentOverview = documentOverviewAssembler.assemble(
                     ragResults,
@@ -1013,6 +1112,17 @@ public class ChatController {
         ragMetadata.put("sourcePolicy", sourcePolicy.toMetadata());
         ragMetadata.put("indexedWebSources", indexedSelection.toMetadata());
         ragMetadata.put("externalSourceReview", externalEvidence.toMetadata());
+        if (interpretiveRetrievalEnabled) {
+            ragMetadata.put("ragInterpretiveQueryCount", interpretiveQueryCount);
+            ragMetadata.put("ragInterpretiveDocumentTitleUsed", interpretivePlan.documentTitleUsed());
+            ragMetadata.put("ragInterpretiveConversationContextUsed", interpretivePlan.conversationContextUsed());
+            ragMetadata.put("ragInterpretiveCoverageFallback", interpretiveCoverageFallback);
+            if (interpretiveCoverageFallback) {
+                ragMetadata.put("ragInterpretiveFallbackSourceChunkCount", interpretiveFallbackSourceChunkCount);
+                ragMetadata.put("ragInterpretiveFallbackFullCoverage", interpretiveFallbackFullCoverage);
+            }
+        }
+        putTeamRagMetadata(ragMetadata, teamRetrieval);
         if (ragResults.isEmpty() && externalEvidence.evidence().isEmpty()) {
             ragMetadata.put("ragReferences", List.of());
             ragMetadata.put("ragSkippedChat", true);
@@ -1042,7 +1152,8 @@ public class ChatController {
                     answerPolicy,
                     sourcePolicy,
                     externalEvidence,
-                    PackedEvidenceSet.empty(RAG_NO_RESULTS_MESSAGE, Map.of()));
+                    PackedEvidenceSet.empty(RAG_NO_RESULTS_MESSAGE, Map.of()),
+                    teamRetrieval);
         }
 
         List<RagSearchResult> expansionCandidates = contextExpansionCandidates(
@@ -1091,6 +1202,9 @@ public class ChatController {
         evidenceSet = evidenceSet.withDiagnostic(
                 "coverageRequirement", coverageRequirement.name());
         context = evidenceSet.promptContext();
+        if (interpretiveCoverageFallback) {
+            context = combineSystemPrompts(INTERPRETIVE_COVERAGE_FALLBACK_PROMPT, context);
+        }
         contextResult = new RagContextBuilder.BuildResult(
                 context,
                 contextResult.diagnostics(),
@@ -1131,7 +1245,8 @@ public class ChatController {
                     answerPolicy,
                     sourcePolicy,
                     externalEvidence,
-                    contextResult.evidenceSet());
+                    contextResult.evidenceSet(),
+                    teamRetrieval);
         }
 
         List<ChatMessageDto> augmentedMessages = new ArrayList<>();
@@ -1198,7 +1313,67 @@ public class ChatController {
                 answerPolicy,
                 sourcePolicy,
                 externalEvidence,
-                contextResult.evidenceSet());
+                contextResult.evidenceSet(),
+                teamRetrieval);
+    }
+
+    private RagSearchRequest teamSearchRequest(
+            ChatRagRequestDto request,
+            String query,
+            int topK,
+            double minScore) {
+        ChatRagRetrievalOptionsDto options = request.retrievalOptions();
+        boolean queryExpansionEnabled = options == null
+                || options.queryExpansionEnabled() == null
+                || options.queryExpansionEnabled();
+        return new RagSearchRequest(
+                query,
+                topK,
+                studio.one.platform.ai.core.MetadataFilter.empty(),
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                minScore,
+                requestedTopK(request),
+                request.minScore(),
+                queryExpansionEnabled,
+                request.embeddingDeploymentId());
+    }
+
+    private void putTeamRagMetadata(
+            Map<String, Object> metadata,
+            TeamRagRetrievalService.RetrievalResult retrieval) {
+        if (retrieval == null) {
+            return;
+        }
+        TeamRagCacheScope scope = retrieval.cacheScope();
+        Map<String, Object> teamScope = new LinkedHashMap<>();
+        teamScope.put("teamId", scope.teamId());
+        if (scope.workspaceId() != null) {
+            teamScope.put("workspaceId", scope.workspaceId());
+        }
+        teamScope.put("corpusRevisionId", scope.corpusRevisionId());
+        teamScope.put("corpusFingerprint", scope.corpusFingerprint());
+        teamScope.put("permissionVersion", scope.permissionVersion());
+        teamScope.put("sourceCount", retrieval.manifest().sources().size());
+        metadata.put("teamRagScope", Map.copyOf(teamScope));
+        metadata.put("teamRagCitations", retrieval.citations().stream()
+                .map(citation -> {
+                    Map<String, Object> value = new LinkedHashMap<>();
+                    value.put("workspaceId", citation.workspaceId());
+                    value.put("objectType", citation.objectType());
+                    value.put("objectId", citation.objectId());
+                    if (citation.revisionId() != null) {
+                        value.put("revisionId", citation.revisionId());
+                    }
+                    return Map.copyOf(value);
+                })
+                .toList());
+        metadata.put("teamRagExecutedQueryCount", retrieval.executedQueryCount());
+        metadata.put("teamRagSourceScopeCount", retrieval.sourceScopeCount());
+        metadata.put("teamRagRoutedScopeCount", retrieval.routedScopeCount());
+        metadata.put("teamRagRoutingApplied", retrieval.routingApplied());
+        metadata.put("teamRagCoverageFallback", retrieval.coverageFallback());
     }
 
     private Map<String, Object> withRagTiming(PreparedRagChat prepared, long generationElapsedMs) {
@@ -1298,12 +1473,19 @@ public class ChatController {
     }
 
     private boolean canReadStoredRagScope(Map<String, Object> metadata) {
-        return canReadStoredRagScope(metadata, ragObjectAuthorizationRouter);
+        return canReadStoredRagScope(metadata, ragObjectAuthorizationRouter, teamRagCitationGuard);
     }
 
     static boolean canReadStoredRagScope(
             Map<String, Object> metadata,
             RagObjectAuthorizationRouter authorizationRouter) {
+        return canReadStoredRagScope(metadata, authorizationRouter, null);
+    }
+
+    static boolean canReadStoredRagScope(
+            Map<String, Object> metadata,
+            RagObjectAuthorizationRouter authorizationRouter,
+            TeamRagCitationGuard teamCitationGuard) {
         if (metadata == null
                 || authorizationRouter == null
                 || !authorizationRouter.canReadRagService()) {
@@ -1316,6 +1498,53 @@ public class ChatController {
         }
         if (objectType != null && !authorizationRouter.canRead(objectType, objectId)) {
             return false;
+        }
+
+        Object teamValue = metadata.get("teamRagScope");
+        if (teamValue != null) {
+            if (teamCitationGuard == null || !(teamValue instanceof Map<?, ?> teamScope)) {
+                return false;
+            }
+            Long teamId = positiveLong(teamScope.get("teamId"));
+            Long workspaceId = positiveLong(teamScope.get("workspaceId"));
+            String corpusRevisionId = normalizeText(Objects.toString(
+                    teamScope.get("corpusRevisionId"), null));
+            String corpusFingerprint = normalizeText(Objects.toString(
+                    teamScope.get("corpusFingerprint"), null));
+            String permissionVersion = normalizeText(Objects.toString(
+                    teamScope.get("permissionVersion"), null));
+            if (teamId == null || corpusRevisionId == null
+                    || corpusFingerprint == null || permissionVersion == null) {
+                return false;
+            }
+            Object citationValue = metadata.get("teamRagCitations");
+            if (!(citationValue instanceof List<?> storedCitations)) {
+                return false;
+            }
+            List<TeamRagCitationRef> citations = new ArrayList<>();
+            for (Object value : storedCitations) {
+                if (!(value instanceof Map<?, ?> citation)) {
+                    return false;
+                }
+                Long citationWorkspaceId = positiveLong(citation.get("workspaceId"));
+                String citationObjectType = normalizeText(Objects.toString(
+                        citation.get("objectType"), null));
+                String citationObjectId = normalizeText(Objects.toString(
+                        citation.get("objectId"), null));
+                String revisionId = normalizeText(Objects.toString(
+                        citation.get("revisionId"), null));
+                if (citationWorkspaceId == null || citationObjectType == null || citationObjectId == null) {
+                    return false;
+                }
+                citations.add(new TeamRagCitationRef(
+                        citationWorkspaceId, citationObjectType, citationObjectId, revisionId));
+            }
+            if (!teamCitationGuard.canReadStoredScope(
+                    new TeamRagCacheScope(
+                            teamId, workspaceId, corpusRevisionId, corpusFingerprint, permissionVersion),
+                    citations)) {
+                return false;
+            }
         }
 
         Object indexedValue = metadata.get("indexedWebSources");
@@ -1343,6 +1572,20 @@ public class ChatController {
             }
         }
         return true;
+    }
+
+    private static Long positiveLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            long parsed = value instanceof Number number
+                    ? number.longValue()
+                    : Long.parseLong(value.toString());
+            return parsed > 0 ? parsed : null;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     @DeleteMapping("/conversations/{conversationId}")
@@ -1407,6 +1650,19 @@ public class ChatController {
                     HttpStatus.CONFLICT,
                     "RAG_REGENERATION_SCOPE_MISMATCH");
         }
+        Map<?, ?> storedTeamScope = storedMetadata.get("teamRagScope") instanceof Map<?, ?> value
+                ? value
+                : null;
+        Long storedTeamId = storedTeamScope == null ? null : positiveLong(storedTeamScope.get("teamId"));
+        Long storedWorkspaceId = storedTeamScope == null
+                ? null
+                : positiveLong(storedTeamScope.get("workspaceId"));
+        if (!Objects.equals(storedTeamId, rag.teamId())
+                || !Objects.equals(storedWorkspaceId, rag.workspaceId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "RAG_REGENERATION_TEAM_SCOPE_MISMATCH");
+        }
         String storedAnswerMode = nestedMetadataText(storedMetadata, "answerPolicy", "requestedMode");
         if (storedAnswerMode == null) {
             storedAnswerMode = nestedMetadataText(storedMetadata, "answerPolicy", "effectiveMode");
@@ -1443,7 +1699,9 @@ public class ChatController {
                 storedAnswerMode,
                 storedSourceScope,
                 rag.externalSourceOptions(),
-                rag.indexedWebSources());
+                rag.indexedWebSources(),
+                rag.teamId(),
+                rag.workspaceId());
         return chatWithRagInternal(replay, principal, request.conversationId());
     }
 
@@ -1714,7 +1972,9 @@ public class ChatController {
                 request.answerMode(),
                 request.sourceScope(),
                 request.externalSourceOptions(),
-                request.indexedWebSources());
+                request.indexedWebSources(),
+                request.teamId(),
+                request.workspaceId());
     }
 
     private List<RagSearchResult> mergeIndexedWebResults(
@@ -1878,7 +2138,9 @@ public class ChatController {
                 request.answerMode(),
                 request.sourceScope(),
                 request.externalSourceOptions(),
-                request.indexedWebSources());
+                request.indexedWebSources(),
+                request.teamId(),
+                request.workspaceId());
     }
 
     private ChatRagRequestDto applyIntentRetrievalPolicy(
@@ -1900,7 +2162,7 @@ public class ChatController {
                 options == null ? null : options.dedupe(),
                 options == null ? null : options.includeDebugChunks(),
                 options == null ? null : options.distilledScoreBoost(),
-                options == null ? null : options.queryExpansionEnabled());
+                false);
         return new ChatRagRequestDto(
                 request.chat(),
                 request.ragQuery(),
@@ -1919,7 +2181,68 @@ public class ChatController {
                 request.answerMode(),
                 request.sourceScope(),
                 request.externalSourceOptions(),
-                request.indexedWebSources());
+                request.indexedWebSources(),
+                request.teamId(),
+                request.workspaceId());
+    }
+
+    private InterpretiveRetrievalBatch retrieveDocumentQueries(
+            ChatRagRequestDto request,
+            List<String> queries,
+            String objectType,
+            String objectId,
+            int ragTopK,
+            double minScore,
+            Integer requestedTopK,
+            boolean exposeDiagnostics,
+            boolean metadataQuery,
+            boolean interpretive) {
+        List<String> effectiveQueries = queries == null || queries.isEmpty()
+                ? List.of(resolveRagQuery(request))
+                : queries;
+        Map<String, RagSearchResult> merged = new LinkedHashMap<>();
+        RagChatRetrievalService.RetrievalDebug debug = RagChatRetrievalService.RetrievalDebug.disabled();
+        int executed = 0;
+        for (String query : effectiveQueries) {
+            RagChatRetrievalService.RetrievalResult retrieval = ragChatRetrievalService.retrieve(
+                    request,
+                    query,
+                    objectType,
+                    objectId,
+                    ragTopK,
+                    minScore,
+                    requestedTopK,
+                    exposeDiagnostics,
+                    metadataQuery);
+            executed++;
+            if (!debug.enabled() && retrieval.debug().enabled()) {
+                debug = retrieval.debug();
+            }
+            for (RagSearchResult result : retrieval.results()) {
+                merged.merge(interpretiveResultKey(result), result,
+                        (left, right) -> right.score() > left.score() ? right : left);
+            }
+            if (!interpretive || (executed >= 2 && merged.size() >= ragTopK)) {
+                break;
+            }
+        }
+        List<RagSearchResult> results = merged.values().stream()
+                .sorted(Comparator.comparingDouble(RagSearchResult::score).reversed())
+                .toList();
+        return new InterpretiveRetrievalBatch(results, debug, executed);
+    }
+
+    private String interpretiveResultKey(RagSearchResult result) {
+        Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
+        String chunkId = firstText(metadata,
+                "documentChunkId", "_documentChunkId", "chunkId", RagContextBuilder.KEY_CHUNK_ID);
+        if (chunkId != null) {
+            return "chunk:" + chunkId;
+        }
+        if (result.documentId() != null && !result.documentId().isBlank()) {
+            return "document:" + result.documentId();
+        }
+        return "content:" + Integer.toHexString(result.content().hashCode());
     }
 
     private Integer atLeast(Integer value, int minimum) {
@@ -2075,13 +2398,15 @@ public class ChatController {
             ChatResponse response,
             PackedEvidenceSet evidenceSet,
             ResolvedRagAnswerPolicy answerPolicy,
-            RagQueryIntentClassifier.Classification classification) {
+            RagQueryIntentClassifier.Classification classification,
+            boolean coverageFallback) {
         String draft = response.messages().stream()
                 .filter(message -> message.role() == ChatMessageRole.ASSISTANT)
                 .map(ChatMessage::content)
                 .filter(content -> content != null && !content.isBlank())
-                .findFirst()
+                .reduce((first, last) -> last)
                 .orElse("");
+        draft = ensureInterpretiveFallbackLimitation(draft, evidenceSet, coverageFallback);
         RagAnswerFinalizer.FinalizedAnswer finalized =
                 ragAnswerFinalizer.finalizeAnswer(draft, evidenceSet, answerPolicy, classification);
         if (log.isDebugEnabled()) {
@@ -2097,6 +2422,124 @@ public class ChatController {
                     outcome.citedValidationUnitCount());
         }
         return finalized;
+    }
+
+    private CitationRepairResult repairInterpretiveCitations(
+            PreparedRagChat prepared,
+            ChatResponse originalResponse,
+            RagAnswerFinalizer.FinalizedAnswer originalFinalized) {
+        if (!shouldRepairInterpretiveCitations(prepared, originalFinalized)) {
+            return new CitationRepairResult(originalResponse, originalFinalized, "NOT_NEEDED");
+        }
+        String draft = assistantContent(originalResponse);
+        if (draft == null) {
+            return new CitationRepairResult(originalResponse, originalFinalized, "SKIPPED_EMPTY_DRAFT");
+        }
+        try {
+            List<ChatMessageDto> messages = new ArrayList<>(prepared.augmentedChat().messages());
+            messages.add(new ChatMessageDto("assistant", draft));
+            messages.add(new ChatMessageDto("user", citationRepairInstruction(prepared.evidenceSet())));
+            ChatRequestDto source = prepared.augmentedChat();
+            ChatRequestDto repairRequest = new ChatRequestDto(
+                    source.provider(),
+                    source.systemPrompt(),
+                    List.copyOf(messages),
+                    source.model(),
+                    source.temperature(),
+                    source.topP(),
+                    source.topK(),
+                    source.maxOutputTokens() == null ? 800 : Math.max(800, source.maxOutputTokens()),
+                    source.stopSequences(),
+                    null,
+                    source.deploymentId());
+            ChatResponse repairedResponse = executeChat(
+                    chatPort(deploymentOrProvider(prepared.chat())),
+                    toDomainChatRequest(repairRequest),
+                    AiModelUsageRequestKind.RAG);
+            RagAnswerFinalizer.FinalizedAnswer repairedFinalized = finalizeRagResponse(
+                    repairedResponse,
+                    prepared.evidenceSet(),
+                    prepared.answerPolicy(),
+                    prepared.queryIntent(),
+                    interpretiveCoverageFallback(prepared));
+            if (repairedFinalized.outcome().type() == RagAnswerOutcome.Type.ANSWERED) {
+                return new CitationRepairResult(repairedResponse, repairedFinalized, "SUCCEEDED");
+            }
+            Optional<String> evidenceFallback = interpretiveEvidenceFallback.draft(prepared.evidenceSet());
+            if (evidenceFallback.isPresent()) {
+                RagAnswerFinalizer.FinalizedAnswer fallbackFinalized = ragAnswerFinalizer.finalizeAnswer(
+                        evidenceFallback.get(),
+                        prepared.evidenceSet(),
+                        prepared.answerPolicy(),
+                        prepared.queryIntent());
+                if (fallbackFinalized.outcome().type() == RagAnswerOutcome.Type.ANSWERED) {
+                    return new CitationRepairResult(
+                            repairedResponse, fallbackFinalized, "FALLBACK_EVIDENCE_SUMMARY");
+                }
+            }
+            return new CitationRepairResult(originalResponse, originalFinalized, "FAILED_VALIDATION");
+        } catch (RuntimeException ex) {
+            log.warn("Interpretive citation repair failed: errorType={}", ex.getClass().getSimpleName());
+            return new CitationRepairResult(originalResponse, originalFinalized, "FAILED_EXECUTION");
+        }
+    }
+
+    private boolean shouldRepairInterpretiveCitations(
+            PreparedRagChat prepared,
+            RagAnswerFinalizer.FinalizedAnswer finalized) {
+        if (prepared.queryIntent().intent() != RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS
+                || prepared.answerPolicy().effectiveMode() != RagAnswerMode.GROUNDED_INFERENCE
+                || finalized.outcome().type() != RagAnswerOutcome.Type.EVIDENCE_ONLY) {
+            return false;
+        }
+        return finalized.outcome().reasonCode() == RagAnswerOutcome.ReasonCode.MISSING_CITATION
+                || finalized.outcome().reasonCode() == RagAnswerOutcome.ReasonCode.MISSING_UNIT_CITATION;
+    }
+
+    private String assistantContent(ChatResponse response) {
+        return response.messages().stream()
+                .filter(message -> message.role() == ChatMessageRole.ASSISTANT)
+                .map(ChatMessage::content)
+                .filter(content -> content != null && !content.isBlank())
+                .reduce((first, last) -> last)
+                .orElse(null);
+    }
+
+    private String citationRepairInstruction(PackedEvidenceSet evidenceSet) {
+        int evidenceCount = evidenceSet == null ? 0 : evidenceSet.evidence().size();
+        return "직전 답변을 제공된 문서 근거만 사용하여 다시 작성하세요. 새 사실을 추가하지 말고, "
+                + "근거로 확인할 수 없는 문장은 삭제하세요. 최대 4문장의 정확히 한 문단으로 작성하고 모든 실질 문장의 끝에 "
+                + "[1]부터 [" + evidenceCount + "] 사이에서 해당 문장을 가장 직접적으로 뒷받침하는 근거 번호 1~2개만 붙이세요. "
+                + "근거가 부분적이면 같은 문단에서 확인 한계를 명시하고 그 문장에도 근거 번호를 붙이세요. "
+                + "답변 본문만 출력하세요.";
+    }
+
+    private boolean interpretiveCoverageFallback(PreparedRagChat prepared) {
+        return Boolean.TRUE.equals(prepared.ragMetadata().get("ragInterpretiveCoverageFallback"));
+    }
+
+    private String ensureInterpretiveFallbackLimitation(
+            String draft,
+            PackedEvidenceSet evidenceSet,
+            boolean coverageFallback) {
+        if (!coverageFallback || draft == null || draft.isBlank()) {
+            return draft;
+        }
+        String normalized = draft.toLowerCase(Locale.ROOT);
+        if (normalized.contains("확인 한계")
+                || normalized.contains("대표 구간")
+                || normalized.contains("제한")
+                || normalized.contains("limitation")
+                || normalized.contains("representative excerpts")) {
+            return draft;
+        }
+        int citationIndex = evidenceSet.evidence().stream()
+                .mapToInt(PackedEvidenceSet.PackedEvidence::citationIndex)
+                .min()
+                .orElse(1);
+        return draft.strip()
+                + " 확인 한계: 이 해석은 문서 전체에서 선택한 대표 근거 구간을 바탕으로 하므로 "
+                + "모든 세부 내용을 반영하지 못할 수 있습니다. [" + citationIndex + "]";
     }
 
     private ChatResponse canonicalResponse(ChatResponse response, String canonicalContent) {
@@ -2570,6 +3013,18 @@ public class ChatController {
     private record ObjectChunks(List<RagSearchResult> results, boolean complete) {
     }
 
+    private record InterpretiveRetrievalBatch(
+            List<RagSearchResult> results,
+            RagChatRetrievalService.RetrievalDebug debug,
+            int executedQueryCount) {
+    }
+
+    private record CitationRepairResult(
+            ChatResponse response,
+            RagAnswerFinalizer.FinalizedAnswer finalized,
+            String status) {
+    }
+
     private List<RagSearchResult> contextExpansionCandidates(
             List<RagSearchResult> ragResults,
             String objectType,
@@ -2861,6 +3316,21 @@ public class ChatController {
                         prepared.evidenceSet(),
                         prepared.answerPolicy(),
                         prepared.queryIntent());
+        String citationRepairStatus = "NOT_NEEDED";
+        if (shouldRepairInterpretiveCitations(prepared, finalized)) {
+            Optional<String> evidenceFallback = interpretiveEvidenceFallback.draft(prepared.evidenceSet());
+            if (evidenceFallback.isPresent()) {
+                RagAnswerFinalizer.FinalizedAnswer fallbackFinalized = ragAnswerFinalizer.finalizeAnswer(
+                        evidenceFallback.get(),
+                        prepared.evidenceSet(),
+                        prepared.answerPolicy(),
+                        prepared.queryIntent());
+                if (fallbackFinalized.outcome().type() == RagAnswerOutcome.Type.ANSWERED) {
+                    finalized = fallbackFinalized;
+                    citationRepairStatus = "FALLBACK_EVIDENCE_SUMMARY";
+                }
+            }
+        }
         response = canonicalResponse(response, finalized.canonicalContent());
         response = responseWithMetadata(response, ragTurnMetadata(
                 prepared,
@@ -2887,6 +3357,7 @@ public class ChatController {
         metadata.put("citationValidationStatus", finalized.validation().status().name());
         metadata.put("answerPolicyValidationStatus", finalized.policyValidation().status().name());
         metadata.put("ragAnswerCache", ragAnswerCache.enabled() ? "MISS" : "BYPASS");
+        metadata.put("ragCitationRepair", citationRepairStatus);
         metadata.putAll(ragOutcomeMetadata(prepared, finalized.outcome()));
         cacheRagAnswer(prepared, principal, model, finalized);
         ChatResponseMetadata completedMetadata = ChatResponseMetadata.from(metadata);
@@ -2947,7 +3418,8 @@ public class ChatController {
             ResolvedRagAnswerPolicy answerPolicy,
             ResolvedRagSourcePolicy sourcePolicy,
             RagExternalEvidenceService.Result externalEvidence,
-            PackedEvidenceSet evidenceSet) {
+            PackedEvidenceSet evidenceSet,
+            TeamRagRetrievalService.RetrievalResult teamRetrieval) {
     }
 
     private Optional<CachedRagHit> cachedRagAnswer(PreparedRagChat prepared, Principal principal) {
@@ -3018,7 +3490,8 @@ public class ChatController {
                 || prepared.memory().enabled()
                 || (!prepared.objectScope().hasFilter()
                         && (prepared.request().indexedWebSources() == null
-                                || prepared.request().indexedWebSources().isEmpty()))
+                                || prepared.request().indexedWebSources().isEmpty())
+                        && prepared.teamRetrieval() == null)
                 || prepared.evidenceSet().contextFingerprint().isBlank()) {
             return Optional.empty();
         }
@@ -3033,7 +3506,10 @@ public class ChatController {
                 deploymentOrProvider(prepared.chat()),
                 prepared.evidenceSet().contextFingerprint(),
                 prepared.answerPolicy(),
-                prepared.sourcePolicy()));
+                prepared.sourcePolicy(),
+                prepared.teamRetrieval() == null
+                        ? null
+                        : prepared.teamRetrieval().cacheScope()));
     }
 
     private void writeCachedRagStream(

@@ -17,6 +17,7 @@ import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolve
 import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer;
+import studio.one.platform.ai.core.rag.team.TeamKnowledgeSourceContributor;
 import studio.one.platform.chunking.artifact.ChunkSetStore;
 
 class ContentEmbeddingPipelineAutoConfigurationTest {
@@ -94,6 +95,16 @@ class ContentEmbeddingPipelineAutoConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(AttachmentRagIndexJobSourceNameResolver.class);
                     assertThat(context.getBean(AttachmentRagIndexJobSourceNameResolver.class)).isSameAs(userResolver);
+                });
+    }
+
+    @Test
+    void registersAttachmentTeamKnowledgeSourceContributor() {
+        contextRunner
+                .withBean(AttachmentService.class, () -> mock(AttachmentService.class))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(TeamKnowledgeSourceContributor.class);
                 });
     }
 

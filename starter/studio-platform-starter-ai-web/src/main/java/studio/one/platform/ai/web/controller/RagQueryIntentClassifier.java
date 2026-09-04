@@ -65,9 +65,12 @@ final class RuleBasedRagQueryIntentClassifier implements RagQueryIntentClassifie
         if (containsAny(normalized,
                 "mbti", "성격 유형", "성격유형", "어떤 성격", "주인공의 성격", "인물의 성격",
                 "성격은", "성격을 분석", "성격 분석", "인물 분석", "인물을 분석", "동기를 분석",
-                "상징을 분석", "의미를 해석", "추정해",
+                "상징을 분석", "의미를 해석", "추정해", "이유는", "이유를", "왜 ",
+                "권장 도서", "권장도서", "읽을 가치", "작품의 가치", "문서의 가치",
+                "의의는", "의의를", "교훈은", "교훈을", "시사점", "평가해",
                 "personality type", "character analysis", "analyze the character", "interpret the character",
-                "character motivation", "symbolism")) {
+                "character motivation", "symbolism", "why is", "why does", "why should",
+                "recommended reading", "significance", "literary value")) {
             return new Classification(Intent.INTERPRETIVE_ANALYSIS, 0.92d, "INTERPRETIVE_PHRASE");
         }
         if (hasExplicitRelationalListCue(normalized)) {

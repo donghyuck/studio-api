@@ -37,6 +37,7 @@ dependencies {
     testImplementation(project(":studio-platform-skillgraph"))
     testImplementation(project(":studio-platform-user-default"))
     testImplementation(project(":studio-platform-workspace-default"))
+    testRuntimeOnly(project(":studio-platform-team-default"))
     testImplementation(project(":studio-application-modules:attachment-service"))
     testImplementation(project(":studio-application-modules:avatar-service"))
     testImplementation(project(":studio-application-modules:mail-service"))

@@ -21,6 +21,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
 import studio.one.base.user.application.usecase.ApplicationCompanyService;
+import studio.one.platform.team.application.usecase.TeamMigrationWorkspacePort;
 import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
 import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
@@ -28,6 +29,7 @@ import studio.one.platform.workspace.application.service.DefaultWorkspacePermiss
 import studio.one.platform.workspace.application.service.WorkspaceSettings;
 import studio.one.platform.workspace.web.controller.WorkspaceController;
 import studio.one.platform.workspace.web.controller.WorkspaceMgmtController;
+import studio.one.platform.workspace.web.controller.TeamWorkspaceController;
 
 class WorkspaceAutoConfigurationTest {
 
@@ -64,8 +66,10 @@ class WorkspaceAutoConfigurationTest {
                     assertThat(context).hasSingleBean(WorkspaceTreeService.class);
                     assertThat(context).hasSingleBean(WorkspaceMemberService.class);
                     assertThat(context).hasSingleBean(WorkspacePermissionService.class);
+                    assertThat(context).hasSingleBean(TeamMigrationWorkspacePort.class);
                     assertThat(context).doesNotHaveBean(WorkspaceController.class);
                     assertThat(context).doesNotHaveBean(WorkspaceMgmtController.class);
+                    assertThat(context).doesNotHaveBean(TeamWorkspaceController.class);
                 });
     }
 
@@ -173,6 +177,98 @@ class WorkspaceAutoConfigurationTest {
         assertV1303RejectsExistingOrphanWorkspaceRows("MySQL", "mariadb");
     }
 
+    @Test
+    void v1801TeamScopeEnforcesOwnershipAndV1804AllowsMultipleRootsAcrossDialects() throws Exception {
+        String postgres = new String(new ClassPathResource(
+                "schema/workspace/postgres/V1801__add_workspace_team_scope.sql")
+                .getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertThat(postgres)
+                .contains("CHECK (TEAM_ID IS NOT NULL OR COMPANY_ID IS NOT NULL)")
+                .contains("FOREIGN KEY (TEAM_ID) REFERENCES TB_PLATFORM_TEAM(TEAM_ID)")
+                .contains("UK_PLATFORM_WORKSPACE_TEAM_ROOT");
+        String postgresV1804 = new String(new ClassPathResource(
+                "schema/workspace/postgres/V1804__allow_multiple_team_workspace_roots.sql")
+                .getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertThat(postgresV1804).contains("DROP INDEX IF EXISTS UK_PLATFORM_WORKSPACE_TEAM_ROOT");
+        assertV1801TeamScope("MySQL", "mysql", true);
+        assertV1801TeamScope("MySQL", "mariadb", true);
+    }
+
+    private static void assertV1801TeamScope(String h2Mode, String dialect, boolean mysqlFamily) throws Exception {
+        String databaseName = "workspace_team_scope_" + dialect + "_" + System.nanoTime();
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:h2:mem:" + databaseName + ";MODE=" + h2Mode + ";DB_CLOSE_DELAY=-1");
+                Statement statement = connection.createStatement()) {
+            statement.execute("create table TB_PLATFORM_TEAM (TEAM_ID BIGINT primary key)");
+            statement.execute("insert into TB_PLATFORM_TEAM (TEAM_ID) values (10)");
+            if (mysqlFamily) {
+                statement.execute("""
+                        create table TB_PLATFORM_WORKSPACE (
+                            WORKSPACE_ID BIGINT primary key,
+                            PARENT_ID BIGINT null,
+                            COMPANY_ID BIGINT not null,
+                            SLUG VARCHAR(100) not null,
+                            PATH VARCHAR(1024) not null,
+                            PATH_HASH BINARY(32),
+                            PARENT_KEY BIGINT
+                        )
+                        """);
+                statement.execute("create unique index UK_PLATFORM_WORKSPACE_COMPANY_PATH "
+                        + "on TB_PLATFORM_WORKSPACE (COMPANY_ID, PATH_HASH)");
+                statement.execute("create unique index UK_PLATFORM_WORKSPACE_COMPANY_PARENT_SLUG "
+                        + "on TB_PLATFORM_WORKSPACE (COMPANY_ID, PARENT_KEY, SLUG)");
+            } else {
+                statement.execute("""
+                        create table TB_PLATFORM_WORKSPACE (
+                            WORKSPACE_ID BIGINT primary key,
+                            PARENT_ID BIGINT null,
+                            COMPANY_ID BIGINT not null,
+                            SLUG VARCHAR(100) not null,
+                            PATH VARCHAR(1024) not null
+                        )
+                        """);
+            }
+            String migration = new String(new ClassPathResource(
+                    "schema/workspace/" + dialect + "/V1801__add_workspace_team_scope.sql")
+                    .getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            // H2's MySQL mode supports generated columns but not the MySQL/MariaDB STORED keyword.
+            executeSql(statement, migration.replace(") STORED", ")"));
+
+            statement.execute("""
+                    insert into TB_PLATFORM_WORKSPACE
+                        (WORKSPACE_ID, PARENT_ID, COMPANY_ID, TEAM_ID, SLUG, PATH, ACCESS_MODE)
+                    values (1, null, null, 10, 'root', 'root', 'INHERIT')
+                    """);
+            assertThatThrownBy(() -> statement.execute("""
+                    insert into TB_PLATFORM_WORKSPACE
+                        (WORKSPACE_ID, PARENT_ID, COMPANY_ID, TEAM_ID, SLUG, PATH, ACCESS_MODE)
+                    values (2, null, null, 10, 'second', 'second', 'INHERIT')
+                    """))
+                    .isInstanceOf(SQLException.class);
+            String forestMigration = new String(new ClassPathResource(
+                    "schema/workspace/" + dialect + "/V1804__allow_multiple_team_workspace_roots.sql")
+                    .getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            executeSql(statement, forestMigration);
+            statement.execute("""
+                    insert into TB_PLATFORM_WORKSPACE
+                        (WORKSPACE_ID, PARENT_ID, COMPANY_ID, TEAM_ID, SLUG, PATH, ACCESS_MODE)
+                    values (2, null, null, 10, 'second', 'second', 'INHERIT')
+                    """);
+            assertThatThrownBy(() -> statement.execute("""
+                    insert into TB_PLATFORM_WORKSPACE
+                        (WORKSPACE_ID, PARENT_ID, COMPANY_ID, TEAM_ID, SLUG, PATH, ACCESS_MODE)
+                    values (3, null, null, null, 'orphan', 'orphan', 'INHERIT')
+                    """))
+                    .isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> statement.execute("""
+                    insert into TB_PLATFORM_WORKSPACE
+                        (WORKSPACE_ID, PARENT_ID, COMPANY_ID, TEAM_ID, SLUG, PATH, ACCESS_MODE)
+                    values (4, null, null, 999, 'foreign', 'foreign', 'INHERIT')
+                    """))
+                    .isInstanceOf(SQLException.class);
+        }
+    }
+
     private static void assertV1303RejectsOrphanWorkspaceRows(String h2Mode, String dialect) throws Exception {
         String databaseName = "workspace_fk_" + dialect + "_" + System.nanoTime();
         try (Connection connection = DriverManager.getConnection(
@@ -250,6 +346,9 @@ class WorkspaceAutoConfigurationTest {
     @Test
     void registersWebControllersOnlyWhenWebFeatureEnabled() {
         contextRunner
+                .withBean(studio.one.platform.team.application.usecase.TeamAuthorizationPort.class,
+                        () -> org.mockito.Mockito.mock(
+                                studio.one.platform.team.application.usecase.TeamAuthorizationPort.class))
                 .withPropertyValues(
                         "studio.features.workspace.enabled=true",
                         "studio.features.workspace.web.enabled=true")
@@ -257,6 +356,7 @@ class WorkspaceAutoConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(WorkspaceController.class);
                     assertThat(context).hasSingleBean(WorkspaceMgmtController.class);
+                    assertThat(context).hasSingleBean(TeamWorkspaceController.class);
                 });
     }
 
@@ -280,6 +380,10 @@ class WorkspaceAutoConfigurationTest {
     private static void executeSqlResource(Statement statement, String path) throws Exception {
         ClassPathResource resource = new ClassPathResource(path);
         String sql = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        executeSql(statement, sql);
+    }
+
+    private static void executeSql(Statement statement, String sql) throws Exception {
         for (String command : sql.split(";")) {
             if (!command.isBlank()) {
                 statement.execute(command);

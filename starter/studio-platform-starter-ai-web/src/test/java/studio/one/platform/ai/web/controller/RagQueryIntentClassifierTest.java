@@ -95,4 +95,14 @@ class RagQueryIntentClassifierTest {
         assertThat(classifier.classify("Analyze the character motivation").intent())
                 .isEqualTo(RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS);
     }
+
+    @Test
+    void classifiesReasonValueAndRecommendedReadingQuestionsAsInterpretive() {
+        assertThat(classifier.classify("이 소설에 청소년 권장 도서인 이유는").intent())
+                .isEqualTo(RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS);
+        assertThat(classifier.classify("이 작품을 읽을 가치와 시사점을 설명해줘").intent())
+                .isEqualTo(RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS);
+        assertThat(classifier.classify("Why should this novel be recommended reading?").intent())
+                .isEqualTo(RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS);
+    }
 }

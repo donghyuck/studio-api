@@ -15,6 +15,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.application.webknowledge.application.WebKnowledgeSourceService;
+import studio.one.application.webknowledge.application.WebKnowledgePageDetailView;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
@@ -104,5 +105,24 @@ class WebKnowledgeSourceControllerTest {
 
         verify(permissions).assertGranted(2L, 7L, WorkspacePermissionActions.ARCHIVE);
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void pageDetailRequiresWorkspaceReadAndUsesScopedIdentifiers() {
+        WebKnowledgeSourceService service = mock(WebKnowledgeSourceService.class);
+        PrincipalResolver principals = mock(PrincipalResolver.class);
+        WorkspacePermissionService permissions = mock(WorkspacePermissionService.class);
+        ApplicationPrincipal principal = mock(ApplicationPrincipal.class);
+        WebKnowledgePageDetailView detail = mock(WebKnowledgePageDetailView.class);
+        when(principals.current()).thenReturn(principal);
+        when(principal.getUserId()).thenReturn(7L);
+        when(service.getPage(2L, "source-1", "page-1")).thenReturn(detail);
+        WebKnowledgeSourceController controller =
+                new WebKnowledgeSourceController(service, principals, permissions);
+
+        controller.getPage(2L, "source-1", "page-1");
+
+        verify(permissions).assertGranted(2L, 7L, WorkspacePermissionActions.READ);
+        verify(service).getPage(2L, "source-1", "page-1");
     }
 }

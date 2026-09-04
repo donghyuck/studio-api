@@ -32,6 +32,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
+import studio.one.platform.ai.core.rag.RagObjectScope;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -899,6 +900,66 @@ public class DefaultRagPipelineService implements RagPipelineService {
     }
 
     @Override
+    public List<RagSearchResult> searchByObjects(
+            RagSearchRequest request,
+            List<RagObjectScope> requestedScopes,
+            int maxScopes) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        if (maxScopes <= 0 || maxScopes > MAX_AGGREGATE_OBJECT_SCOPES) {
+            throw new IllegalArgumentException(
+                    "maxScopes must be between 1 and " + MAX_AGGREGATE_OBJECT_SCOPES);
+        }
+        List<RagObjectScope> scopes = requestedScopes == null
+                ? List.of()
+                : requestedScopes.stream().filter(Objects::nonNull).distinct().toList();
+        if (scopes.size() > maxScopes) {
+            throw new IllegalArgumentException("object scope count exceeds maxScopes: " + maxScopes);
+        }
+        if (scopes.isEmpty()) {
+            return List.of();
+        }
+        if (!request.metadataFilter().isEmpty()) {
+            return RagPipelineService.super.searchByObjects(request, scopes, maxScopes);
+        }
+
+        Map<String, List<RagObjectScope>> aggregateGroups = scopes.stream()
+                .filter(scope -> scope.partitionIds().isEmpty())
+                .collect(java.util.stream.Collectors.groupingBy(
+                        RagObjectScope::objectType,
+                        LinkedHashMap::new,
+                        java.util.stream.Collectors.toList()));
+        List<RagSearchResult> candidates = new ArrayList<>();
+        aggregateGroups.forEach((objectType, groupedScopes) -> {
+            Set<String> objectIds = groupedScopes.stream()
+                    .map(RagObjectScope::objectId)
+                    .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+            RagSearchRequest aggregateRequest = withAggregateScope(request, objectType, objectIds);
+            List<RagSearchResult> aggregateResults = search(aggregateRequest).stream()
+                    .filter(result -> matchesAnyScope(result, groupedScopes))
+                    .toList();
+            if (aggregateResults.isEmpty() && groupedScopes.size() > 1) {
+                aggregateResults = RagPipelineService.super.searchByObjects(
+                        request, groupedScopes, maxScopes);
+            }
+            candidates.addAll(aggregateResults);
+        });
+        scopes.stream()
+                .filter(scope -> !scope.partitionIds().isEmpty())
+                .forEach(scope -> searchByObjectPartitions(
+                        request, scope.objectType(), scope.objectId(), scope.partitionIds()).stream()
+                        .filter(result -> matchesScope(result, scope))
+                        .forEach(candidates::add));
+
+        Map<String, RagSearchResult> deduplicated = new LinkedHashMap<>();
+        candidates.stream()
+                .sorted(Comparator.comparingDouble(RagSearchResult::score).reversed())
+                .forEach(result -> deduplicated.putIfAbsent(aggregateResultKey(result), result));
+        return deduplicated.values().stream().limit(request.topK()).toList();
+    }
+
+    @Override
     public List<RagSearchResult> searchByObjectPartitions(
             RagSearchRequest request,
             String objectType,
@@ -922,6 +983,46 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 .toList());
         MetadataFilter filter = MetadataFilter.of(equals, in, request.metadataFilter().rangeCriteria());
         return searchObjectScope(request, filter);
+    }
+
+    private RagSearchRequest withAggregateScope(
+            RagSearchRequest request,
+            String objectType,
+            Set<String> objectIds) {
+        MetadataFilter filter = MetadataFilter.of(
+                Map.of("objectType", objectType),
+                Map.of("objectId", objectIds.stream().map(value -> (Object) value).toList()),
+                Map.of());
+        return new RagSearchRequest(
+                request.query(),
+                request.topK(),
+                filter,
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.minScore(),
+                request.requestedTopK(),
+                request.requestedMinScore(),
+                request.queryExpansionEnabled(),
+                request.embeddingDeploymentId());
+    }
+
+    private boolean matchesAnyScope(RagSearchResult result, List<RagObjectScope> scopes) {
+        return scopes.stream().anyMatch(scope -> matchesScope(result, scope));
+    }
+
+    private boolean matchesScope(RagSearchResult result, RagObjectScope scope) {
+        Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
+        return scope.objectType().equals(String.valueOf(metadata.get("objectType")))
+                && scope.objectId().equals(String.valueOf(metadata.get("objectId")));
+    }
+
+    private String aggregateResultKey(RagSearchResult result) {
+        Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
+        return String.join(":",
+                String.valueOf(metadata.getOrDefault("objectType", "")),
+                String.valueOf(metadata.getOrDefault("objectId", "")),
+                String.valueOf(metadata.getOrDefault("chunkId", result.documentId())));
     }
 
     @Override

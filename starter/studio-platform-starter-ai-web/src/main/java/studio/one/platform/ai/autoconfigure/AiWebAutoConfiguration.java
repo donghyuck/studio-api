@@ -8,6 +8,7 @@ import org.springframework.beans.BeanInstantiationException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -43,6 +44,7 @@ import studio.one.platform.ai.core.vector.visualization.VectorProjectionGenerato
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionPointRepository;
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionRepository;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.service.pipeline.RagTeamKnowledgeMigrationVerifier;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.service.visualization.DefaultVectorProjectionJobService;
@@ -82,6 +84,12 @@ import studio.one.platform.ai.web.controller.RagChunkPreviewController;
 import studio.one.platform.ai.web.controller.RagChunkingSimulationController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagChatRetrievalService;
+import studio.one.platform.ai.web.controller.TeamRagCitationGuard;
+import studio.one.platform.ai.web.controller.TeamRagRetrievalService;
+import studio.one.platform.ai.web.controller.TeamKnowledgeSourceController;
+import studio.one.platform.ai.web.controller.DefaultTeamRagScopeResolver;
+import studio.one.platform.ai.web.controller.ScopeBackedTeamCitationAuthorizer;
+import studio.one.platform.ai.web.controller.PortableTeamMigrationKnowledgeAdapter;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
 import studio.one.platform.ai.web.controller.RagAnswerFinalizer;
 import studio.one.platform.ai.web.controller.RagAnswerPolicyResolver;
@@ -92,6 +100,14 @@ import studio.one.platform.ai.web.controller.RagExternalEvidenceService;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
 import studio.one.platform.ai.web.controller.RagObjectAuthorizationRouter;
 import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
+import studio.one.platform.ai.core.rag.team.TeamCitationAuthorizer;
+import studio.one.platform.ai.core.rag.team.TeamKnowledgeMigrationVerifier;
+import studio.one.platform.ai.core.rag.team.TeamKnowledgeSourceContributor;
+import studio.one.platform.ai.core.rag.team.TeamRagScopeResolver;
+import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.team.application.usecase.TeamAuthorizationPort;
+import studio.one.platform.team.application.usecase.TeamMigrationKnowledgePort;
+import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
 import studio.one.platform.ai.core.rag.usability.RagObjectUsabilityEvidenceContributor;
 import studio.one.platform.ai.core.rag.indexed.IndexedRagSourceProvider;
 import studio.one.platform.ai.core.rag.external.ExternalEvidenceProvider;
@@ -133,6 +149,7 @@ import studio.one.platform.chunking.core.ChunkContextExpander;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 
 @Configuration(proxyBeanMethods = false)
+@AutoConfigureBefore(name = "studio.one.platform.team.autoconfigure.TeamAutoConfiguration")
 @ConditionalOnClass(name = {
         "studio.one.platform.ai.core.chat.ChatPort",
         "jakarta.validation.Valid",
@@ -152,8 +169,12 @@ public class AiWebAutoConfiguration {
     @Bean(name = "ragObjectAuthorizationRouter")
     RagObjectAuthorizationRouter ragObjectAuthorizationRouter(
             ApplicationContext applicationContext,
-            ObjectProvider<RagObjectAuthorizer> authorizers) {
-        return new RagObjectAuthorizationRouter(applicationContext, authorizers.orderedStream().toList());
+            ObjectProvider<RagObjectAuthorizer> authorizers,
+            ObjectProvider<TeamRagScopeResolver> teamScopeResolvers) {
+        return new RagObjectAuthorizationRouter(
+                applicationContext,
+                authorizers.orderedStream().toList(),
+                teamScopeResolvers::getIfAvailable);
     }
 
     @Bean
@@ -170,6 +191,108 @@ public class AiWebAutoConfiguration {
             ObjectProvider<RagDocumentMetadataProvider> metadataProviders) {
         return new RagChatRetrievalService(
                 ragPipelineService, properties.getRetrieval(), metadataProviders.stream().toList());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(TeamKnowledgeMigrationVerifier.class)
+    TeamKnowledgeMigrationVerifier teamKnowledgeMigrationVerifier(RagPipelineService ragPipelineService) {
+        return new RagTeamKnowledgeMigrationVerifier(ragPipelineService);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = PropertyKeys.Features.PREFIX + ".team",
+            name = "enabled",
+            havingValue = "true")
+    @ConditionalOnMissingBean(TeamMigrationKnowledgePort.class)
+    TeamMigrationKnowledgePort teamMigrationKnowledgePort(
+            PrincipalResolver principalResolver,
+            WorkspaceTreeService workspaceTreeService,
+            TeamAuthorizationPort teamAuthorization,
+            ObjectProvider<TeamKnowledgeSourceContributor> contributors,
+            RagPipelineService ragPipelineService,
+            TeamKnowledgeMigrationVerifier migrationVerifier,
+            ObjectMapper objectMapper,
+            AiWebRagProperties properties) {
+        return new PortableTeamMigrationKnowledgeAdapter(
+                principalResolver,
+                workspaceTreeService,
+                teamAuthorization,
+                contributors.orderedStream().toList(),
+                ragPipelineService,
+                migrationVerifier,
+                objectMapper,
+                properties.getRetrieval().getTeamMaxWorkspaces(),
+                properties.getRetrieval().getTeamMaxObjectScopes());
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = PropertyKeys.Features.PREFIX + ".team",
+            name = "enabled",
+            havingValue = "true")
+    @ConditionalOnMissingBean(TeamRagScopeResolver.class)
+    TeamRagScopeResolver teamRagScopeResolver(
+            PrincipalResolver principalResolver,
+            TeamAuthorizationPort teamAuthorization,
+            WorkspaceTreeService workspaceTreeService,
+            ObjectProvider<TeamKnowledgeSourceContributor> contributors,
+            AiWebRagProperties properties) {
+        return new DefaultTeamRagScopeResolver(
+                principalResolver,
+                teamAuthorization,
+                workspaceTreeService,
+                contributors.orderedStream().toList(),
+                properties.getRetrieval().getTeamMaxWorkspaces(),
+                properties.getRetrieval().getTeamMaxObjectScopes());
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = PropertyKeys.Features.PREFIX + ".team",
+            name = "enabled",
+            havingValue = "true")
+    @ConditionalOnMissingBean(TeamCitationAuthorizer.class)
+    TeamCitationAuthorizer teamCitationAuthorizer(TeamRagScopeResolver scopeResolver) {
+        return new ScopeBackedTeamCitationAuthorizer(scopeResolver);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = PropertyKeys.Features.PREFIX + ".team",
+            name = "enabled",
+            havingValue = "true")
+    @ConditionalOnMissingBean(TeamRagRetrievalService.class)
+    TeamRagRetrievalService teamRagRetrievalService(
+            RagPipelineService ragPipelineService,
+            TeamRagScopeResolver scopeResolver,
+            AiWebRagProperties properties) {
+        return new TeamRagRetrievalService(
+                ragPipelineService,
+                scopeResolver,
+                properties.getRetrieval().getTeamMaxObjectScopes());
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = PropertyKeys.Features.PREFIX + ".team",
+            name = "enabled",
+            havingValue = "true")
+    @ConditionalOnMissingBean(TeamRagCitationGuard.class)
+    TeamRagCitationGuard teamRagCitationGuard(
+            TeamRagScopeResolver scopeResolver,
+            TeamCitationAuthorizer citationAuthorizer) {
+        return new TeamRagCitationGuard(scopeResolver, citationAuthorizer);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+            prefix = PropertyKeys.Features.PREFIX + ".team",
+            name = "enabled",
+            havingValue = "true")
+    @ConditionalOnMissingBean(TeamKnowledgeSourceController.class)
+    TeamKnowledgeSourceController teamKnowledgeSourceController(TeamRagScopeResolver scopeResolver) {
+        return new TeamKnowledgeSourceController(scopeResolver);
     }
 
     @Bean
@@ -258,7 +381,9 @@ public class AiWebAutoConfiguration {
             RagSourcePolicyResolver ragSourcePolicyResolver,
             RagExternalEvidenceService ragExternalEvidenceService,
             ObjectProvider<DocumentQuestionSuggestionService> questionSuggestionService,
-            ObjectProvider<IndexedRagSourceProvider> indexedRagSourceProviders) {
+            ObjectProvider<IndexedRagSourceProvider> indexedRagSourceProviders,
+            ObjectProvider<TeamRagRetrievalService> teamRagRetrievalService,
+            ObjectProvider<TeamRagCitationGuard> teamRagCitationGuard) {
         ChatController controller = new ChatController(providerRegistry, ragPipelineService, ragChatRetrievalService,
                 ragContextBuilder,
                 ragProperties.getDiagnostics().isAllowClientDebug(),
@@ -281,6 +406,10 @@ public class AiWebAutoConfiguration {
                 ragExternalEvidenceService);
         controller.setIndexedRagSourceProviders(indexedRagSourceProviders.orderedStream().toList());
         controller.setQuestionSuggestionsEnabled(questionSuggestionService.getIfAvailable() != null);
+        controller.setTeamRagServices(
+                teamRagRetrievalService.getIfAvailable(),
+                teamRagCitationGuard.getIfAvailable(),
+                ragProperties.getRetrieval().getTeamMaxObjectScopes());
         return controller;
     }
 

@@ -11,6 +11,7 @@ public class PgVectorSearchParameter {
     private final String objectType;
     private final String objectId;
     private final List<String> objectTypes;
+    private final List<String> objectIds;
     private final String metadataObjectType;
     private final String metadataObjectId;
     private final List<PgVectorMetadataEqualsCriterion> equalsCriteria;
@@ -29,7 +30,7 @@ public class PgVectorSearchParameter {
             String metadataObjectId,
             List<PgVectorMetadataEqualsCriterion> equalsCriteria,
             List<PgVectorMetadataInCriterion> inCriteria) {
-        this(vector, embeddingDimension, limit, objectType, objectId, List.of(), metadataObjectType, metadataObjectId,
+        this(vector, embeddingDimension, limit, objectType, objectId, List.of(), List.of(), metadataObjectType, metadataObjectId,
                 equalsCriteria, inCriteria, true, true, false);
     }
 
@@ -40,6 +41,7 @@ public class PgVectorSearchParameter {
             String objectType,
             String objectId,
             List<String> objectTypes,
+            List<String> objectIds,
             String metadataObjectType,
             String metadataObjectId,
             List<PgVectorMetadataEqualsCriterion> equalsCriteria,
@@ -53,6 +55,7 @@ public class PgVectorSearchParameter {
         this.objectType = objectType;
         this.objectId = objectId;
         this.objectTypes = objectTypes == null ? List.of() : List.copyOf(objectTypes);
+        this.objectIds = objectIds == null ? List.of() : List.copyOf(objectIds);
         this.metadataObjectType = metadataObjectType;
         this.metadataObjectId = metadataObjectId;
         this.equalsCriteria = equalsCriteria == null ? List.of() : List.copyOf(equalsCriteria);
@@ -84,6 +87,10 @@ public class PgVectorSearchParameter {
 
     public List<String> getObjectTypes() {
         return objectTypes;
+    }
+
+    public List<String> getObjectIds() {
+        return objectIds;
     }
 
     public String getMetadataObjectType() {

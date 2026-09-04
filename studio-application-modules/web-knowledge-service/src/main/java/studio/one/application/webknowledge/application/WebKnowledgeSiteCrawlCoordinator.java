@@ -198,6 +198,16 @@ public class WebKnowledgeSiteCrawlCoordinator {
         return pages.findSummaries(workspaceId, sourceId);
     }
 
+    public WebKnowledgePageDetailView getPage(Long workspaceId, String sourceId, String pageId) {
+        WebKnowledgePageEntity page = pages.findByPageIdAndWorkspaceIdAndSourceId(pageId, workspaceId, sourceId)
+                .orElseThrow(() -> new java.util.NoSuchElementException("WEB_PAGE_NOT_FOUND"));
+        WebKnowledgePageRevisionEntity revision = page.currentPageRevisionId() == null
+                ? null
+                : pageRevisions.findByPageRevisionIdAndWorkspaceIdAndSourceId(
+                        page.currentPageRevisionId(), workspaceId, sourceId).orElse(null);
+        return WebKnowledgePageDetailView.from(page, revision);
+    }
+
     public List<String> resumableRunIds(Instant now) {
         Instant effectiveNow = now == null ? Instant.now() : now;
         return runs.findByStatusInOrderByCreatedAtAsc(ACTIVE_STATUSES).stream()

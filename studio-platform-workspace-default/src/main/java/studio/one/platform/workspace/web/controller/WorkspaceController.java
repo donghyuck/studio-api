@@ -78,8 +78,13 @@ public class WorkspaceController extends WorkspaceControllerSupport {
     @PreAuthorize("@endpointAuthz.can('features:workspace','read')")
     public ResponseEntity<ApiResponse<WorkspaceRef>> getByPath(
             @RequestParam(value = "companyId", required = false) Long companyId,
+            @RequestParam(value = "teamId", required = false) Long teamId,
             @RequestParam("path") String path) {
-        return ResponseEntity.ok(ApiResponse.ok(getByPath(companyId, path, false)));
+        return ResponseEntity.ok(ApiResponse.ok(getByPath(companyId, teamId, path, false)));
+    }
+
+    ResponseEntity<ApiResponse<WorkspaceRef>> getByPath(Long companyId, String path) {
+        return getByPath(companyId, null, path);
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}/children")

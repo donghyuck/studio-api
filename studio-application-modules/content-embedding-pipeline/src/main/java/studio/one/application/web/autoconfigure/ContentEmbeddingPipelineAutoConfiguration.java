@@ -17,6 +17,8 @@ import studio.one.application.web.service.AttachmentRagIndexJobSourceExecutor;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolver;
 import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
+import studio.one.application.web.service.WorkspaceAttachmentTeamKnowledgeSourceContributor;
+import studio.one.platform.ai.core.rag.team.TeamKnowledgeSourceContributor;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.chunking.artifact.ChunkSetStore;
@@ -60,6 +62,13 @@ public class ContentEmbeddingPipelineAutoConfiguration {
     AttachmentRagIndexJobSourceNameResolver attachmentRagIndexJobSourceNameResolver(
             AttachmentService attachmentService) {
         return new AttachmentRagIndexJobSourceNameResolver(attachmentService);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "workspaceAttachmentTeamKnowledgeSourceContributor")
+    TeamKnowledgeSourceContributor workspaceAttachmentTeamKnowledgeSourceContributor(
+            AttachmentService attachmentService) {
+        return new WorkspaceAttachmentTeamKnowledgeSourceContributor(attachmentService);
     }
 
 }

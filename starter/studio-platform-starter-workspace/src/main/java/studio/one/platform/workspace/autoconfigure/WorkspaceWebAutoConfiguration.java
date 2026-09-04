@@ -10,11 +10,13 @@ import org.springframework.context.annotation.Bean;
 
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.team.application.usecase.TeamAuthorizationPort;
 import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
 import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
 import studio.one.platform.workspace.web.controller.WorkspaceController;
 import studio.one.platform.workspace.web.controller.WorkspaceMgmtController;
+import studio.one.platform.workspace.web.controller.TeamWorkspaceController;
 
 @AutoConfiguration(after = WorkspaceAutoConfiguration.class)
 @AutoConfigureAfter(WorkspaceAutoConfiguration.class)
@@ -43,5 +45,15 @@ public class WorkspaceWebAutoConfiguration {
             WorkspacePermissionService permissionService,
             ObjectProvider<PrincipalResolver> principalResolverProvider) {
         return new WorkspaceMgmtController(treeService, memberService, permissionService, principalResolverProvider);
+    }
+
+    @Bean
+    @ConditionalOnBean(TeamAuthorizationPort.class)
+    @ConditionalOnMissingBean
+    TeamWorkspaceController teamWorkspaceController(
+            WorkspaceTreeService treeService,
+            TeamAuthorizationPort teamAuthorization,
+            ObjectProvider<PrincipalResolver> principalResolverProvider) {
+        return new TeamWorkspaceController(treeService, teamAuthorization, principalResolverProvider);
     }
 }

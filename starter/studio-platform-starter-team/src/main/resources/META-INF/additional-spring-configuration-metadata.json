@@ -1,0 +1,32 @@
+{
+  "properties": [
+    {
+      "name": "studio.features.team.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable Team collaboration, membership, and authorization services."
+    },
+    {
+      "name": "studio.features.team.persistence",
+      "type": "java.lang.String",
+      "description": "Team persistence implementation.",
+      "defaultValue": "jpa"
+    },
+    {
+      "name": "studio.features.team.web.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Expose authenticated Team HTTP endpoints."
+    },
+    {
+      "name": "studio.features.team.web.public-base-path",
+      "type": "java.lang.String",
+      "description": "Authenticated Team API base path.",
+      "defaultValue": "/api/teams"
+    },
+    {
+      "name": "studio.features.team.web.mgmt-migration-base-path",
+      "type": "java.lang.String",
+      "description": "Management Team migration API base path.",
+      "defaultValue": "/api/mgmt/team-migrations"
+    }
+  ]
+}

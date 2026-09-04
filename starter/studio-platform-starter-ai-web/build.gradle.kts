@@ -19,6 +19,9 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 dependencies {
     api(project(":starter:studio-platform-starter-ai"))
     implementation(project(":studio-platform"))
+    compileOnly(project(":studio-platform-identity"))
+    compileOnly(project(":studio-platform-team"))
+    compileOnly(project(":studio-platform-workspace"))
     compileOnly(project(":studio-platform-realtime"))
 
     compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
@@ -44,4 +47,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers:${property("testcontainersVersion")}")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter:${property("testcontainersVersion")}")
     testImplementation(project(":studio-platform"))
+    testImplementation(project(":studio-platform-identity"))
+    testImplementation(project(":studio-platform-team"))
+    testImplementation(project(":studio-platform-workspace"))
 }

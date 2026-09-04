@@ -22,6 +22,7 @@ dependencies {
     api(project(":studio-platform"))
     api(project(":studio-platform-identity"))
     api(project(":studio-platform-workspace"))
+    api(project(":studio-platform-ai"))
     implementation("org.commonmark:commonmark:${property("commonmarkVersion")}")
     implementation("org.jsoup:jsoup:${property("jsoupVersion")}")
     compileOnly("org.springframework.boot:spring-boot-starter-webmvc")

@@ -310,6 +310,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 objectType,
                 objectId,
                 objectTypes(filter),
+                objectIds(filter),
                 includeObjectColumns ? filter.objectType() : null,
                 includeObjectColumns ? filter.objectId() : null,
                 equalsCriteria(filter),
@@ -334,6 +335,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 request.topK(),
                 objectType,
                 objectId,
+                objectIds(filter),
                 includeObjectColumns ? filter.objectType() : null,
                 includeObjectColumns ? filter.objectId() : null,
                 equalsCriteria(filter),
@@ -365,6 +367,20 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
 
     private static List<String> objectTypes(MetadataFilter filter) {
         List<Object> values = filter.inCriteria().get("objectType");
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        return values.stream()
+                .filter(Objects::nonNull)
+                .map(Object::toString)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .toList();
+    }
+
+    private static List<String> objectIds(MetadataFilter filter) {
+        List<Object> values = filter.inCriteria().get("objectId");
         if (values == null || values.isEmpty()) {
             return List.of();
         }

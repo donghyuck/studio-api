@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
@@ -61,6 +62,55 @@ public class RagChatRetrievalService {
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.properties = properties == null ? new AiWebRagProperties.RetrievalProperties() : properties;
         this.metadataProviders = metadataProviders == null ? List.of() : List.copyOf(metadataProviders);
+    }
+
+    public Optional<String> documentTitle(String objectType, String objectId) {
+        for (RagDocumentMetadataProvider provider : metadataProviders) {
+            if (!provider.supports(objectType)) {
+                continue;
+            }
+            try {
+                Optional<String> title = titleFrom(provider.find(objectType, objectId));
+                if (title.isPresent()) {
+                    return title;
+                }
+            } catch (RuntimeException ignored) {
+                // Fall through to indexed chunk metadata.
+            }
+        }
+        try {
+            return titleFrom(ragPipelineService.listByObject(objectType, objectId, 4));
+        } catch (RuntimeException ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<String> titleFrom(List<RagSearchResult> results) {
+        if (results == null) {
+            return Optional.empty();
+        }
+        for (RagSearchResult result : results) {
+            Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
+            String title = firstText(metadata,
+                    "docTitle", "documentTitle", "title", "sourceName",
+                    "originalFileName", "sourceFileName", "filename", "fileName");
+            if (title == null && "title".equalsIgnoreCase(firstText(metadata, "metadataFieldId"))) {
+                title = result.content();
+            }
+            String normalized = boundedTitle(title);
+            if (normalized != null) {
+                return Optional.of(normalized);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private String boundedTitle(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.replaceAll("\\s+", " ").trim();
+        return normalized.length() <= 300 ? normalized : normalized.substring(0, 300);
     }
 
     public RetrievalResult retrieve(
@@ -249,7 +299,12 @@ public class RagChatRetrievalService {
                 request.retrievalStrategy(),
                 request.retrievalOptions(),
                 deploymentId,
-                request.answerMode());
+                request.answerMode(),
+                request.sourceScope(),
+                request.externalSourceOptions(),
+                request.indexedWebSources(),
+                request.teamId(),
+                request.workspaceId());
     }
 
     private boolean hasExplicitEmbeddingSelection(ChatRagRequestDto request) {

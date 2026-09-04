@@ -7,6 +7,68 @@
 메일, 실시간 메시징, AI 임베딩/RAG 파이프라인과 공개 HTTPS 자료 수집·색인을 공통 컴포넌트와
 스타터로 제공한다. 설정은 `spring.*`, `studio.features.<module>.*`, `studio.<module>.*`의 3층 모델을 따른다.
 
+## 프로젝트 핵심
+
+Studio One Platform의 핵심은 **권한이 있는 업무 자료를 추적 가능한 지식으로 변환하고, 검증된 AI
+답변으로 활용하게 하는 조립식 엔터프라이즈 백엔드 플랫폼**을 제공하는 것이다. 단순한 AI 채팅이나
+vector 검색에 그치지 않고 원문 revision, 문서 metadata, 청킹 provenance, embedding identity,
+객체 권한과 인용 검증을 하나의 생명주기로 연결한다.
+
+```mermaid
+flowchart TB
+    subgraph SOURCE["업무 자료"]
+        A1["첨부 문서"]
+        A2["Markdown"]
+        A3["공개 웹 자료"]
+        A4["업무 도메인 데이터"]
+    end
+
+    subgraph KNOWLEDGE["지식화 파이프라인"]
+        B1["정규화 · Revision"]
+        B2["Metadata · 요약 · 키워드"]
+        B3["구조 기반 청킹"]
+        B4["임베딩 · Vector 색인"]
+    end
+
+    subgraph TRUST["신뢰 경계"]
+        C1["사용자 · 객체 권한 확인"]
+        C2["관련 근거 검색"]
+        C3["근거 패킹 · 원문 위치 연결"]
+        C4["답변 생성"]
+        C5["인용 · 원문 Span 검증"]
+    end
+
+    subgraph EXPERIENCE["업무 활용"]
+        D1["검증된 AI 답변"]
+        D2["문서별 추천 질문"]
+        D3["요약 · 한국어 번역"]
+        D4["평가 · 품질 상태"]
+    end
+
+    SOURCE --> B1
+    B1 --> B2 --> B3 --> B4
+    B4 --> C1 --> C2 --> C3 --> C4 --> C5
+    C5 --> D1
+    C5 --> D2
+    B2 --> D3
+    C2 --> D4
+    D2 -. "질문" .-> C1
+    D4 -. "재처리 · 재색인" .-> B1
+
+    subgraph FOUNDATION["Studio One Platform 기반"]
+        F1["인증 · 인가 · ACL"]
+        F2["사용자 · 그룹 · Workspace"]
+        F3["첨부 · 저장소 · ObjectType"]
+        F4["Spring Boot Starter · 자동 구성"]
+    end
+
+    FOUNDATION -. "보안 · 확장 · 운영 기반" .-> KNOWLEDGE
+    FOUNDATION -.-> TRUST
+```
+
+플랫폼 기반 기능은 전체 지식화와 질의 과정을 감싸며, AI 기능은 권한 확인과 원문 검증을 통과한 결과만
+업무 화면에 제공한다.
+
 ## 빠른 시작
 1. JDK 17을 준비한다. 빌드는 저장소의 Gradle Wrapper를 사용한다.
 2. 필요한 secret을 셸 환경변수 또는 로컬 전용 `~/.gradle/gradle.properties`에 넣는다.
@@ -75,6 +137,8 @@ studio-platform-realtime/        # 실시간 기능(웹소켓 등) 공통
 studio-platform-storage/         # 오브젝트 스토리지 공통
 studio-platform-user/            # 사용자/그룹/역할/회사 도메인 (계약)
 studio-platform-user-default/    # 사용자 기본 구현 (엔터티/리포지토리/서비스/컨트롤러)
+studio-platform-team/            # Team 협업·멤버십·권한 계약
+studio-platform-team-default/    # Team JPA 기본 구현과 migration engine
 studio-platform-workspace/       # Workspace tree/member/permission 계약
 studio-platform-workspace-default/ # Workspace JPA 기본 구현
 ```
@@ -84,6 +148,7 @@ studio-platform-workspace-default/ # Workspace JPA 기본 구현
 - `studio-platform-security`, `studio-platform-security-acl`: 인증/인가, JWT, ACL
 - `studio-platform-user`, `studio-platform-user-default`: 사용자 계약과 기본 구현
 - `studio-platform-data`, `studio-platform-data-mybatis`, `studio-platform-objecttype`, `studio-platform-realtime`, `studio-platform-workspace`: 데이터, MyBatis convention, objectType, 실시간 기능, workspace 공통
+- `studio-platform-team`, `studio-platform-team-default`: Company 선택 배정이 가능한 Team, 멤버십, 권한, 공용 Team migration
 - `studio-platform-ai`, `studio-platform-ai-model-catalog`: AI/RAG 공통 계약과 모델 capability 카탈로그
 - `studio-platform-chunking`, `studio-platform-chunking-runtime`: chunking 계약과 전략/context expansion 구현
 - `studio-platform-document-metadata`, `studio-platform-markdown`: 문서 의미 metadata와 Markdown revision/pipeline 계약
@@ -176,6 +241,7 @@ dependencies {
 - objectType 정책/검증이 필요하면 `:starter:studio-platform-starter`와 `:starter:studio-platform-starter-objecttype`
 - MyBatis mapper convention이 필요하면 `:starter:studio-platform-starter-mybatis`
 - workspace tree/member/permission API가 필요하면 `:starter:studio-platform-starter-workspace`
+- Team 멤버십·root Workspace·Team RAG scope가 필요하면 `:starter:studio-platform-starter-team`과 Workspace/AI starter를 함께 추가
 - STOMP/WebSocket 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
 - 첨부/아바타/템플릿/메일 같은 기능 모듈은 각 application starter를 추가
 - 공개 URL을 workspace RAG 자료로 사용하면 `:starter:studio-application-starter-web-knowledge`를 추가
@@ -201,10 +267,11 @@ implementation(project(":starter:studio-platform-starter-chunking"))
 implementation(project(":starter:studio-platform-starter-ai"))
 implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
-// 첨부 + 수집 웹 자료를 함께 사용하는 RAG 앱
+// Team 첨부 + 수집 웹 자료를 함께 사용하는 RAG 앱
 implementation(project(":starter:studio-platform-starter"))
 implementation(project(":starter:studio-platform-starter-security"))
 implementation(project(":starter:studio-platform-starter-workspace"))
+implementation(project(":starter:studio-platform-starter-team"))
 implementation(project(":starter:studio-application-starter-attachment"))
 implementation(project(":starter:studio-platform-starter-chunking"))
 implementation(project(":starter:studio-platform-starter-ai"))

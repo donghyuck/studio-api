@@ -2,6 +2,39 @@
 
 ## 3.0.0-rc.1
 
+- Team Chat 해석형 질문에도 최근 대화 기반 복수 검색어를 적용하고, 1차 검색으로 관련 object scope를
+  최대 8개까지 좁힌 뒤 reciprocal-rank로 후속 검색 결과를 재정렬한다. partition이 없는 동일
+  object type 자료는 물리 `object_id IN (...)` 조건의 aggregate hybrid/vector 검색으로 묶고, 결과가
+  없을 때만 기존 자료별 fallback을 수행한다. 응답 metadata에는 실행 질의 수, 전체·후보 scope 수,
+  routing/fallback 여부를 기록하며 기존 Team corpus fingerprint와 permission version 캐시 격리를 유지한다.
+- 해석·이유·가치·권장·의의 질문을 `INTERPRETIVE_ANALYSIS`로 확장하고, 현재 질문에 source-verified
+  문서 제목과 최근 사용자 질문을 결합한 bounded 근거 질의를 최대 4개 생성한다. 해석형 검색은 중복
+  keyword LLM expansion 없이 최소 2개 질의를 실행하고 chunk identity로 병합하며, 모두 실패하면 동일
+  object의 최대 2,000개 chunk에서 대표 구간 12개를 bounded fallback 근거로 사용한다. 인용 없는 문단은
+  제거하고 한계를 명시하며, citation repair도 실패하면 최대 3개의 `SOURCE_VERIFIED` 원문과 확인 한계를
+  결정적으로 반환한다. exact cache는 prompt `rag-grounding-v10`, validator `v4`, schema `v10`으로
+  격리한다.
+- Workspace 관리 화면과 신규 root 생성 계약의 소유 범위를 Company에서 Team으로 전환했다. Company는
+  사용자·조직 관리에만 사용하고 Workspace 목록·필터·생성·상세는 `teamId`를 사용한다. `companyId`는
+  기존 migration rollback 호환을 위한 nullable 저장 필드로만 유지한다. Team 상세의 Workspace 탭은
+  전역 Workspace 관리자와 같은 컴포넌트를 Team 고정 범위로 재사용하고, Team 권한 기반 목록·root 생성,
+  Workspace 객체 권한 기반 계층 이동·보관·멤버 관리를 제공한다. 선택한 Workspace의 하단 자료 영역은
+  `파일`과 `외부 URL` 탭으로 나누고 기존 첨부·웹 수집 관리 컴포넌트를 재사용한다. 파일 상세의 문서
+  Q&A는 `현재 문서 + 웹` 관리 UI를 `추가 자료` 선택 UI로 바꾸고, 현재 문서 Workspace의 기존 URL만
+  선택하도록 고정한다. Workspace URL 관리 탭은 모든 embedding deployment의 기존 자료를 표시하되,
+  문서 Q&A 선택 화면은 현재 문서와 호환되는 deployment 자료만 표시한다. SITE source의 수집 페이지
+  목록에는 `pageId`를 제공하고, Workspace 읽기 권한으로 현재 revision metadata와 bounded 본문 preview를
+  조회하는 페이지 상세 API·Dialog를 추가한다. 전체 normalized snapshot은 응답하지 않는다. 수집 실행
+  이력은 AG Grid로 표시해 상태·발견·수집·색인·실패·제외·처리량·시작/완료 시각을 정렬·페이지 단위로 조회한다.
+- Company와 독립적인 Team 협업 경계를 추가했다. Team은 선택적 Company 배정, 공개/가입 정책,
+  멤버 역할, permission version과 여러 root Workspace 트리를 가지며, 기존 Workspace의 첨부파일·Wiki·외부
+  URL vector를 복사하지 않고 Team corpus로 결합한다. Team RAG Chat은 권한이 확인된 Workspace subtree만
+  bounded 검색하고 corpus/permission version을 cache key와 citation 재검증에 사용한다. 기존 Company
+  Workspace는 dry-run/apply/verify/rollback migration으로 ID·경로·원본 자료를 유지하고 기존 Company
+  소유권을 제거한 채 하나의 공용 Team forest로 이관할 수 있다.
+- `question_set_id`가 없는 legacy RAG 평가가 문서 사용 가능성 projection에서 예외를 일으켜 추천 질문
+  API가 500을 반환하던 문제를 수정했다. null/blank question set은 자동 평가 대상이 아닌 것으로
+  건너뛰고 JDBC 조회 경계에서도 빈 결과로 처리한다.
 - SITE형 수집 웹 자료의 페이지 revision을 corpus revision과 직접 비교해 검색 결과를 제거하던 문제를
   수정했다. 선택 corpus의 page partition에 포함되는지를 검증한 뒤 `INDEXED_WEB` 근거로 병합하며,
   응답에 선택 자료 수와 packed/used origin을 분리한 `evidenceSourceSelection`을 제공한다. 모델이 근거

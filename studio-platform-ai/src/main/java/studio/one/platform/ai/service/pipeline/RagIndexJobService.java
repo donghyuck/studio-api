@@ -50,5 +50,20 @@ public interface RagIndexJobService {
     default void deleteObjectHistory(String objectType, String objectId) {
     }
 
+    default List<RagIndexJob> latestJobs(String objectType, List<String> objectIds) {
+        if (objectType == null || objectType.isBlank() || objectIds == null || objectIds.isEmpty()) {
+            return List.of();
+        }
+        return objectIds.stream()
+                .filter(objectId -> objectId != null && !objectId.isBlank())
+                .distinct()
+                .map(objectId -> listJobs(
+                        new RagIndexJobFilter(null, objectType, objectId, null),
+                        new RagIndexJobPageRequest(0, 1),
+                        RagIndexJobSort.defaults()).jobs().stream().findFirst().orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
     RagIndexProgressListener progressListener(String jobId);
 }

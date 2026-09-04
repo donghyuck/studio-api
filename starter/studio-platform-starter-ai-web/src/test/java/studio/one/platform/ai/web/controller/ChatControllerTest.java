@@ -32,6 +32,7 @@ import tools.jackson.databind.json.JsonMapper;
 import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
 import studio.one.platform.ai.autoconfigure.AiWebChatProperties;
 import studio.one.platform.ai.core.chat.ChatMemoryStore;
+import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
@@ -439,6 +440,54 @@ class ChatControllerTest {
                 .contains("\"requestId\"");
         verify(defaultChatPort).stream(any(ChatRequest.class));
         verify(defaultChatPort, times(0)).chat(any(ChatRequest.class));
+    }
+
+    @Test
+    void interpretiveRagStreamFallsBackToVerifiedEvidenceWhenDraftHasNoCitation() throws Exception {
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult(
+                        "doc-1",
+                        "홀든은 동생 피비를 보호하려 한다.",
+                        Map.of("chunkId", "chunk-1", "supportStatus", "SOURCE_VERIFIED"),
+                        0.9d)));
+        when(defaultChatPort.stream(any(ChatRequest.class))).thenReturn(Stream.of(
+                ChatStreamEvent.delta("인용 없는 해석 답변", "model", ChatResponseMetadata.empty()),
+                ChatStreamEvent.complete("model", ChatResponseMetadata.empty())));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        controller.streamWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "이 문서가 권장 자료인 이유는")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "이 문서가 권장 자료인 이유는",
+                5,
+                "attachment",
+                "3",
+                null,
+                null,
+                null,
+                5,
+                0.15d,
+                true,
+                "default",
+                null,
+                null,
+                "GROUNDED_INFERENCE"), null).getBody().writeTo(output);
+
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .doesNotContain("event: delta")
+                .contains("문서에서 직접 확인된 근거")
+                .contains("홀든은 동생 피비를 보호하려 한다")
+                .contains("확인 한계")
+                .contains("\"ragCitationRepair\":\"FALLBACK_EVIDENCE_SUMMARY\"")
+                .contains("\"citationValidationStatus\":\"INDEX_VALID\"");
     }
 
     @Test
@@ -1548,6 +1597,14 @@ class ChatControllerTest {
     void ragChatUsesBroaderEvidenceSearchAndServerPromptForInterpretiveQuestions() {
         ArgumentCaptor<RagSearchRequest> ragCaptor = ArgumentCaptor.forClass(RagSearchRequest.class);
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(
+                response("인용이 없는 해석 초안"),
+                new ChatResponse(
+                        List.of(
+                                ChatMessage.assistant("인용이 없는 기존 초안"),
+                                ChatMessage.assistant("문서 사실: 홀든은 피비를 보호하려 합니다. [1] 해석: 이 행동은 보호적 성향을 보여 줍니다. [1]")),
+                        "default",
+                        Map.of()));
         when(ragPipelineService.listByObject("attachment", "3", 32))
                 .thenReturn(List.of(new RagSearchResult(
                         "chunk-1",
@@ -1586,25 +1643,210 @@ class ChatControllerTest {
                 new ChatRagRetrievalOptionsDto(2, 2, 2, 0.7d, true, false, null, true)))
                 .getBody().getData();
 
-        verify(ragPipelineService).search(ragCaptor.capture());
-        assertThat(ragCaptor.getValue().topK()).isEqualTo(8);
-        assertThat(ragCaptor.getValue().requestedTopK()).isEqualTo(8);
-        assertThat(ragCaptor.getValue().minScore()).isEqualTo(0.55d);
-        assertThat(ragCaptor.getValue().requestedMinScore()).isEqualTo(0.55d);
-        verify(defaultChatPort).chat(chatCaptor.capture());
-        assertThat(chatCaptor.getValue().messages().get(0).content())
+        verify(ragPipelineService, times(2)).search(ragCaptor.capture());
+        assertThat(ragCaptor.getAllValues()).allSatisfy(search -> {
+            assertThat(search.topK()).isEqualTo(8);
+            assertThat(search.requestedTopK()).isEqualTo(8);
+            assertThat(search.minScore()).isEqualTo(0.55d);
+            assertThat(search.requestedMinScore()).isEqualTo(0.55d);
+            assertThat(search.queryExpansionEnabled()).isFalse();
+        });
+        verify(defaultChatPort, times(2)).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getAllValues().get(0).messages().get(0).content())
                 .contains("문서에 명시된 내용만 답변하세요.")
                 .contains("문서에 분류명이 없다는 이유만으로 답변을 거부하지 말고")
                 .contains("정확히 한 문단")
                 .contains("'문서 사실:'과 '해석:'")
                 .contains("확신도");
+        ChatRequest repairRequest = chatCaptor.getAllValues().get(1);
+        assertThat(repairRequest.maxOutputTokens()).isEqualTo(800);
+        assertThat(repairRequest.messages().get(repairRequest.messages().size() - 1).content())
+                .contains("최대 4문장")
+                .contains("근거 번호 1~2개만");
         assertThat(response.metadata())
                 .containsEntry("ragQueryIntent", "INTERPRETIVE_ANALYSIS")
                 .containsEntry("ragRetrievalMode", "SEMANTIC_SEARCH")
                 .containsEntry("ragRetrievalTopK", 8)
                 .containsEntry("ragRetrievalMinScore", 0.55d)
                 .containsEntry("answerType", "EVIDENCE_BASED_INFERENCE")
-                .containsEntry("ragInferenceEnabled", true);
+                .containsEntry("ragInferenceEnabled", true)
+                .containsEntry("ragInterpretiveQueryCount", 2)
+                .containsEntry("ragCitationRepair", "SUCCEEDED");
+        assertThat(response.answer()).contains("문서 사실:", "해석:", "[1]");
+    }
+
+    @Test
+    void interpretiveQuestionFallsBackToVerifiedEvidenceDigestWhenCitationRepairAlsoFails() {
+        RagSearchResult evidence = new RagSearchResult(
+                "chunk-1",
+                "홀든은 타인의 위선을 비판하면서도 동생 피비를 보호하려 한다.",
+                chunkMetadata("chunk-1"),
+                0.67d);
+        when(ragPipelineService.listByObject("attachment", "3", 32)).thenReturn(List.of(evidence));
+        when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of(evidence));
+        when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(
+                response("인용 없는 최초 답변"),
+                response("인용 없는 repair 답변"));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "주인공의 성격을 해석해줘")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "주인공의 성격을 해석해줘",
+                5,
+                "attachment",
+                "3",
+                null,
+                null,
+                null,
+                5,
+                0.15d,
+                true,
+                "default",
+                null,
+                null,
+                "GROUNDED_INFERENCE")).getBody().getData();
+
+        assertThat(response.answer())
+                .contains("문서에서 직접 확인된 근거")
+                .contains("홀든은 타인의 위선을 비판")
+                .contains("확인 한계")
+                .contains("[1]");
+        assertThat(response.metadata())
+                .containsEntry("ragCitationRepair", "FALLBACK_EVIDENCE_SUMMARY")
+                .containsEntry("citationValidationStatus", "INDEX_VALID");
+        verify(defaultChatPort, times(2)).chat(any(ChatRequest.class));
+    }
+
+    @Test
+    void interpretiveQuestionUsesConversationTitleAndWholeDocumentFallbackWhenSearchReturnsNoEvidence() {
+        ArgumentCaptor<RagSearchRequest> ragCaptor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        List<RagSearchResult> chunks = java.util.stream.IntStream.range(0, 6)
+                .mapToObj(index -> new RagSearchResult(
+                        "chunk-" + index,
+                        "문서 대표 구간 " + index,
+                        Map.of(
+                                "chunkId", "chunk-" + index,
+                                "chunkOrder", index,
+                                "startOffset", index * 10,
+                                "endOffset", index * 10 + 9,
+                                "documentTitle", "The Catcher in the Rye",
+                                "actualChunkingStrategy", "structure-based"),
+                        1.0d))
+                .toList();
+        when(ragPipelineService.listByObject("attachment", "3", 4)).thenReturn(chunks.subList(0, 1));
+        when(ragPipelineService.listByObject("attachment", "3", 32)).thenReturn(chunks.subList(0, 1));
+        when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of());
+        when(ragPipelineService.countByObject("attachment", "3")).thenReturn(6L);
+        when(ragPipelineService.listByObject("attachment", "3", 0, 6)).thenReturn(chunks);
+        when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(response(
+                "문서 사실: 홀든의 경험이 제시됩니다. [1] 해석: 청소년 독자가 성장과 소외를 검토할 수 있습니다. [1]"));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(
+                                new ChatMessageDto("user", "Holden Caulfield와 Pencey Prep의 관계를 설명해줘"),
+                                new ChatMessageDto("assistant", "이전 답변"),
+                                new ChatMessageDto("user", "이 소설에 청소년 권장 도서인 이유는")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "이 소설에 청소년 권장 도서인 이유는",
+                5,
+                "attachment",
+                "3",
+                null,
+                null,
+                null,
+                5,
+                0.15d,
+                true,
+                "default",
+                null,
+                null,
+                "GROUNDED_INFERENCE")).getBody().getData();
+
+        verify(ragPipelineService, times(4)).search(ragCaptor.capture());
+        assertThat(ragCaptor.getAllValues().get(0).query())
+                .contains("The Catcher in the Rye")
+                .contains("Holden Caulfield")
+                .contains("Pencey Prep");
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .contains("문서 전체 범위의 대표 구간")
+                .contains("확인 가능한 범위와 한계");
+        assertThat(response.metadata())
+                .containsEntry("ragQueryIntent", "INTERPRETIVE_ANALYSIS")
+                .containsEntry("ragRetrievalMode", "INTERPRETIVE_DOCUMENT_COVERAGE")
+                .containsEntry("ragInterpretiveQueryCount", 4)
+                .containsEntry("ragInterpretiveDocumentTitleUsed", true)
+                .containsEntry("ragInterpretiveConversationContextUsed", true)
+                .containsEntry("ragInterpretiveCoverageFallback", true)
+                .containsEntry("ragInterpretiveFallbackSourceChunkCount", 6)
+                .containsEntry("ragInterpretiveFallbackFullCoverage", true);
+        assertThat(response.answer())
+                .contains("확인 한계:")
+                .contains("대표 근거 구간")
+                .contains("[1]");
+    }
+
+    @Test
+    void interpretiveQuestionStillAbstainsWhenSearchAndDocumentScopeHaveNoEvidence() {
+        RagSearchResult strategySample = new RagSearchResult(
+                "sample",
+                "strategy sample",
+                Map.of("actualChunkingStrategy", "structure-based", "documentTitle", "Empty Book"),
+                1.0d);
+        when(ragPipelineService.listByObject("attachment", "404", 4)).thenReturn(List.of(strategySample));
+        when(ragPipelineService.listByObject("attachment", "404", 32)).thenReturn(List.of(strategySample));
+        when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of());
+        when(ragPipelineService.countByObject("attachment", "404")).thenReturn(0L);
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "이 문서가 권장 자료인 이유는")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "이 문서가 권장 자료인 이유는",
+                5,
+                "attachment",
+                "404",
+                null,
+                null,
+                null,
+                5,
+                0.15d,
+                true,
+                "default",
+                null,
+                null,
+                "GROUNDED_INFERENCE")).getBody().getData();
+
+        assertThat(response.answer()).isEqualTo("검색 기준을 통과한 문서 구간이 없습니다.");
+        assertThat(response.metadata())
+                .containsEntry("ragSkippedChat", true)
+                .containsEntry("ragSkipReason", "NO_RAG_RESULTS")
+                .containsEntry("ragInterpretiveCoverageFallback", false);
+        verifyNoInteractions(providerRegistry, defaultChatPort, googleChatPort);
     }
 
     @Test

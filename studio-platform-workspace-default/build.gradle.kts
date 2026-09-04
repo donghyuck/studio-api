@@ -21,6 +21,7 @@ dependencies {
     api(project(":studio-platform-workspace"))
     api(project(":studio-platform-identity"))
     implementation(project(":studio-platform-user"))
+    implementation(project(":studio-platform-team"))
     implementation("org.springframework.security:spring-security-core")
     compileOnly("org.springframework.boot:spring-boot-starter-webmvc")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")

@@ -29,6 +29,7 @@ import studio.one.platform.workspace.application.error.WorkspaceConflictExceptio
 import studio.one.platform.workspace.application.error.WorkspaceNotFoundException;
 import studio.one.platform.workspace.application.error.WorkspaceValidationException;
 import studio.one.platform.workspace.domain.model.WorkspaceRef;
+import studio.one.platform.workspace.domain.model.WorkspaceAccessMode;
 import studio.one.platform.workspace.domain.model.WorkspaceRole;
 import studio.one.platform.workspace.domain.model.WorkspaceTreeNode;
 import studio.one.platform.workspace.domain.model.WorkspaceVisibility;
@@ -56,6 +57,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     private static final Map<String, String> LIST_SORT_PROPERTIES = Map.ofEntries(
             Map.entry("id", "workspaceId"),
             Map.entry("workspaceId", "workspaceId"),
+            Map.entry("teamId", "teamId"),
             Map.entry("parentId", "parentId"),
             Map.entry("rootId", "rootId"),
             Map.entry("name", "name"),
@@ -92,23 +94,26 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     public WorkspaceRef createRoot(CreateRootWorkspaceCommand command) {
         WorkspaceAccessContext actor = requireActor(command.actor());
         Long companyId = normalizeCompanyId(command.companyId());
-        if (requiresCompanyId() && companyId == null) {
-            throw new WorkspaceValidationException("Workspace companyId is required");
+        Long teamId = normalizeTeamId(command.teamId());
+        if (requiresCompanyId() && companyId == null && teamId == null) {
+            throw new WorkspaceValidationException("Workspace companyId or teamId is required");
         }
         validateCompanyExists(companyId);
         String slug = normalizeSlug(command.slug());
         String name = normalizeName(command.name());
-        if (existsByScopedRootSlug(companyId, slug) || existsByScopedPath(companyId, slug)) {
+        if (existsByScopedRootSlug(companyId, teamId, slug) || existsByScopedPath(companyId, teamId, slug)) {
             throw new WorkspaceConflictException("Duplicate root workspace slug: " + slug);
         }
         WorkspaceEntity entity = new WorkspaceEntity();
         entity.setCompanyId(companyId);
+        entity.setTeamId(teamId);
         entity.setName(name);
         entity.setSlug(slug);
         entity.setPath(slug);
         entity.setDepth(0);
-        entity.setPosition(0);
+        entity.setPosition(teamId == null ? 0 : (int) workspaceRepository.countByTeamIdAndParentIdIsNull(teamId));
         entity.setVisibility(defaultVisibility(command.visibility()));
+        entity.setAccessMode(defaultAccessMode(command.accessMode()));
         entity.setCreatedBy(actor.requireUserId());
         entity.setUpdatedBy(actor.requireUserId());
         entity = workspaceRepository.save(entity);
@@ -142,12 +147,14 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         entity.setParentId(parentWorkspaceId);
         entity.setRootId(parent.getRootId());
         entity.setCompanyId(parent.getCompanyId());
+        entity.setTeamId(parent.getTeamId());
         entity.setName(normalizeName(command.name()));
         entity.setSlug(slug);
         entity.setPath(parent.getPath() + "/" + slug);
         entity.setDepth(parent.getDepth() + 1);
         entity.setPosition((int) workspaceRepository.countByParentId(parentWorkspaceId));
         entity.setVisibility(defaultVisibility(command.visibility()));
+        entity.setAccessMode(defaultAccessMode(command.accessMode()));
         entity.setCreatedBy(actor.requireUserId());
         entity.setUpdatedBy(actor.requireUserId());
         entity = workspaceRepository.save(entity);
@@ -173,6 +180,9 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         }
         if (command.visibility() != null) {
             entity.setVisibility(command.visibility());
+        }
+        if (command.accessMode() != null) {
+            entity.setAccessMode(command.accessMode());
         }
         entity.setUpdatedBy(actor.requireUserId());
         return workspaceRepository.save(entity).toRef();
@@ -216,10 +226,14 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             if (!sameCompany(entity.getCompanyId(), newParent.getCompanyId())) {
                 throw new WorkspaceConflictException("Workspace cannot be moved across companies");
             }
-        } else if (existsByScopedRootSlug(entity.getCompanyId(), entity.getSlug())) {
+            if (!sameTeam(entity.getTeamId(), newParent.getTeamId())) {
+                throw new WorkspaceConflictException("Workspace cannot be moved across teams");
+            }
+        } else if (existsByScopedRootSlug(entity.getCompanyId(), entity.getTeamId(), entity.getSlug())
+                || existsByScopedPath(entity.getCompanyId(), entity.getTeamId(), entity.getSlug())) {
             throw new WorkspaceConflictException("Duplicate root workspace slug: " + entity.getSlug());
-        } else if (requiresCompanyId() && entity.getCompanyId() == null) {
-            throw new WorkspaceValidationException("Workspace companyId is required");
+        } else if (requiresCompanyId() && entity.getCompanyId() == null && entity.getTeamId() == null) {
+            throw new WorkspaceValidationException("Workspace companyId or teamId is required");
         }
 
         int newDepth = newParent == null ? 0 : newParent.getDepth() + 1;
@@ -287,12 +301,119 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
 
     @Override
     @Transactional(readOnly = true)
+    public WorkspaceRef getByTeamPath(Long teamId, String path, WorkspaceAccessContext actor) {
+        WorkspaceEntity entity = workspaceByTeamPath(teamId, path);
+        permissionService.assertGranted(entity.getWorkspaceId(), actor, WorkspacePermissionActions.READ);
+        return entity.toRef();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WorkspaceRef getRootByTeamId(Long teamId, WorkspaceAccessContext actor) {
+        Long normalizedTeamId = requireTeamId(teamId);
+        List<WorkspaceEntity> roots = workspaceRepository
+                .findByTeamIdAndParentIdIsNullOrderByPositionAscWorkspaceIdAsc(normalizedTeamId);
+        if (roots.isEmpty()) {
+            throw new WorkspaceNotFoundException("Team root workspace not found: " + normalizedTeamId);
+        }
+        if (roots.size() != 1) {
+            throw new WorkspaceConflictException(
+                    "Team has multiple root workspaces; use getRootsByTeamId: " + normalizedTeamId);
+        }
+        WorkspaceEntity root = roots.get(0);
+        permissionService.assertGranted(root.getWorkspaceId(), actor, WorkspacePermissionActions.READ);
+        return root.toRef();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<WorkspaceRef> getRootsByTeamId(Long teamId, WorkspaceAccessContext actor) {
+        Long normalizedTeamId = requireTeamId(teamId);
+        return workspaceRepository.findByTeamIdAndParentIdIsNullOrderByPositionAscWorkspaceIdAsc(normalizedTeamId)
+                .stream()
+                .filter(root -> isReadable(root, actor))
+                .map(WorkspaceEntity::toRef)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Long> getAuthorizedTeamWorkspaceIds(
+            Long teamId,
+            Long subtreeRootId,
+            int limit,
+            WorkspaceAccessContext actor) {
+        if (limit <= 0 || limit > 10_000) {
+            throw new WorkspaceValidationException("Workspace Team scope limit must be between 1 and 10000");
+        }
+        Long normalizedTeamId = requireTeamId(teamId);
+        List<WorkspaceEntity> scopeRoots = subtreeRootId == null
+                ? workspaceRepository.findByTeamIdAndParentIdIsNullOrderByPositionAscWorkspaceIdAsc(normalizedTeamId)
+                : List.of(workspace(subtreeRootId));
+        if (scopeRoots.isEmpty()) {
+            throw new WorkspaceNotFoundException("Team root workspace not found: " + normalizedTeamId);
+        }
+        if (scopeRoots.stream().anyMatch(root -> !normalizedTeamId.equals(root.getTeamId()))) {
+            throw new WorkspaceConflictException("Workspace does not belong to Team: " + normalizedTeamId);
+        }
+        if (subtreeRootId != null) {
+            permissionService.assertGranted(subtreeRootId, actor, WorkspacePermissionActions.READ);
+        }
+
+        List<Long> result = new ArrayList<>();
+        for (WorkspaceEntity scopeRoot : scopeRoots) {
+            appendAuthorizedSubtree(normalizedTeamId, scopeRoot, limit, actor, result);
+            if (result.size() == limit) {
+                break;
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private void appendAuthorizedSubtree(
+            Long teamId,
+            WorkspaceEntity scopeRoot,
+            int limit,
+            WorkspaceAccessContext actor,
+            List<Long> result) {
+        List<WorkspaceEntity> scope = closureRepository.findDescendantIds(scopeRoot.getWorkspaceId()).stream()
+                .map(id -> workspaceRepository.findById(id).orElse(null))
+                .filter(entity -> entity != null && teamId.equals(entity.getTeamId()))
+                .sorted(Comparator.comparing(WorkspaceEntity::getDepth)
+                        .thenComparing(WorkspaceEntity::getPosition)
+                        .thenComparing(WorkspaceEntity::getWorkspaceId))
+                .toList();
+        Set<Long> readableBranches = new HashSet<>();
+        for (WorkspaceEntity candidate : scope) {
+            boolean branchReadable = candidate.getWorkspaceId().equals(scopeRoot.getWorkspaceId())
+                    || readableBranches.contains(candidate.getParentId());
+            if (branchReadable && isReadable(candidate, actor)) {
+                readableBranches.add(candidate.getWorkspaceId());
+                result.add(candidate.getWorkspaceId());
+                if (result.size() == limit) {
+                    break;
+                }
+            }
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<WorkspaceRef> list(WorkspaceListQuery query, Pageable pageable, WorkspaceAccessContext actor) {
         WorkspaceAccessContext resolved = requireActor(actor);
+        Specification<WorkspaceEntity> specification = listSpecification(query);
         if (!resolved.platformAdmin()) {
-            throw new AccessDeniedException("Workspace management permission required");
+            if (query == null || query.teamId() == null || query.companyId() != null) {
+                throw new AccessDeniedException("Workspace Team scope is required");
+            }
+            List<Long> readableIds = getAuthorizedTeamWorkspaceIds(
+                    query.teamId(), null, 10_000, resolved);
+            if (readableIds.isEmpty()) {
+                return Page.empty(safeListPageable(pageable));
+            }
+            specification = specification.and((root, criteria, builder) -> root.get("workspaceId").in(readableIds));
         }
-        return workspaceRepository.findAll(listSpecification(query), safeListPageable(pageable))
+        return workspaceRepository.findAll(specification, safeListPageable(pageable))
                 .map(WorkspaceEntity::toRef);
     }
 
@@ -464,11 +585,19 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         return visibility == null ? WorkspaceVisibility.PRIVATE : visibility;
     }
 
+    private WorkspaceAccessMode defaultAccessMode(WorkspaceAccessMode accessMode) {
+        return accessMode == null ? WorkspaceAccessMode.INHERIT : accessMode;
+    }
+
     private boolean sameParent(Long currentParentId, Long newParentId) {
         return currentParentId == null ? newParentId == null : currentParentId.equals(newParentId);
     }
 
     private boolean sameCompany(Long left, Long right) {
+        return left == null ? right == null : left.equals(right);
+    }
+
+    private boolean sameTeam(Long left, Long right) {
         return left == null ? right == null : left.equals(right);
     }
 
@@ -555,6 +684,16 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
                         "Workspace not found by company/path: " + normalizedCompanyId + "/" + path));
     }
 
+    private WorkspaceEntity workspaceByTeamPath(Long teamId, String path) {
+        if (!StringUtils.hasText(path)) {
+            throw new WorkspaceValidationException("Workspace path is required");
+        }
+        Long normalizedTeamId = requireTeamId(teamId);
+        return workspaceRepository.findByTeamIdAndPath(normalizedTeamId, path.trim())
+                .orElseThrow(() -> new WorkspaceNotFoundException(
+                        "Workspace not found by team/path: " + normalizedTeamId + "/" + path));
+    }
+
     private Long normalizeCompanyId(Long companyId) {
         if (companyId == null) {
             return null;
@@ -563,6 +702,24 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             throw new WorkspaceValidationException("Workspace companyId must be positive");
         }
         return companyId;
+    }
+
+    private Long normalizeTeamId(Long teamId) {
+        if (teamId == null) {
+            return null;
+        }
+        if (teamId <= 0) {
+            throw new WorkspaceValidationException("Workspace teamId must be positive");
+        }
+        return teamId;
+    }
+
+    private Long requireTeamId(Long teamId) {
+        Long normalized = normalizeTeamId(teamId);
+        if (normalized == null) {
+            throw new WorkspaceValidationException("Workspace teamId is required");
+        }
+        return normalized;
     }
 
     private void validateCompanyExists(Long companyId) {
@@ -578,13 +735,19 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         }
     }
 
-    private boolean existsByScopedPath(Long companyId, String path) {
+    private boolean existsByScopedPath(Long companyId, Long teamId, String path) {
+        if (teamId != null) {
+            return workspaceRepository.existsByTeamIdAndPath(teamId, path);
+        }
         return companyId == null
                 ? workspaceRepository.existsByPath(path)
                 : workspaceRepository.existsByCompanyIdAndPath(companyId, path);
     }
 
-    private boolean existsByScopedRootSlug(Long companyId, String slug) {
+    private boolean existsByScopedRootSlug(Long companyId, Long teamId, String slug) {
+        if (teamId != null) {
+            return workspaceRepository.existsByTeamIdAndParentIdIsNullAndSlug(teamId, slug);
+        }
         if (settings.companyScopeEnforced() && companyId != null) {
             return workspaceRepository.existsByCompanyIdAndParentIdIsNullAndSlug(companyId, slug);
         }
@@ -616,6 +779,9 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
                 }
                 if (query.companyId() != null) {
                     predicates.add(builder.equal(root.get("companyId"), normalizeCompanyId(query.companyId())));
+                }
+                if (query.teamId() != null) {
+                    predicates.add(builder.equal(root.get("teamId"), requireTeamId(query.teamId())));
                 }
             }
             return builder.and(predicates.toArray(Predicate[]::new));

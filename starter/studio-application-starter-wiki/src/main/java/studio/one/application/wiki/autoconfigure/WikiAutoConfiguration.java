@@ -23,6 +23,8 @@ import studio.one.application.wiki.application.usecase.WikiPageService;
 import studio.one.application.wiki.application.usecase.WikiRenderService;
 import studio.one.application.wiki.application.service.DefaultWikiPageService;
 import studio.one.application.wiki.application.service.DefaultWikiRenderService;
+import studio.one.application.wiki.application.service.WikiTeamKnowledgeSourceContributor;
+import studio.one.platform.ai.core.rag.team.TeamKnowledgeSourceContributor;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
@@ -55,6 +57,14 @@ public class WikiAutoConfiguration {
                 revisionRepository,
                 permissionService,
                 renderService);
+    }
+
+    @Bean
+    @ConditionalOnBean(WikiPageJpaRepository.class)
+    @ConditionalOnMissingBean(name = "wikiTeamKnowledgeSourceContributor")
+    TeamKnowledgeSourceContributor wikiTeamKnowledgeSourceContributor(
+            WikiPageJpaRepository pageRepository) {
+        return new WikiTeamKnowledgeSourceContributor(pageRepository);
     }
 
     @Configuration

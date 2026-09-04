@@ -53,10 +53,46 @@ import studio.one.platform.ai.web.dto.RagIndexChunkDto;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
 import studio.one.platform.ai.web.dto.RagIndexJobDto;
 import studio.one.platform.ai.web.dto.RagIndexJobLogDto;
+import studio.one.platform.ai.web.dto.RagObjectIndexStatusDto;
+import studio.one.platform.ai.web.dto.RagObjectIndexStatusRequestDto;
 import studio.one.platform.web.dto.ApiResponse;
 import studio.one.platform.web.dto.PageDto;
 
 class RagIndexJobControllerTest {
+
+    @Test
+    void listsLatestObjectIndexStatusesAndIncludesNotRequestedObjects() {
+        RagIndexJobService jobService = mock(RagIndexJobService.class);
+        RagIndexJob running = RagIndexJob.pending(
+                "job-running", "attachment", "42", "doc-42", "attachment", "sample.pdf",
+                java.time.Instant.parse("2026-04-26T00:00:00Z"))
+                .withStatus(RagIndexJobStatus.RUNNING, RagIndexJobStep.INDEXING, null,
+                        java.time.Instant.parse("2026-04-26T00:00:01Z"))
+                .withCounts(10, 8, 4, 0);
+        when(jobService.latestJobs("attachment", List.of("42", "43"))).thenReturn(List.of(running));
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService, mock(RagPipelineService.class), null);
+
+        ResponseEntity<ApiResponse<List<RagObjectIndexStatusDto>>> response = controller.objectIndexStatuses(
+                new RagObjectIndexStatusRequestDto(" attachment ", List.of("42", "43", "42")));
+
+        assertThat(response.getBody().getData()).hasSize(2);
+        assertThat(response.getBody().getData().get(0).status()).isEqualTo("RUNNING");
+        assertThat(response.getBody().getData().get(0).progress()).isEqualTo(0.4d);
+        assertThat(response.getBody().getData().get(1).status()).isEqualTo("NOT_REQUESTED");
+        verify(jobService).latestJobs("attachment", List.of("42", "43"));
+    }
+
+    @Test
+    void objectIndexStatusEndpointRequiresServiceAttachmentAndPerObjectReadPermission() throws Exception {
+        Method method = RagIndexJobController.class.getMethod(
+                "objectIndexStatuses", RagObjectIndexStatusRequestDto.class);
+
+        assertThat(preAuthorizeValue(method))
+                .contains("services:ai_rag','read")
+                .contains("features:attachment','read")
+                .contains("ragObjectAuthorizationRouter.canReadAll");
+    }
 
     @Test
     void mutatingJobEndpointsRequireAiRagWritePermission() throws NoSuchMethodException {

@@ -261,6 +261,36 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
         return jobIds;
     }
 
+    @Override
+    public List<RagIndexJob> findLatestByObjects(String objectType, List<String> objectIds) {
+        List<String> distinctObjectIds = objectIds == null
+                ? List.of()
+                : objectIds.stream()
+                        .filter(objectId -> objectId != null && !objectId.isBlank())
+                        .distinct()
+                        .toList();
+        if (objectType == null || objectType.isBlank() || distinctObjectIds.isEmpty()) {
+            return List.of();
+        }
+        return template.query("""
+                SELECT ranked.*
+                  FROM (
+                        SELECT job.*,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY job.object_type, job.object_id
+                                   ORDER BY job.created_at DESC, job.job_id ASC
+                               ) AS row_number
+                          FROM tb_ai_rag_index_job job
+                         WHERE job.object_type = :objectType
+                           AND job.object_id IN (:objectIds)
+                       ) ranked
+                 WHERE ranked.row_number = 1
+                 ORDER BY ranked.object_id ASC
+                """, new MapSqlParameterSource()
+                .addValue("objectType", objectType.trim())
+                .addValue("objectIds", distinctObjectIds), JOB_ROW_MAPPER);
+    }
+
     private RagIndexJob requireJob(String jobId) {
         return findById(jobId)
                 .orElseThrow(() -> new NoSuchElementException("RAG index job not found: " + jobId));
