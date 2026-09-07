@@ -1,6 +1,8 @@
 package studio.one.platform.ai.web.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Instant;
 import java.util.List;
@@ -16,6 +18,25 @@ import studio.one.platform.ai.web.dto.RagRetrievalEvaluationQuestionSetDto;
 import studio.one.platform.ai.web.dto.RagRetrievalEvaluationResponseDto;
 
 class DocumentRagEvaluationProjectionServiceTest {
+
+    @Test
+    void ignoresLegacyRunWithoutQuestionSet() {
+        InMemoryRagRetrievalEvaluationStore runs = new InMemoryRagRetrievalEvaluationStore();
+        RagRetrievalEvaluationQuestionSetStore sets = mock(RagRetrievalEvaluationQuestionSetStore.class);
+        DocumentRagEvaluationProjectionService service =
+                new DocumentRagEvaluationProjectionService(runs, sets, new ObjectMapper());
+        runs.save(new RagRetrievalEvaluationResponseDto(
+                "legacy-run", Instant.now(), "attachment", "6", null,
+                null, null, null, 5, 0.0d,
+                List.of(new RagRetrievalEvaluationResponseDto.StrategyResult(
+                        "semantic", 5, 0, 0.0d, 0.0d, 1.0d, List.of()))));
+
+        var result = service.latest("attachment", "6", "mrev-6", "hash-6");
+
+        assertThat(result.state()).isEqualTo(MeasurementState.NOT_MEASURED);
+        assertThat(result.reasonCodes()).containsExactly("RAG_EVALUATION_NOT_RUN");
+        verifyNoInteractions(sets);
+    }
 
     @Test
     void projectsCurrentRevisionRunAndMarksLaterRevisionStale() {

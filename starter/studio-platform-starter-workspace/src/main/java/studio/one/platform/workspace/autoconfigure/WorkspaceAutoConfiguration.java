@@ -31,6 +31,9 @@ import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
 import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
 import studio.one.base.user.application.usecase.ApplicationCompanyService;
 import studio.one.base.user.application.usecase.ApplicationUserService;
+import studio.one.platform.team.application.usecase.TeamAuthorizationPort;
+import studio.one.platform.team.application.usecase.TeamWorkspaceProvisioningPort;
+import studio.one.platform.team.application.usecase.TeamMigrationWorkspacePort;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionContributor;
@@ -44,6 +47,8 @@ import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
 import studio.one.platform.workspace.application.service.DefaultWorkspaceMemberService;
 import studio.one.platform.workspace.application.service.DefaultWorkspacePermissionService;
 import studio.one.platform.workspace.application.service.DefaultWorkspaceTreeService;
+import studio.one.platform.workspace.application.service.DefaultTeamWorkspaceProvisioningAdapter;
+import studio.one.platform.workspace.application.service.DefaultTeamMigrationWorkspaceAdapter;
 import studio.one.platform.workspace.application.service.WorkspaceSettings;
 
 @AutoConfiguration
@@ -94,6 +99,7 @@ public class WorkspaceAutoConfiguration {
             ObjectProvider<WorkspacePermissionContributor> contributors,
             ObjectProvider<ApplicationCompanyMemberService> companyMemberServiceProvider,
             ObjectProvider<ApplicationCompanyPermissionService> companyPermissionServiceProvider,
+            ObjectProvider<TeamAuthorizationPort> teamAuthorizationPortProvider,
             WorkspaceProperties properties,
             WorkspaceSettings settings) {
         ApplicationCompanyMemberService companyMemberService = null;
@@ -113,7 +119,8 @@ public class WorkspaceAutoConfiguration {
                 contributors.orderedStream().toList(),
                 settings,
                 companyMemberService,
-                companyPermissionService);
+                companyPermissionService,
+                teamAuthorizationPortProvider.getIfAvailable());
     }
 
     @Bean
@@ -143,6 +150,26 @@ public class WorkspaceAutoConfiguration {
                 permissionService,
                 settings,
                 companyService);
+    }
+
+    @Bean
+    @ConditionalOnBean(WorkspaceTreeService.class)
+    @ConditionalOnMissingBean
+    TeamWorkspaceProvisioningPort teamWorkspaceProvisioningPort(WorkspaceTreeService workspaceTreeService) {
+        return new DefaultTeamWorkspaceProvisioningAdapter(workspaceTreeService);
+    }
+
+    @Bean
+    @ConditionalOnBean(WorkspaceJpaRepository.class)
+    @ConditionalOnMissingBean
+    TeamMigrationWorkspacePort teamMigrationWorkspacePort(
+            WorkspaceJpaRepository workspaceRepository,
+            WorkspaceClosureJpaRepository closureRepository,
+            WorkspaceMemberJpaRepository memberRepository) {
+        return new DefaultTeamMigrationWorkspaceAdapter(
+                workspaceRepository,
+                closureRepository,
+                memberRepository);
     }
 
     @Bean
@@ -216,7 +243,8 @@ public class WorkspaceAutoConfiguration {
         private boolean hasV1302Shape(DatabaseMetaData metadata, Connection connection) throws SQLException {
             boolean baseShape = hasIndex(metadata, connection, COMPANY_PATH_INDEX)
                     && hasIndex(metadata, connection, COMPANY_PARENT_SLUG_INDEX)
-                    && isColumnNotNull(metadata, connection, "COMPANY_ID");
+                    && (isColumnNotNull(metadata, connection, "COMPANY_ID")
+                            || hasTeamOwnershipShape(metadata, connection));
             if (!baseShape) {
                 return false;
             }
@@ -225,6 +253,11 @@ public class WorkspaceAutoConfiguration {
                 return hasColumn(metadata, connection, "PARENT_KEY");
             }
             return hasIndex(metadata, connection, COMPANY_ROOT_SLUG_INDEX);
+        }
+
+        private boolean hasTeamOwnershipShape(DatabaseMetaData metadata, Connection connection) throws SQLException {
+            return hasColumn(metadata, connection, "TEAM_ID")
+                    && hasColumn(metadata, connection, "ACCESS_MODE");
         }
 
         private boolean hasIndex(DatabaseMetaData metadata, Connection connection, String indexName) throws SQLException {

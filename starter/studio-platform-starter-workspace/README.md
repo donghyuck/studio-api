@@ -41,6 +41,8 @@ studio:
 ```
 
 `studio.features.workspace.persistence`는 v1에서 `jpa`만 지원합니다. 다른 값을 지정하면 기본 JPA service/repository가 등록되지 않습니다.
+`V1801__add_workspace_team_scope`부터는 workspace schema가 Team FK를 함께 사용하므로, 이 starter는 runtime classpath에
+Team schema resource를 포함해 Flyway migration 순서를 안전하게 맞춥니다. Team feature 자체는 계속 opt-in입니다.
 
 ## API 경로
 - `studio.features.workspace.web.public-base-path`: 로그인 사용자용 API. 기본값은 `/api/workspaces`이며 익명 공개 API가 아닙니다.

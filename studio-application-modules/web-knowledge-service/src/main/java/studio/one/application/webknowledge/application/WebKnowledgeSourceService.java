@@ -20,6 +20,8 @@ public interface WebKnowledgeSourceService {
 
     List<WebKnowledgePageView> listPages(Long workspaceId, String sourceId);
 
+    WebKnowledgePageDetailView getPage(Long workspaceId, String sourceId, String pageId);
+
     WebKnowledgeSourceView updateCrawlPolicy(
             Long workspaceId,
             String sourceId,

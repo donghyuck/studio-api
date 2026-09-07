@@ -36,6 +36,23 @@ public interface WorkspaceTreeService {
 
     WorkspaceRef getByPath(Long companyId, String path, WorkspaceAccessContext actor);
 
+    WorkspaceRef getByTeamPath(Long teamId, String path, WorkspaceAccessContext actor);
+
+    WorkspaceRef getRootByTeamId(Long teamId, WorkspaceAccessContext actor);
+
+    /** Returns every readable root Workspace assigned to the Team in display order. */
+    List<WorkspaceRef> getRootsByTeamId(Long teamId, WorkspaceAccessContext actor);
+
+    /**
+     * Returns a bounded, permission-filtered Workspace scope for Team knowledge lookup.
+     * When {@code subtreeRootId} is null, traversal includes every readable Team root tree.
+     */
+    List<Long> getAuthorizedTeamWorkspaceIds(
+            Long teamId,
+            Long subtreeRootId,
+            int limit,
+            WorkspaceAccessContext actor);
+
     Page<WorkspaceRef> list(WorkspaceListQuery query, Pageable pageable, WorkspaceAccessContext actor);
 
     List<WorkspaceRef> getChildren(Long workspaceId, WorkspaceAccessContext actor);

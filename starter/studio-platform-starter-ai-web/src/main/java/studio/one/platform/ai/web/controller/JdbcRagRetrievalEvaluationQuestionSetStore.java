@@ -51,6 +51,9 @@ public class JdbcRagRetrievalEvaluationQuestionSetStore implements RagRetrievalE
 
     @Override
     public Optional<RagRetrievalEvaluationQuestionSetDto> find(String questionSetId) {
+        if (questionSetId == null || questionSetId.isBlank()) {
+            return Optional.empty();
+        }
         String sql = """
                 SELECT *
                 FROM tb_ai_rag_retrieval_evaluation_question_set

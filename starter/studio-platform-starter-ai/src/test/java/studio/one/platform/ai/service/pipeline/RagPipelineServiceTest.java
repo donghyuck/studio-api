@@ -26,6 +26,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
+import studio.one.platform.ai.core.rag.RagObjectScope;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -150,6 +151,38 @@ class RagPipelineServiceTest {
         List<RagSearchResult> results = ragPipelineService.search(new RagSearchRequest("query", 5));
 
         assertThat(results).isEmpty();
+    }
+
+    @Test
+    void searchesUnpartitionedScopesOfSameTypeWithOneAggregateQuery() {
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(0.1, 0.2)))));
+        when(vectorStorePort.hybridSearchByObject(
+                anyString(), eq("attachment"), isNull(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(
+                        new VectorSearchResult(new VectorDocument(
+                                "doc-10", "first", Map.of(
+                                        "objectType", "attachment", "objectId", "10", "chunkId", "c-10"), List.of()), 0.9d),
+                        new VectorSearchResult(new VectorDocument(
+                                "doc-11", "second", Map.of(
+                                        "objectType", "attachment", "objectId", "11", "chunkId", "c-11"), List.of()), 0.8d),
+                        new VectorSearchResult(new VectorDocument(
+                                "doc-99", "unauthorized", Map.of(
+                                        "objectType", "attachment", "objectId", "99", "chunkId", "c-99"), List.of()), 0.99d)));
+
+        List<RagSearchResult> results = ragPipelineService.searchByObjects(
+                new RagSearchRequest("query", 5),
+                List.of(
+                        new RagObjectScope("attachment", "10"),
+                        new RagObjectScope("attachment", "11")),
+                8);
+
+        assertThat(results).extracting(RagSearchResult::documentId).containsExactly("doc-10", "doc-11");
+        ArgumentCaptor<VectorSearchRequest> requestCaptor = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        verify(vectorStorePort, times(1)).hybridSearchByObject(
+                eq("query"), eq("attachment"), isNull(), requestCaptor.capture(), anyDouble(), anyDouble());
+        assertThat(requestCaptor.getValue().metadataFilter().inCriteria().get("objectId"))
+                .containsExactly("10", "11");
     }
 
     @Test

@@ -48,4 +48,19 @@ public interface RagIndexJobRepository {
     default List<String> deleteByObject(String objectType, String objectId) {
         return List.of();
     }
+
+    default List<RagIndexJob> findLatestByObjects(String objectType, List<String> objectIds) {
+        if (objectType == null || objectType.isBlank() || objectIds == null || objectIds.isEmpty()) {
+            return List.of();
+        }
+        return objectIds.stream()
+                .filter(objectId -> objectId != null && !objectId.isBlank())
+                .distinct()
+                .map(objectId -> findAll(
+                        new RagIndexJobFilter(null, objectType, objectId, null),
+                        new RagIndexJobPageRequest(0, 1),
+                        RagIndexJobSort.defaults()).jobs().stream().findFirst().orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
 }

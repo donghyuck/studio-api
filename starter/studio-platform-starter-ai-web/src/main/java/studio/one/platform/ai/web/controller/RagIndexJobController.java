@@ -54,6 +54,8 @@ import studio.one.platform.ai.web.dto.RagIndexChunkDto;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
 import studio.one.platform.ai.web.dto.RagIndexJobDto;
 import studio.one.platform.ai.web.dto.RagIndexJobLogDto;
+import studio.one.platform.ai.web.dto.RagObjectIndexStatusDto;
+import studio.one.platform.ai.web.dto.RagObjectIndexStatusRequestDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 import studio.one.platform.web.dto.PageDto;
@@ -150,6 +152,31 @@ public class RagIndexJobController {
                 page.jobs().stream().map(this::toJobDto).toList(),
                 boundedPageable,
                 page.total()))));
+    }
+
+    @PostMapping("/objects/index-statuses")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#request.objectType())"
+            + " or @endpointAuthz.can('features:attachment','read'))"
+            + " and @ragObjectAuthorizationRouter.canReadAll(#request.objectType(), #request.objectIds())")
+    public ResponseEntity<ApiResponse<List<RagObjectIndexStatusDto>>> objectIndexStatuses(
+            @Valid @RequestBody RagObjectIndexStatusRequestDto request) {
+        String objectType = pathSegment(request.objectType());
+        List<String> objectIds = request.objectIds().stream()
+                .map(this::pathSegment)
+                .distinct()
+                .toList();
+        Map<String, RagIndexJob> latestByObjectId = jobService.latestJobs(objectType, objectIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        RagIndexJob::objectId,
+                        job -> job,
+                        (first, ignored) -> first));
+        List<RagObjectIndexStatusDto> statuses = objectIds.stream()
+                .map(objectId -> Optional.ofNullable(latestByObjectId.get(objectId))
+                        .map(RagObjectIndexStatusDto::from)
+                        .orElseGet(() -> RagObjectIndexStatusDto.notRequested(objectType, objectId)))
+                .toList();
+        return ResponseEntity.ok(ApiResponse.ok(statuses));
     }
 
     @GetMapping("/jobs/{jobId}")

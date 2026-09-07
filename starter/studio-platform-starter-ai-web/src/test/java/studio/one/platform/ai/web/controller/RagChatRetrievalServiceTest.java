@@ -118,6 +118,31 @@ class RagChatRetrievalServiceTest {
     }
 
     @Test
+    void resolvesSourceVerifiedDocumentTitleForContextualQueries() {
+        RagDocumentMetadataProvider provider = new RagDocumentMetadataProvider() {
+            @Override
+            public boolean supports(String objectType) {
+                return "attachment".equals(objectType);
+            }
+
+            @Override
+            public List<RagSearchResult> find(String objectType, String objectId) {
+                return List.of(new RagSearchResult(
+                        "mdoc-3:metadata:title",
+                        "The Catcher in the Rye",
+                        Map.of("metadataFieldId", "title", "docTitle", "The Catcher in the Rye"),
+                        1.0d));
+            }
+        };
+        service = new RagChatRetrievalService(
+                ragPipelineService, new AiWebRagProperties.RetrievalProperties(), List.of(provider));
+
+        assertThat(service.documentTitle("attachment", "3"))
+                .contains("The Catcher in the Rye");
+        verifyNoInteractions(ragPipelineService);
+    }
+
+    @Test
     void omittedStrategyUsesConfiguredHybridDefault() {
         when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of());
 

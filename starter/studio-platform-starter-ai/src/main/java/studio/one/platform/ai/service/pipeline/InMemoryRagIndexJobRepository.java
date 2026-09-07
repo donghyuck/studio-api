@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -143,6 +144,27 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
             logs.remove(jobId);
         });
         return jobIds;
+    }
+
+    @Override
+    public List<RagIndexJob> findLatestByObjects(String objectType, List<String> objectIds) {
+        if (objectType == null || objectType.isBlank() || objectIds == null || objectIds.isEmpty()) {
+            return List.of();
+        }
+        Set<String> requestedIds = objectIds.stream()
+                .filter(Objects::nonNull)
+                .filter(objectId -> !objectId.isBlank())
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        return jobs.values().stream()
+                .filter(job -> Objects.equals(objectType, job.objectType()) && requestedIds.contains(job.objectId()))
+                .collect(java.util.stream.Collectors.groupingBy(RagIndexJob::objectId))
+                .values().stream()
+                .map(group -> group.stream()
+                        .sorted(comparator(RagIndexJobSort.defaults()))
+                        .findFirst()
+                        .orElseThrow())
+                .sorted(Comparator.comparing(RagIndexJob::objectId))
+                .toList();
     }
 
     private boolean isTerminal(RagIndexJobStatus status) {

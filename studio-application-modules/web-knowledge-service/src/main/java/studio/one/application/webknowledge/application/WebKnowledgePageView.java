@@ -6,6 +6,7 @@ import java.net.URI;
 import studio.one.application.webknowledge.infrastructure.persistence.jpa.WebKnowledgePageJpaRepository;
 
 public record WebKnowledgePageView(
+        String pageId,
         String url,
         String canonicalUrl,
         String host,
@@ -21,6 +22,7 @@ public record WebKnowledgePageView(
     public static WebKnowledgePageView from(WebKnowledgePageJpaRepository.PageSummary page) {
         URI normalized = safeUri(page.getNormalizedUrl());
         return new WebKnowledgePageView(
+                page.getPageId(),
                 withoutQuery(page.getNormalizedUrl()),
                 withoutQuery(page.getCanonicalUrl()),
                 normalized == null ? null : normalized.getHost(),

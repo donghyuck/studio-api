@@ -16,6 +16,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.env.Environment;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
@@ -25,6 +26,7 @@ import studio.one.application.webknowledge.application.DefaultWebKnowledgeSource
 import studio.one.application.webknowledge.application.WebCrawlPolicyResolver;
 import studio.one.application.webknowledge.application.WebCrawlUrlPolicy;
 import studio.one.application.webknowledge.application.WebKnowledgeIndexedRagSourceProvider;
+import studio.one.application.webknowledge.application.WebKnowledgeTeamKnowledgeSourceContributor;
 import studio.one.application.webknowledge.application.WebKnowledgeContentSanitizer;
 import studio.one.application.webknowledge.application.WebKnowledgeRagIndexJobSourceExecutor;
 import studio.one.application.webknowledge.application.WebKnowledgeRagObjectAuthorizer;
@@ -55,6 +57,7 @@ import studio.one.application.webknowledge.infrastructure.web.SafeHttpWebPageFet
 import studio.one.application.webknowledge.web.WebKnowledgeSourceController;
 import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
 import studio.one.platform.ai.core.rag.indexed.IndexedRagSourceProvider;
+import studio.one.platform.ai.core.rag.team.TeamKnowledgeSourceContributor;
 import studio.one.platform.ai.core.rag.indexed.IndexedRagSourceCapabilities;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
@@ -430,6 +433,14 @@ public class WebKnowledgeAutoConfiguration {
                         properties.getCrawl().isSiteCrawlEnabled()
                                 ? java.util.List.of("SITEMAP_AND_LINKS", "SITEMAP_ONLY", "LINKS_ONLY")
                                 : java.util.List.of()));
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "webKnowledgeTeamKnowledgeSourceContributor")
+    TeamKnowledgeSourceContributor webKnowledgeTeamKnowledgeSourceContributor(
+            WebKnowledgeSourceJpaRepository sources,
+            @Qualifier("webKnowledgeIndexedRagSourceProvider") IndexedRagSourceProvider indexedSources) {
+        return new WebKnowledgeTeamKnowledgeSourceContributor(sources, indexedSources);
     }
 
     @Bean

@@ -99,11 +99,18 @@ parent 변경 request body:
 
 `newParentId`를 `null`로 보내면 root workspace로 이동합니다. 사용자용 API는 이동 대상 workspace에 `workspace.update`, 새 parent가 있으면 parent에 `workspace.create` 권한을 요구합니다. 관리용 API는 기존 platform admin 우회 정책을 사용합니다. archived workspace는 이동할 수 없고 archived parent 아래로도 이동할 수 없습니다.
 
-관리 화면의 첫 진입용 목록 API는 관리용 경로에만 제공됩니다.
+전역 관리 화면의 첫 진입용 목록 API는 관리용 경로에 제공됩니다.
 
 - `GET /api/mgmt/workspaces`
+- `POST /api/mgmt/workspaces`는 `teamId`가 필수이며 `companyId` 배정을 거부합니다.
 
-지원 query parameter는 `q`, `companyId`, `parentId`, `rootOnly`, `archived`, `page`, `size`, `sort`입니다. `q`는 `name`, `slug`, `path`를 부분 검색하고, `rootOnly=true`는 root workspace만 반환합니다. 응답 item은 `id`, `companyId`, `parentId`, `rootId`, `name`, `slug`, `path`, `depth`, `visibility`, `archived`를 포함합니다.
+지원 query parameter는 `q`, `teamId`, `parentId`, `rootOnly`, `archived`, `page`, `size`, `sort`입니다. `q`는 `name`, `slug`, `path`를 부분 검색하고, `rootOnly=true`는 root workspace만 반환합니다. 응답 item은 `id`, `teamId`, `parentId`, `rootId`, `name`, `slug`, `path`, `depth`, `visibility`, `archived`를 포함합니다. `companyId`는 과거 데이터 rollback 호환 필드로만 유지합니다.
+
+Team 화면에서는 Team 권한으로 같은 관리 기능을 사용합니다.
+
+- `GET /api/teams/{teamId}/workspaces`: 읽을 수 있는 Team Workspace 목록
+- `POST /api/teams/{teamId}/workspaces`: `team.workspace.create` 권한으로 root 생성
+- 하위 생성·수정·이동·보관·멤버 관리는 `/api/workspaces/{workspaceId}`의 객체 권한 API 사용
 
 ## MyBatis note
 

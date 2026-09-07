@@ -16,6 +16,7 @@ class DatabaseSchemaCompatibilityTest {
             "data",
             "objecttype",
             "user",
+            "team",
             "security",
             "security-acl",
             "ai",

@@ -76,6 +76,29 @@ class PgVectorJdbcMapperSqlContractTest {
                 .containsPattern(":metadataEqualsValue3\\s+ORDER BY");
     }
 
+    @Test
+    void filteredSearchSqlSupportsPhysicalObjectIdSets() throws Exception {
+        String filteredSql = filteredSql("SEARCH_BY_OBJECT_SQL", new PgVectorSearchParameter(
+                new PGvector(new float[] {0.1f, 0.2f}),
+                2,
+                10,
+                "attachment",
+                null,
+                List.of(),
+                List.of("10", "11"),
+                null,
+                null,
+                List.of(),
+                List.of(),
+                true,
+                true,
+                false));
+
+        assertThat(filteredSql)
+                .contains("object_type = :objectType")
+                .contains("object_id IN (:objectIds)");
+    }
+
     private static String sql(String fieldName) throws Exception {
         Field field = PgVectorJdbcMapper.class.getDeclaredField(fieldName);
         field.setAccessible(true);

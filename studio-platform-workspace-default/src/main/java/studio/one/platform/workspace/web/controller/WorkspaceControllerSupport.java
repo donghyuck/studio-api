@@ -15,6 +15,7 @@ import studio.one.platform.workspace.domain.model.WorkspaceRef;
 import studio.one.platform.workspace.domain.model.WorkspaceRole;
 import studio.one.platform.workspace.domain.model.WorkspaceTreeNode;
 import studio.one.platform.workspace.application.error.WorkspaceUnsupportedOperationException;
+import studio.one.platform.workspace.application.error.WorkspaceValidationException;
 import studio.one.platform.workspace.domain.model.WorkspacePermissionActions;
 import studio.one.platform.workspace.domain.model.WorkspacePermissionDefinition;
 import studio.one.platform.workspace.application.command.ChangeWorkspaceParentCommand;
@@ -56,14 +57,16 @@ abstract class WorkspaceControllerSupport {
 
     WorkspaceRef createRoot(WorkspaceCreateRequest request, boolean platformAdmin) {
 
-        if (!platformAdmin && request.companyId() != null) {
-            throw new AccessDeniedException("Company-scoped root workspace creation requires management access");
+        if (!platformAdmin && (request.companyId() != null || request.teamId() != null)) {
+            throw new AccessDeniedException("Scoped root workspace creation requires management access");
         }
         return treeService.createRoot(new CreateRootWorkspaceCommand(
                 request.companyId(),
+                request.teamId(),
                 request.name(),
                 request.slug(),
                 request.visibility(),
+                request.accessMode(),
                 context(platformAdmin)));
     }
 
@@ -72,6 +75,7 @@ abstract class WorkspaceControllerSupport {
                 request.name(),
                 request.slug(),
                 request.visibility(),
+                request.accessMode(),
                 context(platformAdmin)));
     }
 
@@ -79,6 +83,7 @@ abstract class WorkspaceControllerSupport {
         return treeService.update(workspaceId, new UpdateWorkspaceCommand(
                 request.name(),
                 request.visibility(),
+                request.accessMode(),
                 context(platformAdmin)));
     }
 
@@ -98,6 +103,16 @@ abstract class WorkspaceControllerSupport {
     }
 
     WorkspaceRef getByPath(Long companyId, String path, boolean platformAdmin) {
+        return treeService.getByPath(companyId, path, context(platformAdmin));
+    }
+
+    WorkspaceRef getByPath(Long companyId, Long teamId, String path, boolean platformAdmin) {
+        if (companyId != null && teamId != null) {
+            throw new WorkspaceValidationException("Only one of companyId or teamId may be specified");
+        }
+        if (teamId != null) {
+            return treeService.getByTeamPath(teamId, path, context(platformAdmin));
+        }
         return treeService.getByPath(companyId, path, context(platformAdmin));
     }
 

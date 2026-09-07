@@ -2,10 +2,12 @@ package studio.one.platform.ai.web.controller;
 
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.springframework.context.ApplicationContext;
 
 import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
+import studio.one.platform.ai.core.rag.team.TeamRagScopeResolver;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 
 /**
@@ -15,21 +17,44 @@ public final class RagObjectAuthorizationRouter {
 
     private final ApplicationContext applicationContext;
     private final List<RagObjectAuthorizer> authorizers;
+    private final Supplier<TeamRagScopeResolver> teamScopeResolver;
 
     public RagObjectAuthorizationRouter(ApplicationContext applicationContext) {
-        this(applicationContext, List.of());
+        this(applicationContext, List.of(), null);
     }
 
     public RagObjectAuthorizationRouter(
             ApplicationContext applicationContext,
             List<RagObjectAuthorizer> authorizers) {
+        this(applicationContext, authorizers, null);
+    }
+
+    public RagObjectAuthorizationRouter(
+            ApplicationContext applicationContext,
+            List<RagObjectAuthorizer> authorizers,
+            Supplier<TeamRagScopeResolver> teamScopeResolver) {
         this.applicationContext = applicationContext;
         this.authorizers = authorizers == null ? List.of() : List.copyOf(authorizers);
+        this.teamScopeResolver = teamScopeResolver;
     }
 
     public boolean canRead(ChatRagRequestDto request) {
         if (request == null) {
             return false;
+        }
+        if (request.teamId() != null || request.workspaceId() != null) {
+            if (request.teamId() == null
+                    || normalize(request.objectType()) != null
+                    || normalize(request.objectId()) != null) {
+                return false;
+            }
+            TeamRagScopeResolver resolver = teamScopeResolver == null ? null : teamScopeResolver.get();
+            try {
+                return resolver != null
+                        && resolver.resolveAuthorized(request.teamId(), request.workspaceId()).isPresent();
+            } catch (RuntimeException ex) {
+                return false;
+            }
         }
         return canRead(request.objectType(), request.objectId());
     }
@@ -54,6 +79,16 @@ public final class RagObjectAuthorizationRouter {
         }
         return can("objects:" + objectType + ":" + objectId, "read")
                 || can("objects:" + objectType, "read");
+    }
+
+    public boolean canReadAll(String requestedObjectType, List<String> requestedObjectIds) {
+        String objectType = normalize(requestedObjectType);
+        if (objectType == null || requestedObjectIds == null || requestedObjectIds.isEmpty()) {
+            return false;
+        }
+        return requestedObjectIds.stream()
+                .map(RagObjectAuthorizationRouter::normalize)
+                .allMatch(objectId -> objectId != null && canRead(objectType, objectId));
     }
 
     public boolean canReadRagService() {

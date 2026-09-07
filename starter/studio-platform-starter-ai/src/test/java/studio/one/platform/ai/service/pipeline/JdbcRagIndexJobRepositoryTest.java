@@ -84,6 +84,26 @@ class JdbcRagIndexJobRepositoryTest {
     }
 
     @Test
+    void findsOnlyTheLatestJobForEachRequestedObjectInOneBatch() {
+        repository.save(RagIndexJob.pending(
+                "job-old", "attachment", "42", "doc-old", "attachment", "old.pdf",
+                Instant.parse("2026-04-26T00:00:00Z")));
+        repository.save(RagIndexJob.pending(
+                "job-new", "attachment", "42", "doc-new", "attachment", "new.pdf",
+                Instant.parse("2026-04-26T00:01:00Z")));
+        repository.save(RagIndexJob.pending(
+                "job-43", "attachment", "43", "doc-43", "attachment", "other.pdf",
+                Instant.parse("2026-04-26T00:00:30Z")));
+        repository.save(RagIndexJob.pending(
+                "job-web", "web", "42", "doc-web", "web", "page",
+                Instant.parse("2026-04-26T00:02:00Z")));
+
+        List<RagIndexJob> jobs = repository.findLatestByObjects("attachment", List.of("42", "43", "missing"));
+
+        assertThat(jobs).extracting(RagIndexJob::jobId).containsExactly("job-new", "job-43");
+    }
+
+    @Test
     void updatesStatusCountsCancelAndLogs() {
         repository.save(pending("job-1", "attachment", "42", "doc-1"));
 

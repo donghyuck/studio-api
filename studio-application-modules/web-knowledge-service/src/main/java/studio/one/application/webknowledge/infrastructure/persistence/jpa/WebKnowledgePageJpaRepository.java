@@ -26,6 +26,7 @@ public interface WebKnowledgePageJpaRepository extends JpaRepository<WebKnowledg
 
     @Query("""
             select
+                page.pageId as pageId,
                 page.normalizedUrl as normalizedUrl,
                 page.canonicalUrl as canonicalUrl,
                 page.active as active,
@@ -48,6 +49,7 @@ public interface WebKnowledgePageJpaRepository extends JpaRepository<WebKnowledg
     long countByWorkspaceIdAndActiveTrue(Long workspaceId);
 
     interface PageSummary {
+        String getPageId();
         String getNormalizedUrl();
         String getCanonicalUrl();
         boolean getActive();

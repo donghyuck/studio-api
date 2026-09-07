@@ -260,6 +260,24 @@ public class PropertyKeys {
             }
 
         }
+
+        /**
+         * Contains team feature property keys.
+         */
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class Team {
+            public static final String PREFIX = Features.PREFIX + ".team";
+            public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
+            public static final String FAIL_IF_MISSING = PREFIX + FAIL_IF_MISSING_VALUE_STRING;
+            public static final String USE_DEFAULT = PREFIX + ".use-default";
+
+            @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+            public static final class Web {
+                public static final String PREFIX = Features.Team.PREFIX + ".web";
+                public static final String BASE_PATH = PREFIX + ".base-path";
+                public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
+            }
+        }
     }
 
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)

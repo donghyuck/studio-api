@@ -17,6 +17,8 @@ import studio.one.base.user.domain.model.company.CompanyRole;
 import studio.one.base.user.domain.model.company.CompanyPermissionActions;
 import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
 import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
+import studio.one.platform.team.application.usecase.TeamAuthorizationPort;
+import studio.one.platform.team.domain.model.TeamRole;
 import studio.one.platform.workspace.application.error.WorkspaceNotFoundException;
 import studio.one.platform.workspace.domain.model.WorkspaceRole;
 import studio.one.platform.workspace.domain.model.WorkspaceVisibility;
@@ -24,6 +26,7 @@ import studio.one.platform.workspace.domain.model.WorkspacePermissionActions;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionContributor;
 import studio.one.platform.workspace.domain.model.WorkspacePermissionDefinition;
 import studio.one.platform.workspace.domain.model.WorkspaceRolePermissionMapping;
+import studio.one.platform.workspace.domain.model.WorkspaceAccessMode;
 import studio.one.platform.workspace.infrastructure.persistence.jpa.WorkspaceEntity;
 import studio.one.platform.workspace.infrastructure.persistence.jpa.WorkspaceJpaRepository;
 import studio.one.platform.workspace.infrastructure.persistence.jpa.WorkspaceClosureJpaRepository;
@@ -48,6 +51,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
     private final WorkspaceSettings settings;
     private final ApplicationCompanyMemberService companyMemberService;
     private final ApplicationCompanyPermissionService companyPermissionService;
+    private final TeamAuthorizationPort teamAuthorizationPort;
 
     public DefaultWorkspacePermissionService(
             WorkspaceJpaRepository workspaceRepository,
@@ -55,7 +59,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
             WorkspaceMemberJpaRepository memberRepository,
             List<WorkspacePermissionContributor> contributors,
             WorkspaceSettings settings) {
-        this(workspaceRepository, closureRepository, memberRepository, contributors, settings, null, null);
+        this(workspaceRepository, closureRepository, memberRepository, contributors, settings, null, null, null);
     }
 
     public DefaultWorkspacePermissionService(
@@ -65,7 +69,20 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
             List<WorkspacePermissionContributor> contributors,
             WorkspaceSettings settings,
             ApplicationCompanyMemberService companyMemberService) {
-        this(workspaceRepository, closureRepository, memberRepository, contributors, settings, companyMemberService, null);
+        this(workspaceRepository, closureRepository, memberRepository, contributors, settings,
+                companyMemberService, null, null);
+    }
+
+    public DefaultWorkspacePermissionService(
+            WorkspaceJpaRepository workspaceRepository,
+            WorkspaceClosureJpaRepository closureRepository,
+            WorkspaceMemberJpaRepository memberRepository,
+            List<WorkspacePermissionContributor> contributors,
+            WorkspaceSettings settings,
+            ApplicationCompanyMemberService companyMemberService,
+            ApplicationCompanyPermissionService companyPermissionService) {
+        this(workspaceRepository, closureRepository, memberRepository, contributors, settings,
+                companyMemberService, companyPermissionService, null);
     }
 
     @Override
@@ -187,14 +204,52 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
                 strongest = WorkspaceRole.strongest(strongest, member.getRole());
             }
         }
-        if (strongest == null && workspace.getCompanyId() == null && workspace.getVisibility() != WorkspaceVisibility.PRIVATE) {
+        strongest = WorkspaceRole.strongest(strongest, inheritedTeamRole(workspace, userId));
+        if (strongest == null
+                && workspace.getTeamId() == null
+                && workspace.getCompanyId() == null
+                && workspace.getVisibility() != WorkspaceVisibility.PRIVATE) {
             strongest = WorkspaceRole.VIEWER;
         }
         return strongest;
     }
 
+    private WorkspaceRole inheritedTeamRole(WorkspaceEntity workspace, Long userId) {
+        if (teamAuthorizationPort == null
+                || workspace.getTeamId() == null
+                || userId == null
+                || userId <= 0
+                || !inheritsTeamAccess(workspace)) {
+            return null;
+        }
+        return teamAuthorizationPort.findEffectiveRole(workspace.getTeamId(), userId)
+                .map(this::toWorkspaceRole)
+                .orElse(null);
+    }
+
+    private boolean inheritsTeamAccess(WorkspaceEntity workspace) {
+        List<Long> ancestorIds = closureRepository.findAncestorIds(workspace.getWorkspaceId());
+        if (ancestorIds.isEmpty()) {
+            return workspace.getAccessMode() != WorkspaceAccessMode.RESTRICTED;
+        }
+        return workspaceRepository.findByWorkspaceIdIn(ancestorIds).stream()
+                .noneMatch(ancestor -> ancestor.getAccessMode() == WorkspaceAccessMode.RESTRICTED);
+    }
+
+    private WorkspaceRole toWorkspaceRole(TeamRole teamRole) {
+        return switch (teamRole) {
+            case OWNER -> WorkspaceRole.OWNER;
+            case ADMIN -> WorkspaceRole.ADMIN;
+            case MEMBER -> WorkspaceRole.VIEWER;
+        };
+    }
+
     private boolean isCompanyOwner(WorkspaceEntity workspace, Long userId) {
-        if (companyMemberService == null || workspace.getCompanyId() == null || userId == null || userId <= 0) {
+        if (workspace.getTeamId() != null
+                || companyMemberService == null
+                || workspace.getCompanyId() == null
+                || userId == null
+                || userId <= 0) {
             return false;
         }
         return companyMemberService.getCompanyRole(workspace.getCompanyId(), userId) == CompanyRole.OWNER;

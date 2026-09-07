@@ -13,9 +13,9 @@ import studio.one.platform.ai.web.controller.ResolvedRagSourcePolicy;
 
 public record RagAnswerCacheKey(String digest) {
 
-    private static final String SCHEMA_VERSION = "v9";
-    private static final String RAG_PROMPT_CONTRACT_VERSION = "rag-grounding-v9";
-    private static final String RAG_VALIDATOR_VERSION = "rag-answer-validator-v3";
+    private static final String SCHEMA_VERSION = "v10";
+    private static final String RAG_PROMPT_CONTRACT_VERSION = "rag-grounding-v10";
+    private static final String RAG_VALIDATOR_VERSION = "rag-answer-validator-v4";
 
     public RagAnswerCacheKey {
         if (digest == null || digest.isBlank()) {
@@ -64,6 +64,26 @@ public record RagAnswerCacheKey(String digest) {
             String contextFingerprint,
             ResolvedRagAnswerPolicy answerPolicy,
             ResolvedRagSourcePolicy sourcePolicy) {
+        return create(
+                authorizationScope,
+                request,
+                resolvedQuestion,
+                chatDeployment,
+                contextFingerprint,
+                answerPolicy,
+                sourcePolicy,
+                null);
+    }
+
+    public static RagAnswerCacheKey create(
+            String authorizationScope,
+            ChatRagRequestDto request,
+            String resolvedQuestion,
+            String chatDeployment,
+            String contextFingerprint,
+            ResolvedRagAnswerPolicy answerPolicy,
+            ResolvedRagSourcePolicy sourcePolicy,
+            TeamRagCacheScope teamScope) {
         Objects.requireNonNull(request, "request");
         StringBuilder canonical = new StringBuilder();
         append(canonical, SCHEMA_VERSION);
@@ -98,6 +118,14 @@ public record RagAnswerCacheKey(String digest) {
         append(canonical, raw(String.valueOf(request.indexedWebSources())));
         append(canonical, sourcePolicy == null ? "" : sourcePolicy.effectiveScope().name());
         append(canonical, sourcePolicy == null ? "" : sourcePolicy.fingerprint());
+        append(canonical, teamScope == null ? "" : "team-scope-v1");
+        append(canonical, teamScope == null ? "" : teamScope.teamId().toString());
+        append(canonical, teamScope == null || teamScope.workspaceId() == null
+                ? ""
+                : teamScope.workspaceId().toString());
+        append(canonical, teamScope == null ? "" : teamScope.corpusRevisionId());
+        append(canonical, teamScope == null ? "" : teamScope.corpusFingerprint());
+        append(canonical, teamScope == null ? "" : teamScope.permissionVersion());
         append(canonical, RAG_PROMPT_CONTRACT_VERSION);
         append(canonical, RAG_VALIDATOR_VERSION);
         return new RagAnswerCacheKey(sha256(canonical.toString()));

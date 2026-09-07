@@ -37,11 +37,16 @@ import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
 import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
 import studio.one.base.user.application.usecase.ApplicationCompanyService;
 import studio.one.base.user.application.usecase.ApplicationUserService;
+import studio.one.platform.team.application.usecase.TeamAuthorizationPort;
+import studio.one.platform.team.domain.model.TeamRole;
 import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.workspace.application.error.WorkspaceConflictException;
 import studio.one.platform.workspace.application.error.WorkspaceNotFoundException;
 import studio.one.platform.workspace.application.error.WorkspaceValidationException;
 import studio.one.platform.workspace.domain.model.WorkspaceRole;
+import studio.one.platform.workspace.domain.model.WorkspaceRef;
+import studio.one.platform.workspace.domain.model.WorkspaceAccessMode;
+import studio.one.platform.workspace.domain.model.WorkspacePermissionActions;
 import studio.one.platform.workspace.domain.model.WorkspaceVisibility;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionContributor;
 import studio.one.platform.workspace.domain.model.WorkspacePermissionDefinition;
@@ -132,6 +137,110 @@ class DefaultWorkspaceServiceTest {
         assertThat(treeService.getByPath(10L, "acme/engineering", OWNER).id()).isEqualTo(child.id());
         assertThatThrownBy(() -> treeService.getByPath(20L, "acme/engineering", PLATFORM_ADMIN))
                 .isInstanceOf(WorkspaceNotFoundException.class);
+    }
+
+    @Test
+    void teamSupportsMultipleRootTreesAndChildrenCannotMoveAcrossTeamBoundaries() {
+        var teamRoot = teamRoot(100L, "Team A", "team-a", WorkspaceAccessMode.INHERIT);
+        var child = treeService.createChild(teamRoot.id(), createCommand("Docs", "docs", OWNER));
+        var secondRoot = teamRoot(100L, "Team A Knowledge", "team-a-knowledge", WorkspaceAccessMode.INHERIT);
+        var otherTeamRoot = teamRoot(200L, "Team B", "team-b", WorkspaceAccessMode.INHERIT);
+
+        assertThat(teamRoot.companyId()).isNull();
+        assertThat(teamRoot.teamId()).isEqualTo(100L);
+        assertThat(teamRoot.accessMode()).isEqualTo(WorkspaceAccessMode.INHERIT);
+        assertThat(child.teamId()).isEqualTo(100L);
+        assertThat(treeService.getRootsByTeamId(100L, OWNER))
+                .extracting(WorkspaceRef::id)
+                .containsExactly(teamRoot.id(), secondRoot.id());
+        assertThatThrownBy(() -> treeService.getRootByTeamId(100L, OWNER))
+                .isInstanceOf(WorkspaceConflictException.class)
+                .hasMessageContaining("multiple root");
+        assertThat(treeService.getByTeamPath(100L, "team-a/docs", OWNER).id()).isEqualTo(child.id());
+        assertThatThrownBy(() -> treeService.changeParent(
+                child.id(),
+                new ChangeWorkspaceParentCommand(otherTeamRoot.id(), OWNER)))
+                .isInstanceOf(WorkspaceConflictException.class)
+                .hasMessageContaining("across teams");
+        assertThatThrownBy(() -> treeService.changeParent(
+                teamRoot.id(),
+                new ChangeWorkspaceParentCommand(child.id(), OWNER)))
+                .isInstanceOf(WorkspaceConflictException.class);
+
+        memberService.addMember(child.id(), new WorkspaceMemberCommand(
+                OWNER.userId(), WorkspaceRole.OWNER, OWNER));
+        var detached = treeService.changeParent(child.id(), new ChangeWorkspaceParentCommand(null, OWNER));
+        assertThat(detached.parentId()).isNull();
+        assertThat(detached.rootId()).isEqualTo(detached.id());
+        assertThat(detached.path()).isEqualTo("docs");
+
+        var reattached = treeService.changeParent(
+                child.id(), new ChangeWorkspaceParentCommand(secondRoot.id(), OWNER));
+        assertThat(reattached.parentId()).isEqualTo(secondRoot.id());
+        assertThat(reattached.rootId()).isEqualTo(secondRoot.id());
+    }
+
+    @Test
+    void teamRoleInheritanceHonorsRestrictedModeAndDisablesCompanyOwnerOverride() {
+        var root = treeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                100L,
+                "Team A",
+                "team-a",
+                WorkspaceVisibility.PRIVATE,
+                WorkspaceAccessMode.INHERIT,
+                OWNER));
+        var inherited = treeService.createChild(root.id(), new CreateWorkspaceCommand(
+                "Inherited",
+                "inherited",
+                WorkspaceVisibility.PRIVATE,
+                WorkspaceAccessMode.INHERIT,
+                OWNER));
+        var restricted = treeService.createChild(root.id(), new CreateWorkspaceCommand(
+                "Restricted",
+                "restricted",
+                WorkspaceVisibility.PRIVATE,
+                WorkspaceAccessMode.RESTRICTED,
+                OWNER));
+        var teamAdmin = new WorkspaceAccessContext(60L, "team-admin", false);
+        var companyOwner = new WorkspaceAccessContext(50L, "company-owner", false);
+        WorkspacePermissionService permissions = new DefaultWorkspacePermissionService(
+                workspaceRepository,
+                closureRepository,
+                memberRepository,
+                List.of(wikiLikeContributor()),
+                WorkspaceSettings.defaults(),
+                companyMemberService(10L, 50L, CompanyRole.OWNER),
+                null,
+                teamAuthorizationPort(100L, 60L, TeamRole.ADMIN));
+
+        assertThat(permissions.getEffectiveRole(root.id(), teamAdmin)).isEqualTo(WorkspaceRole.ADMIN);
+        assertThat(permissions.getEffectiveRole(inherited.id(), teamAdmin)).isEqualTo(WorkspaceRole.ADMIN);
+        assertThat(permissions.getEffectiveRole(restricted.id(), teamAdmin)).isNull();
+        assertThat(permissions.isGranted(restricted.id(), teamAdmin, WorkspacePermissionActions.READ)).isFalse();
+        assertThat(permissions.isGranted(root.id(), companyOwner, WorkspacePermissionActions.READ)).isFalse();
+
+        memberService.addMember(restricted.id(), new WorkspaceMemberCommand(
+                teamAdmin.userId(), WorkspaceRole.VIEWER, OWNER));
+        assertThat(permissions.getEffectiveRole(restricted.id(), teamAdmin)).isEqualTo(WorkspaceRole.VIEWER);
+    }
+
+    @Test
+    void authorizedTeamWorkspaceScopeIsBoundedAndRejectsForeignSubtree() {
+        var root = teamRoot(100L, "Team A", "team-a", WorkspaceAccessMode.INHERIT);
+        var first = treeService.createChild(root.id(), createCommand("First", "first", OWNER));
+        treeService.createChild(first.id(), createCommand("Nested", "nested", OWNER));
+        var secondRoot = teamRoot(100L, "Team A Knowledge", "team-a-knowledge", WorkspaceAccessMode.INHERIT);
+        var foreign = teamRoot(200L, "Team B", "team-b", WorkspaceAccessMode.INHERIT);
+
+        assertThat(treeService.getAuthorizedTeamWorkspaceIds(100L, null, 2, OWNER))
+                .containsExactly(root.id(), first.id());
+        assertThat(treeService.getAuthorizedTeamWorkspaceIds(100L, null, 10, OWNER))
+                .contains(secondRoot.id());
+        assertThatThrownBy(() -> treeService.getAuthorizedTeamWorkspaceIds(100L, foreign.id(), 10, OWNER))
+                .isInstanceOf(WorkspaceConflictException.class);
+        assertThatThrownBy(() -> treeService.getAuthorizedTeamWorkspaceIds(100L, null, 0, OWNER))
+                .isInstanceOf(WorkspaceValidationException.class);
     }
 
     @Test
@@ -667,8 +776,17 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
-    void managementListRequiresPlatformAdminContext() {
+    void listAllowsAuthorizedTeamScopeAndRejectsUnscopedNonAdminContext() {
         createRoot("Acme", "acme", OWNER);
+        var teamRoot = teamRoot(100L, "Team", "team", WorkspaceAccessMode.INHERIT);
+        var teamChild = treeService.createChild(teamRoot.id(), createCommand("Docs", "docs", OWNER));
+
+        assertThat(treeService.list(
+                new WorkspaceListQuery(null, null, 100L, null, null, null),
+                PageRequest.of(0, 10, Sort.by("path")),
+                OWNER).getContent())
+                .extracting(WorkspaceRef::id)
+                .containsExactly(teamRoot.id(), teamChild.id());
 
         assertThatThrownBy(() -> treeService.list(
                 new WorkspaceListQuery(null, null, null, null),
@@ -920,6 +1038,21 @@ class DefaultWorkspaceServiceTest {
         return treeService.createRoot(createCommand(name, slug, actor));
     }
 
+    private studio.one.platform.workspace.domain.model.WorkspaceRef teamRoot(
+            Long teamId,
+            String name,
+            String slug,
+            WorkspaceAccessMode accessMode) {
+        return treeService.createRoot(new CreateRootWorkspaceCommand(
+                null,
+                teamId,
+                name,
+                slug,
+                WorkspaceVisibility.PRIVATE,
+                accessMode,
+                OWNER));
+    }
+
     private CreateWorkspaceCommand createCommand(String name, String slug, WorkspaceAccessContext actor) {
         return new CreateWorkspaceCommand(name, slug, WorkspaceVisibility.PRIVATE, actor);
     }
@@ -1026,6 +1159,37 @@ class DefaultWorkspaceServiceTest {
                     Long actorUserId,
                     boolean platformAdmin) {
                 throw new UnsupportedOperationException();
+            }
+        };
+    }
+
+    private TeamAuthorizationPort teamAuthorizationPort(Long teamId, Long userId, TeamRole role) {
+        return new TeamAuthorizationPort() {
+            @Override
+            public boolean isMember(Long requestedTeamId, Long requestedUserId) {
+                return teamId.equals(requestedTeamId) && userId.equals(requestedUserId);
+            }
+
+            @Override
+            public java.util.Optional<TeamRole> findEffectiveRole(Long requestedTeamId, Long requestedUserId) {
+                return isMember(requestedTeamId, requestedUserId)
+                        ? java.util.Optional.of(role)
+                        : java.util.Optional.empty();
+            }
+
+            @Override
+            public java.util.Set<String> grantedActions(Long requestedTeamId, Long requestedUserId) {
+                return java.util.Set.of();
+            }
+
+            @Override
+            public void assertGranted(Long requestedTeamId, Long requestedUserId, String action) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public long permissionVersion(Long requestedTeamId) {
+                return 1L;
             }
         };
     }

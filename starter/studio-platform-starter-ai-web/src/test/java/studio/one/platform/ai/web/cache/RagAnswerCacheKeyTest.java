@@ -71,6 +71,38 @@ class RagAnswerCacheKeyTest {
         assertThat(strict).isNotEqualTo(inference).isNotEqualTo(changedPolicy);
     }
 
+    @Test
+    void teamCorpusAndPermissionVersionsIsolateCacheEntries() {
+        ChatRagRequestDto request = request(null, null);
+        TeamRagCacheScope baseScope = new TeamRagCacheScope(
+                7L, null, "corpus-1", "fingerprint-1", "permission-1");
+        RagAnswerCacheKey base = RagAnswerCacheKey.create(
+                "principal:user-a",
+                request,
+                "Question",
+                "chat-default",
+                "evidence-a",
+                null,
+                null,
+                baseScope);
+
+        assertThat(RagAnswerCacheKey.create(
+                "principal:user-a", request, "Question", "chat-default", "evidence-a",
+                null, null,
+                new TeamRagCacheScope(8L, null, "corpus-1", "fingerprint-1", "permission-1")))
+                .isNotEqualTo(base);
+        assertThat(RagAnswerCacheKey.create(
+                "principal:user-a", request, "Question", "chat-default", "evidence-a",
+                null, null,
+                new TeamRagCacheScope(7L, null, "corpus-2", "fingerprint-2", "permission-1")))
+                .isNotEqualTo(base);
+        assertThat(RagAnswerCacheKey.create(
+                "principal:user-a", request, "Question", "chat-default", "evidence-a",
+                null, null,
+                new TeamRagCacheScope(7L, null, "corpus-1", "fingerprint-1", "permission-2")))
+                .isNotEqualTo(base);
+    }
+
     private ResolvedRagAnswerPolicy policy(RagAnswerMode mode, String fingerprint) {
         return new ResolvedRagAnswerPolicy(
                 mode,

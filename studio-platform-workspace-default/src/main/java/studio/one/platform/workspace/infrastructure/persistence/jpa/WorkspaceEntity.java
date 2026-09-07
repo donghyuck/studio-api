@@ -22,6 +22,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import studio.one.platform.workspace.domain.model.WorkspaceRef;
+import studio.one.platform.workspace.domain.model.WorkspaceAccessMode;
 import studio.one.platform.workspace.domain.model.WorkspaceVisibility;
 
 @Entity
@@ -46,6 +47,9 @@ public class WorkspaceEntity {
     @Column(name = "COMPANY_ID")
     private Long companyId;
 
+    @Column(name = "TEAM_ID")
+    private Long teamId;
+
     @Column(name = "NAME", nullable = false, length = 255)
     private String name;
 
@@ -64,6 +68,10 @@ public class WorkspaceEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "VISIBILITY", nullable = false, length = 20)
     private WorkspaceVisibility visibility = WorkspaceVisibility.PRIVATE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ACCESS_MODE", nullable = false, length = 20)
+    private WorkspaceAccessMode accessMode = WorkspaceAccessMode.INHERIT;
 
     @Column(name = "ARCHIVED", nullable = false)
     private boolean archived;
@@ -92,6 +100,7 @@ public class WorkspaceEntity {
         return new WorkspaceRef(
                 workspaceId,
                 companyId,
+                teamId,
                 parentId,
                 rootId,
                 name,
@@ -99,6 +108,7 @@ public class WorkspaceEntity {
                 path,
                 depth,
                 visibility,
+                accessMode,
                 archived);
     }
 
@@ -113,6 +123,9 @@ public class WorkspaceEntity {
         }
         if (visibility == null) {
             visibility = WorkspaceVisibility.PRIVATE;
+        }
+        if (accessMode == null) {
+            accessMode = WorkspaceAccessMode.INHERIT;
         }
     }
 

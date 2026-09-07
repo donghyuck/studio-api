@@ -296,6 +296,13 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     }
 
     @Override
+    public List<RagIndexJob> latestJobs(String objectType, List<String> objectIds) {
+        return repository.findLatestByObjects(
+                normalizeRequired(objectType, "objectType"),
+                objectIds == null ? List.of() : objectIds);
+    }
+
+    @Override
     public void deleteObjectHistory(String objectType, String objectId) {
         String normalizedObjectType = normalizeRequired(objectType, "objectType");
         String normalizedObjectId = normalizeRequired(objectId, "objectId");

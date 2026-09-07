@@ -45,6 +45,20 @@ class RagDocumentOverviewAssemblerTest {
         assertThat(assembly.context().length()).isLessThanOrEqualTo(400);
     }
 
+    @Test
+    void selectsRepresentativeChunksAcrossTheWholeDocument() {
+        List<RagSearchResult> selected = assembler.representativeResults(List.of(
+                result(5, 50, 60, "sixth"),
+                result(0, 0, 10, "first"),
+                result(3, 30, 40, "fourth"),
+                result(1, 10, 20, "second"),
+                result(4, 40, 50, "fifth"),
+                result(2, 20, 30, "third")), 3);
+
+        assertThat(selected).extracting(RagSearchResult::content)
+                .containsExactly("first", "fourth", "sixth");
+    }
+
     private RagSearchResult result(int order, int start, int end, String content) {
         return new RagSearchResult("doc-1", content, Map.of(
                 "chunkOrder", order,

@@ -31,6 +31,7 @@ import studio.one.platform.workspace.domain.model.WorkspaceRole;
 import studio.one.platform.workspace.domain.model.WorkspaceTreeNode;
 import studio.one.platform.workspace.domain.model.WorkspacePermissionDefinition;
 import studio.one.platform.workspace.application.command.WorkspaceListQuery;
+import studio.one.platform.workspace.application.error.WorkspaceValidationException;
 import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
 import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
@@ -58,6 +59,14 @@ public class WorkspaceMgmtController extends WorkspaceControllerSupport {
 
     @PostMapping
     public ResponseEntity<ApiResponse<WorkspaceRef>> createRoot(@Valid @RequestBody WorkspaceCreateRequest request) {
+        if (request.companyId() != null) {
+            throw new WorkspaceValidationException(
+                    "Root Workspace Company assignment is no longer supported; use teamId");
+        }
+        if (request.teamId() == null) {
+            throw new WorkspaceValidationException(
+                    "Root Workspace teamId is required");
+        }
         return ResponseEntity.ok(ApiResponse.ok(createRoot(request, true)));
     }
 
@@ -72,14 +81,25 @@ public class WorkspaceMgmtController extends WorkspaceControllerSupport {
     public ResponseEntity<ApiResponse<Page<WorkspaceRef>>> list(
             @RequestParam(value = "q", required = false) String q,
             @RequestParam(value = "companyId", required = false) Long companyId,
+            @RequestParam(value = "teamId", required = false) Long teamId,
             @RequestParam(value = "parentId", required = false) Long parentId,
             @RequestParam(value = "rootOnly", required = false) Boolean rootOnly,
             @RequestParam(value = "archived", required = false) Boolean archived,
             @PageableDefault(size = 20, sort = "path", direction = Sort.Direction.ASC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(list(
-                new WorkspaceListQuery(q, companyId, parentId, rootOnly, archived),
+                new WorkspaceListQuery(q, companyId, teamId, parentId, rootOnly, archived),
                 pageable,
                 true)));
+    }
+
+    ResponseEntity<ApiResponse<Page<WorkspaceRef>>> list(
+            String q,
+            Long companyId,
+            Long parentId,
+            Boolean rootOnly,
+            Boolean archived,
+            Pageable pageable) {
+        return list(q, companyId, null, parentId, rootOnly, archived, pageable);
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}")
@@ -90,8 +110,13 @@ public class WorkspaceMgmtController extends WorkspaceControllerSupport {
     @GetMapping("/by-path")
     public ResponseEntity<ApiResponse<WorkspaceRef>> getByPath(
             @RequestParam(value = "companyId", required = false) Long companyId,
+            @RequestParam(value = "teamId", required = false) Long teamId,
             @RequestParam("path") String path) {
-        return ResponseEntity.ok(ApiResponse.ok(getByPath(companyId, path, true)));
+        return ResponseEntity.ok(ApiResponse.ok(getByPath(companyId, teamId, path, true)));
+    }
+
+    ResponseEntity<ApiResponse<WorkspaceRef>> getByPath(Long companyId, String path) {
+        return getByPath(companyId, null, path);
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}/children")

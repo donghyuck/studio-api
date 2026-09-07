@@ -134,11 +134,16 @@ public final class RagAnswerFinalizer {
             ResolvedRagAnswerPolicy policy,
             RagQueryIntentClassifier.Classification classification,
             RagAnswerPolicyValidator.Validation originalValidation) {
-        if (!factualListPartialAnswerEnabled
-                || classification == null
-                || classification.intent() != RagQueryIntentClassifier.Intent.FACTUAL_LIST
+        if (classification == null
                 || originalValidation.status() != RagAnswerPolicyValidator.Status.MISSING_UNIT_CITATION
                 || originalValidation.citations().status() != RagCitationValidator.Status.INDEX_VALID) {
+            return Optional.empty();
+        }
+        if (classification.intent() == RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS) {
+            return partialInterpretiveCanonicalization(evidenceSet, policy, originalValidation);
+        }
+        if (!factualListPartialAnswerEnabled
+                || classification.intent() != RagQueryIntentClassifier.Intent.FACTUAL_LIST) {
             return Optional.empty();
         }
         List<String> lines = normalizedDraft == null
@@ -155,6 +160,34 @@ public final class RagAnswerFinalizer {
             return Optional.empty();
         }
         String canonical = String.join("\n", retained);
+        RagAnswerPolicyValidator.Validation validation =
+                policyValidator.validate(canonical, evidenceSet, policy, citationValidator);
+        if (!validation.valid()) {
+            return Optional.empty();
+        }
+        return Optional.of(new PartialCanonicalization(canonical, validation, omitted));
+    }
+
+    private Optional<PartialCanonicalization> partialInterpretiveCanonicalization(
+            PackedEvidenceSet evidenceSet,
+            ResolvedRagAnswerPolicy policy,
+            RagAnswerPolicyValidator.Validation originalValidation) {
+        List<String> retained = originalValidation.units().stream()
+                .filter(RagAnswerPolicyValidator.ValidationUnit::cited)
+                .map(RagAnswerPolicyValidator.ValidationUnit::text)
+                .filter(text -> text != null && !text.isBlank())
+                .toList();
+        int omitted = originalValidation.unitCount() - retained.size();
+        if (retained.isEmpty() || omitted <= 0) {
+            return Optional.empty();
+        }
+        int citationIndex = originalValidation.citations().citedIndexes().stream()
+                .mapToInt(Integer::intValue)
+                .min()
+                .orElse(1);
+        String canonical = String.join(" ", retained)
+                + " 확인 한계: 인용이 없는 생성 문장은 제외했으며, 남은 문서 근거 범위에서만 해석했습니다. ["
+                + citationIndex + "]";
         RagAnswerPolicyValidator.Validation validation =
                 policyValidator.validate(canonical, evidenceSet, policy, citationValidator);
         if (!validation.valid()) {

@@ -15,6 +15,7 @@ public final class PgVectorHybridSearchParameter extends PgVectorSearchParameter
             int limit,
             String objectType,
             String objectId,
+            List<String> objectIds,
             String metadataObjectType,
             String metadataObjectId,
             List<PgVectorMetadataEqualsCriterion> equalsCriteria,
@@ -22,8 +23,8 @@ public final class PgVectorHybridSearchParameter extends PgVectorSearchParameter
             String query,
             double vectorWeight,
             double lexicalWeight) {
-        super(vector, embeddingDimension, limit, objectType, objectId, metadataObjectType, metadataObjectId,
-                equalsCriteria, inCriteria);
+        super(vector, embeddingDimension, limit, objectType, objectId, List.of(), objectIds,
+                metadataObjectType, metadataObjectId, equalsCriteria, inCriteria, true, true, false);
         this.query = query;
         this.vectorWeight = vectorWeight;
         this.lexicalWeight = lexicalWeight;

@@ -13,6 +13,7 @@ import studio.one.application.wiki.domain.model.WikiPermissionActions;
 import studio.one.application.wiki.application.usecase.WikiPageService;
 import studio.one.application.wiki.web.controller.WikiController;
 import studio.one.application.wiki.web.controller.WikiMgmtController;
+import studio.one.platform.ai.core.rag.team.TeamKnowledgeSourceContributor;
 import studio.one.platform.workspace.autoconfigure.WorkspaceAutoConfiguration;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
 
@@ -50,6 +51,7 @@ class WikiAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(WikiPageService.class);
+                    assertThat(context).hasSingleBean(TeamKnowledgeSourceContributor.class);
                     assertThat(context).doesNotHaveBean(WikiController.class);
                     assertThat(context).doesNotHaveBean(WikiMgmtController.class);
                 });

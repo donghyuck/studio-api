@@ -26,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 import studio.one.application.webknowledge.application.WebKnowledgeSourceCreateCommand;
 import studio.one.application.webknowledge.application.WebKnowledgeCrawlRunView;
 import studio.one.application.webknowledge.application.WebKnowledgePageView;
+import studio.one.application.webknowledge.application.WebKnowledgePageDetailView;
 import studio.one.application.webknowledge.application.WebKnowledgeSourceService;
 import studio.one.application.webknowledge.application.WebKnowledgeSourceView;
 import studio.one.application.webknowledge.application.WebKnowledgeSitePreviewService;
@@ -183,6 +184,16 @@ public class WebKnowledgeSourceController {
             @PathVariable @Size(max = 80) String sourceId) {
         assertWorkspaceRead(workspaceId);
         return ResponseEntity.ok(ApiResponse.ok(invoke(() -> service.listPages(workspaceId, sourceId))));
+    }
+
+    @GetMapping("/{sourceId}/pages/{pageId}")
+    @PreAuthorize(READ)
+    public ResponseEntity<ApiResponse<WebKnowledgePageDetailView>> getPage(
+            @PathVariable Long workspaceId,
+            @PathVariable @Size(max = 80) String sourceId,
+            @PathVariable @Size(max = 80) String pageId) {
+        assertWorkspaceRead(workspaceId);
+        return ResponseEntity.ok(ApiResponse.ok(invoke(() -> service.getPage(workspaceId, sourceId, pageId))));
     }
 
     @PatchMapping("/{sourceId}/crawl-policy")

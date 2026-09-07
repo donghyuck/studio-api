@@ -9,6 +9,7 @@
 - ACL이 필요하면 `:starter:studio-platform-starter-security-acl`
 - objectType 레지스트리/정책이 필요하면 `:starter:studio-platform-starter`와 `:starter:studio-platform-starter-objecttype`
 - workspace tree/member/permission API가 필요하면 `:starter:studio-platform-starter-workspace`
+- Team 멤버십·공용 Team·migration API가 필요하면 `:starter:studio-platform-starter-team`
 - workspace 기반 Wiki page/revision API가 필요하면 `:starter:studio-application-starter-wiki`
 - MyBatis mapper convention이 필요하면 `:starter:studio-platform-starter-mybatis`
 - WebSocket/STOMP 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
@@ -42,6 +43,7 @@ dependencies {
 - `studio-platform-starter-user`: 사용자 도메인 서비스와 기본 REST 구성
 - `studio-platform-starter-objecttype`: objectType 레지스트리/정책/런타임 검증 자동 구성. 기반 계약과 data helper는 `studio-platform-starter`가 제공한다.
 - `studio-platform-starter-workspace`: workspace tree/member/permission JPA 기본 구현과 API 자동 구성
+- `studio-platform-starter-team`: Team CRUD/member/join policy, root Workspace provisioning, migration engine 자동 구성
 - `studio-platform-starter-mybatis`: MyBatis Boot starter와 `classpath*:mybatis/**/*.xml` mapper convention 자동 구성
 - `studio-platform-starter-realtime`: WebSocket/STOMP 엔드포인트와 Redis Pub/Sub 연동 자동 구성
 - `studio-platform-starter-chunking`: RAG indexing용 fixed-size/recursive chunking 자동 구성
@@ -93,6 +95,16 @@ implementation(project(":starter:studio-application-starter-mail"))
 ```kotlin
 implementation(project(":starter:studio-platform-starter-workspace"))
 implementation(project(":starter:studio-application-starter-wiki"))
+```
+
+**Team + Workspace + RAG 앱**
+```kotlin
+implementation(project(":starter:studio-platform-starter-team"))
+implementation(project(":starter:studio-platform-starter-workspace"))
+implementation(project(":starter:studio-platform-starter-ai"))
+implementation(project(":starter:studio-platform-starter-ai-web"))
+implementation(project(":starter:studio-application-starter-attachment"))
+implementation(project(":starter:studio-application-starter-web-knowledge"))
 ```
 
 ## studio-platform-starter-ai 사용법
