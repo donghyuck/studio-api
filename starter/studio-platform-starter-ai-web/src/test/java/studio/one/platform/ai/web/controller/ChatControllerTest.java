@@ -110,6 +110,28 @@ class ChatControllerTest {
     }
 
     @Test
+    void dateAnswersBypassModelsAndRetrievalForSyncAndStreams() throws Exception {
+        controller.setRuntimeContextService(new studio.one.platform.ai.web.service.ChatRuntimeContextService(
+                java.time.Clock.fixed(Instant.parse("2026-09-17T15:01:00Z"), java.time.ZoneOffset.UTC),
+                java.time.ZoneId.of("Asia/Seoul")));
+        var chat = new ChatRequestDto(null, null, List.of(new ChatMessageDto("user", "오늘 날짜 알려줘")),
+                null, null, null, null, null, null);
+        var rag = new ChatRagRequestDto(chat, null, 5, "attachment", "1", null, null, null,
+                null, null, null, null, null, null, null);
+        var plain = controller.chat(chat).getBody().getData();
+        var grounded = controller.chatWithRag(rag).getBody().getData();
+        assertThat(plain.answer()).contains("2026년 9월 18일");
+        assertThat(grounded.metadata()).containsEntry("answerSource", "SYSTEM_CONTEXT");
+        for (var stream : List.of(controller.stream(chat, null), controller.streamWithRag(rag, null))) {
+            var output = new ByteArrayOutputStream();
+            stream.getBody().writeTo(output);
+            assertThat(output.toString(StandardCharsets.UTF_8)).contains("event: complete", "SYSTEM_CONTEXT", "2026년 9월 18일")
+                    .doesNotContain("retrieval_started");
+        }
+        verifyNoInteractions(defaultChatPort, googleChatPort, ragPipelineService);
+    }
+
+    @Test
     void chatUsesDefaultProviderWhenProviderMissing() {
         ChatResponseDto response = controller.chat(new ChatRequestDto(
                 null,
@@ -126,6 +148,20 @@ class ChatControllerTest {
         verify(defaultChatPort).chat(any(ChatRequest.class));
         assertThat(response.answer()).isEqualTo("default");
         assertThat(response.content()).isEqualTo("default");
+    }
+
+    @Test
+    void runtimeShortcutFailureUsesSanitizedRagStreamError() throws Exception {
+        var runtime = org.mockito.Mockito.mock(studio.one.platform.ai.web.service.ChatRuntimeContextService.class);
+        when(runtime.answer(any())).thenThrow(new IllegalStateException("private failure detail"));
+        controller.setRuntimeContextService(runtime);
+        var chat = new ChatRequestDto(null, null, List.of(new ChatMessageDto("user", "오늘 날짜")),
+                null, null, null, null, null, null);
+        var request = new ChatRagRequestDto(chat, null, 3, "attachment", "1");
+        var output = new ByteArrayOutputStream();
+        controller.streamWithRag(request, null).getBody().writeTo(output);
+        assertThat(output.toString(StandardCharsets.UTF_8)).contains("event: error")
+                .doesNotContain("private failure detail", "event: complete");
     }
 
     @Test
@@ -1165,6 +1201,29 @@ class ChatControllerTest {
         assertThat(response.content()).isEqualTo("supported answer [1]");
         assertThat(response.metadata()).containsEntry("ragAnswerCache", "MISS");
         verify(defaultChatPort).chat(any(ChatRequest.class));
+    }
+
+    @Test
+    void temporalDocumentQuestionUsesRagButNeverReadsOrWritesAnswerCache() {
+        var cache = org.mockito.Mockito.mock(RagAnswerCache.class);
+        when(cache.enabled()).thenReturn(true);
+        when(defaultChatPort.chat(any(ChatRequest.class))).thenReturn(response("supported answer [1]"));
+        when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of(
+                new RagSearchResult("doc-1", "file text", Map.of("revisionId", "rev-1", "sourceRef", "page-1"), 0.9d)));
+        controller = new ChatController(providerRegistry, ragPipelineService, new RagChatRetrievalService(ragPipelineService),
+                RagContextBuilder.defaults(), false, null, false, null, JsonMapper.builder().build(),
+                4, 100, RagPipelineOptions.defaults(), null, null, AiModelUsageStore.noop(), cache);
+        var chat = new ChatRequestDto(null, null, List.of(new ChatMessageDto("user", "오늘 규정 내용 알려줘")),
+                null, null, null, null, null, null);
+        var request = new ChatRagRequestDto(chat, "오늘 규정 내용 알려줘", 3, "attachment", "11");
+        for (int index = 0; index < 2; index++) {
+            var answer = controller.chatWithRag(request, () -> "temporal-user").getBody().getData();
+            assertThat(answer.metadata()).containsEntry("ragAnswerCache", "BYPASS");
+            assertThat(answer.answer()).isEqualTo("supported answer [1]");
+        }
+        verify(defaultChatPort, times(2)).chat(any(ChatRequest.class));
+        verify(cache, org.mockito.Mockito.never()).get(any());
+        verify(cache, org.mockito.Mockito.never()).put(any(), any());
     }
 
     @Test

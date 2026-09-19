@@ -5,3 +5,4 @@ studio.one.platform.autoconfigure.persistence.jpa.JpaAuditingAutoConfiguration
 studio.one.platform.autoconfigure.features.properties.PropertiesAutoConfiguration
 studio.one.platform.autoconfigure.RepositoryAutoConfiguration
 studio.one.platform.autoconfigure.WebAdviceAutoConfiguration
+studio.one.platform.autoconfigure.PlatformCapabilitiesAutoConfiguration

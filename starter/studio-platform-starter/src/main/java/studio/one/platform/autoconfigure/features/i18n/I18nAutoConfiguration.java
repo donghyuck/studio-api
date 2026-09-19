@@ -72,10 +72,14 @@ public class I18nAutoConfiguration {
         return new I18nImpl(accessor);
     }
 
-    @Bean
-    @ConditionalOnMissingBean
-    public MessageAspect messageAspecgt(ObjectProvider<I18n> i18nProvider) {
-        return new MessageAspect(I18nUtils.resolve(i18nProvider));
+    @org.springframework.context.annotation.Configuration(proxyBeanMethods = false)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnClass(name = "org.aspectj.lang.ProceedingJoinPoint")
+    static class MessageAspectConfiguration {
+        @Bean
+        @ConditionalOnMissingBean
+        public MessageAspect messageAspecgt(ObjectProvider<I18n> i18nProvider) {
+            return new MessageAspect(I18nUtils.resolve(i18nProvider));
+        }
     }
 
     @Bean

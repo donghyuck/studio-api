@@ -59,14 +59,15 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
                         .addValue("displayOrder", point.displayOrder())
                         .addValue("createdAt", point.createdAt() == null ? null : Timestamp.from(point.createdAt())))
                 .toArray(MapSqlParameterSource[]::new);
+        String metadataExpression = postgres ? "CAST(:metadataPreview AS jsonb)" : ":metadataPreview";
         jdbcTemplate.batchUpdate("""
                 INSERT INTO tb_ai_vector_projection_point(
                     projection_id, vector_item_id, document_chunk_id, target_type, source_id, label,
                     metadata_preview_json, x, y, cluster_id, display_order, created_at)
                 VALUES (
                     :projectionId, :vectorItemId, :documentChunkId, :targetType, :sourceId, :label,
-                    :metadataPreview, :x, :y, :clusterId, :displayOrder, :createdAt)
-                """, params);
+                    %s, :x, :y, :clusterId, :displayOrder, :createdAt)
+                """.formatted(metadataExpression), params);
     }
 
     @Override

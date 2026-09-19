@@ -35,6 +35,7 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework:spring-jdbc")
     testImplementation("org.mockito:mockito-core")
     testImplementation(platform("org.springframework.ai:spring-ai-bom:${property("springAiVersion")}"))
     testImplementation("org.springframework.ai:spring-ai-starter-model-openai")

@@ -279,6 +279,95 @@ class OpenAiProviderAutoConfigurationTest {
     }
 
     @Test
+    void aiWebWorksWithoutTeamArtifact() {
+        contextRunner.withClassLoader(new FilteredClassLoader("studio.one.platform.team"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(ChatController.class);
+                });
+    }
+
+    @Test
+    void visualizationCanBeDisabledWithoutDisablingRag() {
+        contextRunner.withPropertyValues("studio.ai.vector.projection.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(ChatController.class);
+                    assertThat(context).hasSingleBean(RagController.class);
+                    assertThat(context).doesNotHaveBean("pcaVectorProjectionGenerator");
+                    assertThat(context).doesNotHaveBean("umapVectorProjectionGenerator");
+                    assertThat(context).doesNotHaveBean("tsneVectorProjectionGenerator");
+                    assertThat(context).doesNotHaveBean("vectorProjectionExecutor");
+                    assertThat(context).doesNotHaveBean("vectorProjectionRepository");
+                    assertThat(context).doesNotHaveBean("vectorVisualizationMgmtController");
+                });
+    }
+
+    @Test
+    void visualizationRemainsEnabledByDefault() {
+        contextRunner.run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context).hasBean("pcaVectorProjectionGenerator");
+            assertThat(context).hasBean("vectorProjectionExecutor");
+        });
+    }
+
+    @Test
+    void runtimeAnswersUseConfiguredClockAndTimezone() {
+        contextRunner.withBean(java.time.Clock.class, () -> java.time.Clock.fixed(
+                        java.time.Instant.parse("2026-09-17T15:01:00Z"), java.time.ZoneOffset.UTC))
+                .withPropertyValues("studio.ai.chat.runtime.time-zone=America/Los_Angeles")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    var service = context.getBean(studio.one.platform.ai.web.service.ChatRuntimeContextService.class);
+                    var response = service.answer("오늘 날짜").orElseThrow();
+                    assertThat(response.messages().get(0).content()).contains("9월 17일", "America/Los_Angeles");
+                });
+    }
+
+    @Test
+    void visualizationJdbcConfigurationIsOrderedAndFullyOptional() {
+        for (boolean enabled : new boolean[] {true, false}) {
+            contextRunner.withPropertyValues("studio.ai.vector.projection.enabled=" + enabled)
+                    .withBean(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate.class, () -> {
+                        var template = org.mockito.Mockito.mock(org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate.class);
+                        org.mockito.Mockito.when(template.getJdbcTemplate())
+                                .thenReturn(org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class));
+                        return template;
+                    })
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        for (String bean : java.util.List.of("existingVectorItemRepository", "vectorProjectionRepository",
+                                "vectorProjectionPointRepository", "vectorProjectionJobService", "vectorProjectionService",
+                                "vectorProjectionExecutor", "vectorVisualizationMgmtController")) {
+                            assertThat(context.containsBean(bean)).as(bean + " enabled=" + enabled).isEqualTo(enabled);
+                        }
+                        assertThat(context).hasSingleBean(RagController.class);
+                    });
+        }
+    }
+
+    @Test
+    void aiWebWorksWithoutWorkspaceArtifact() {
+        contextRunner.withClassLoader(new FilteredClassLoader("studio.one.platform.workspace"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(ChatController.class);
+                });
+    }
+
+    @Test
+    void teamEnabledWithoutWorkspaceServicesDoesNotCreateRagBridge() {
+        contextRunner.withUserConfiguration(studio.one.platform.ai.autoconfigure.AiTeamRagAutoConfiguration.class)
+                .withPropertyValues("studio.features.team.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(ChatController.class);
+                    assertThat(context).doesNotHaveBean("teamRagScopeResolver");
+                });
+    }
+
+    @Test
     void backsOffWhenMethodSecurityClassesAreMissing() {
         contextRunner
                 .withClassLoader(new FilteredClassLoader("org.springframework.security.access.prepost"))
