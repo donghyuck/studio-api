@@ -8,7 +8,6 @@ import org.springframework.beans.BeanInstantiationException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -32,7 +31,6 @@ import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ConversationRepositoryPort;
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
-import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.model.ModelCatalog;
 import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
@@ -44,7 +42,6 @@ import studio.one.platform.ai.core.vector.visualization.VectorProjectionGenerato
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionPointRepository;
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionRepository;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
-import studio.one.platform.ai.service.pipeline.RagTeamKnowledgeMigrationVerifier;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.service.visualization.DefaultVectorProjectionJobService;
@@ -86,10 +83,6 @@ import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagChatRetrievalService;
 import studio.one.platform.ai.web.controller.TeamRagCitationGuard;
 import studio.one.platform.ai.web.controller.TeamRagRetrievalService;
-import studio.one.platform.ai.web.controller.TeamKnowledgeSourceController;
-import studio.one.platform.ai.web.controller.DefaultTeamRagScopeResolver;
-import studio.one.platform.ai.web.controller.ScopeBackedTeamCitationAuthorizer;
-import studio.one.platform.ai.web.controller.PortableTeamMigrationKnowledgeAdapter;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
 import studio.one.platform.ai.web.controller.RagAnswerFinalizer;
 import studio.one.platform.ai.web.controller.RagAnswerPolicyResolver;
@@ -100,14 +93,7 @@ import studio.one.platform.ai.web.controller.RagExternalEvidenceService;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
 import studio.one.platform.ai.web.controller.RagObjectAuthorizationRouter;
 import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
-import studio.one.platform.ai.core.rag.team.TeamCitationAuthorizer;
-import studio.one.platform.ai.core.rag.team.TeamKnowledgeMigrationVerifier;
-import studio.one.platform.ai.core.rag.team.TeamKnowledgeSourceContributor;
 import studio.one.platform.ai.core.rag.team.TeamRagScopeResolver;
-import studio.one.platform.identity.PrincipalResolver;
-import studio.one.platform.team.application.usecase.TeamAuthorizationPort;
-import studio.one.platform.team.application.usecase.TeamMigrationKnowledgePort;
-import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
 import studio.one.platform.ai.core.rag.usability.RagObjectUsabilityEvidenceContributor;
 import studio.one.platform.ai.core.rag.indexed.IndexedRagSourceProvider;
 import studio.one.platform.ai.core.rag.external.ExternalEvidenceProvider;
@@ -149,7 +135,6 @@ import studio.one.platform.chunking.core.ChunkContextExpander;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 
 @Configuration(proxyBeanMethods = false)
-@AutoConfigureBefore(name = "studio.one.platform.team.autoconfigure.TeamAutoConfiguration")
 @ConditionalOnClass(name = {
         "studio.one.platform.ai.core.chat.ChatPort",
         "jakarta.validation.Valid",
@@ -193,107 +178,6 @@ public class AiWebAutoConfiguration {
                 ragPipelineService, properties.getRetrieval(), metadataProviders.stream().toList());
     }
 
-    @Bean
-    @ConditionalOnMissingBean(TeamKnowledgeMigrationVerifier.class)
-    TeamKnowledgeMigrationVerifier teamKnowledgeMigrationVerifier(RagPipelineService ragPipelineService) {
-        return new RagTeamKnowledgeMigrationVerifier(ragPipelineService);
-    }
-
-    @Bean
-    @ConditionalOnProperty(
-            prefix = PropertyKeys.Features.PREFIX + ".team",
-            name = "enabled",
-            havingValue = "true")
-    @ConditionalOnMissingBean(TeamMigrationKnowledgePort.class)
-    TeamMigrationKnowledgePort teamMigrationKnowledgePort(
-            PrincipalResolver principalResolver,
-            WorkspaceTreeService workspaceTreeService,
-            TeamAuthorizationPort teamAuthorization,
-            ObjectProvider<TeamKnowledgeSourceContributor> contributors,
-            RagPipelineService ragPipelineService,
-            TeamKnowledgeMigrationVerifier migrationVerifier,
-            ObjectMapper objectMapper,
-            AiWebRagProperties properties) {
-        return new PortableTeamMigrationKnowledgeAdapter(
-                principalResolver,
-                workspaceTreeService,
-                teamAuthorization,
-                contributors.orderedStream().toList(),
-                ragPipelineService,
-                migrationVerifier,
-                objectMapper,
-                properties.getRetrieval().getTeamMaxWorkspaces(),
-                properties.getRetrieval().getTeamMaxObjectScopes());
-    }
-
-    @Bean
-    @ConditionalOnProperty(
-            prefix = PropertyKeys.Features.PREFIX + ".team",
-            name = "enabled",
-            havingValue = "true")
-    @ConditionalOnMissingBean(TeamRagScopeResolver.class)
-    TeamRagScopeResolver teamRagScopeResolver(
-            PrincipalResolver principalResolver,
-            TeamAuthorizationPort teamAuthorization,
-            WorkspaceTreeService workspaceTreeService,
-            ObjectProvider<TeamKnowledgeSourceContributor> contributors,
-            AiWebRagProperties properties) {
-        return new DefaultTeamRagScopeResolver(
-                principalResolver,
-                teamAuthorization,
-                workspaceTreeService,
-                contributors.orderedStream().toList(),
-                properties.getRetrieval().getTeamMaxWorkspaces(),
-                properties.getRetrieval().getTeamMaxObjectScopes());
-    }
-
-    @Bean
-    @ConditionalOnProperty(
-            prefix = PropertyKeys.Features.PREFIX + ".team",
-            name = "enabled",
-            havingValue = "true")
-    @ConditionalOnMissingBean(TeamCitationAuthorizer.class)
-    TeamCitationAuthorizer teamCitationAuthorizer(TeamRagScopeResolver scopeResolver) {
-        return new ScopeBackedTeamCitationAuthorizer(scopeResolver);
-    }
-
-    @Bean
-    @ConditionalOnProperty(
-            prefix = PropertyKeys.Features.PREFIX + ".team",
-            name = "enabled",
-            havingValue = "true")
-    @ConditionalOnMissingBean(TeamRagRetrievalService.class)
-    TeamRagRetrievalService teamRagRetrievalService(
-            RagPipelineService ragPipelineService,
-            TeamRagScopeResolver scopeResolver,
-            AiWebRagProperties properties) {
-        return new TeamRagRetrievalService(
-                ragPipelineService,
-                scopeResolver,
-                properties.getRetrieval().getTeamMaxObjectScopes());
-    }
-
-    @Bean
-    @ConditionalOnProperty(
-            prefix = PropertyKeys.Features.PREFIX + ".team",
-            name = "enabled",
-            havingValue = "true")
-    @ConditionalOnMissingBean(TeamRagCitationGuard.class)
-    TeamRagCitationGuard teamRagCitationGuard(
-            TeamRagScopeResolver scopeResolver,
-            TeamCitationAuthorizer citationAuthorizer) {
-        return new TeamRagCitationGuard(scopeResolver, citationAuthorizer);
-    }
-
-    @Bean
-    @ConditionalOnProperty(
-            prefix = PropertyKeys.Features.PREFIX + ".team",
-            name = "enabled",
-            havingValue = "true")
-    @ConditionalOnMissingBean(TeamKnowledgeSourceController.class)
-    TeamKnowledgeSourceController teamKnowledgeSourceController(TeamRagScopeResolver scopeResolver) {
-        return new TeamKnowledgeSourceController(scopeResolver);
-    }
 
     @Bean
     RagAnswerPolicyResolver ragAnswerPolicyResolver(AiWebRagProperties properties) {
@@ -359,6 +243,15 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
+    studio.one.platform.ai.web.service.ChatRuntimeContextService chatRuntimeContextService(
+            Environment environment, ObjectProvider<java.time.Clock> clock) {
+        return new studio.one.platform.ai.web.service.ChatRuntimeContextService(
+                clock.getIfAvailable(java.time.Clock::systemUTC),
+                java.time.ZoneId.of(environment.getProperty("studio.ai.chat.runtime.time-zone", "Asia/Seoul")));
+    }
+
+    @Bean
     ChatController chatController(
             ModelDeploymentRegistry providerRegistry,
             RagPipelineService ragPipelineService,
@@ -383,7 +276,8 @@ public class AiWebAutoConfiguration {
             ObjectProvider<DocumentQuestionSuggestionService> questionSuggestionService,
             ObjectProvider<IndexedRagSourceProvider> indexedRagSourceProviders,
             ObjectProvider<TeamRagRetrievalService> teamRagRetrievalService,
-            ObjectProvider<TeamRagCitationGuard> teamRagCitationGuard) {
+            ObjectProvider<TeamRagCitationGuard> teamRagCitationGuard,
+            studio.one.platform.ai.web.service.ChatRuntimeContextService runtimeContextService) {
         ChatController controller = new ChatController(providerRegistry, ragPipelineService, ragChatRetrievalService,
                 ragContextBuilder,
                 ragProperties.getDiagnostics().isAllowClientDebug(),
@@ -406,6 +300,7 @@ public class AiWebAutoConfiguration {
                 ragExternalEvidenceService);
         controller.setIndexedRagSourceProviders(indexedRagSourceProviders.orderedStream().toList());
         controller.setQuestionSuggestionsEnabled(questionSuggestionService.getIfAvailable() != null);
+        controller.setRuntimeContextService(runtimeContextService);
         controller.setTeamRagServices(
                 teamRagRetrievalService.getIfAvailable(),
                 teamRagCitationGuard.getIfAvailable(),
@@ -430,13 +325,16 @@ public class AiWebAutoConfiguration {
         return new InMemoryAiModelUsageStore(properties, metricsRecorder);
     }
 
-    @Bean
-    @ConditionalOnClass(io.micrometer.core.instrument.MeterRegistry.class)
-    @ConditionalOnBean(io.micrometer.core.instrument.MeterRegistry.class)
-    @ConditionalOnMissingBean(AiPromptCacheMetricsRecorder.class)
-    AiPromptCacheMetricsRecorder micrometerAiPromptCacheMetricsRecorder(
-            io.micrometer.core.instrument.MeterRegistry meterRegistry) {
-        return new MicrometerAiPromptCacheMetricsRecorder(meterRegistry);
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "io.micrometer.core.instrument.MeterRegistry")
+    static class MetricsConfiguration {
+        @Bean
+        @ConditionalOnBean(io.micrometer.core.instrument.MeterRegistry.class)
+        @ConditionalOnMissingBean(AiPromptCacheMetricsRecorder.class)
+        AiPromptCacheMetricsRecorder micrometerAiPromptCacheMetricsRecorder(
+                io.micrometer.core.instrument.MeterRegistry meterRegistry) {
+            return new MicrometerAiPromptCacheMetricsRecorder(meterRegistry);
+        }
     }
 
     @Bean
@@ -623,124 +521,129 @@ public class AiWebAutoConfiguration {
                 ragPipelineOptions(ragPipelineProperties));
     }
 
-    @Bean
-    @Primary
-    @Order(Ordered.LOWEST_PRECEDENCE)
-    @ConditionalOnMissingBean
-    PcaVectorProjectionGenerator pcaVectorProjectionGenerator() {
-        return new PcaVectorProjectionGenerator();
-    }
-
-    @Bean
-    @Order(Ordered.LOWEST_PRECEDENCE)
-    @ConditionalOnMissingBean
-    UmapVectorProjectionGenerator umapVectorProjectionGenerator() {
-        return new UmapVectorProjectionGenerator();
-    }
-
-    @Bean
-    @Order(Ordered.LOWEST_PRECEDENCE)
-    @ConditionalOnMissingBean
-    TsneVectorProjectionGenerator tsneVectorProjectionGenerator() {
-        return new TsneVectorProjectionGenerator();
-    }
-
-    @Bean(name = "vectorProjectionExecutor")
-    @ConditionalOnMissingBean(name = "vectorProjectionExecutor")
-    Executor vectorProjectionExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setThreadNamePrefix("vector-projection-");
-        executor.setCorePoolSize(1);
-        executor.setMaxPoolSize(2);
-        executor.setQueueCapacity(10);
-        executor.initialize();
-        return executor;
-    }
-
-    @Bean
-    @ConditionalOnBean({VectorProjectionRepository.class, VectorProjectionPointRepository.class, ExistingVectorItemRepository.class})
-    @ConditionalOnMissingBean
-    VectorProjectionJobService vectorProjectionJobService(
-            VectorProjectionRepository projectionRepository,
-            VectorProjectionPointRepository pointRepository,
-            ExistingVectorItemRepository itemRepository,
-            ObjectProvider<VectorProjectionGenerator> generators,
-            ObjectProvider<VectorProjectionNotifier> projectionNotifierProvider) {
-        return new DefaultVectorProjectionJobService(
-                projectionRepository,
-                pointRepository,
-                itemRepository,
-                generators.orderedStream().toList(),
-                projectionNotifierProvider.getIfAvailable(() -> VectorProjectionNotifier.NOOP));
-    }
-
-    @Bean
-    @ConditionalOnClass(name = "studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService")
-    @ConditionalOnBean(type = "studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService")
-    @ConditionalOnMissingBean(VectorProjectionNotifier.class)
-    VectorProjectionNotifier vectorProjectionNotifier(ApplicationContext context) {
-        try {
-            Class<?> messagingType = Class.forName("studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService");
-            Object messagingService = context.getBean(messagingType);
-            Class<?> notifierType = Class.forName(
-                    "studio.one.platform.ai.autoconfigure.realtime.StompVectorProjectionNotifier");
-            return (VectorProjectionNotifier) notifierType
-                    .getConstructor(messagingType)
-                    .newInstance(messagingService);
-        } catch (ReflectiveOperationException ex) {
-            throw new BeanInstantiationException(VectorProjectionNotifier.class,
-                    "Failed to create STOMP vector projection notifier", ex);
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnProperty(prefix = "studio.ai.vector.projection", name = "enabled", havingValue = "true", matchIfMissing = true)
+    static class VectorVisualizationConfiguration {
+        @Bean
+        @Primary
+        @Order(Ordered.LOWEST_PRECEDENCE)
+        @ConditionalOnMissingBean
+        PcaVectorProjectionGenerator pcaVectorProjectionGenerator() {
+            return new PcaVectorProjectionGenerator();
         }
-    }
 
-    @Bean
-    @ConditionalOnBean(VectorProjectionJobService.class)
-    @ConditionalOnMissingBean
-    VectorProjectionService vectorProjectionService(
-            VectorProjectionRepository projectionRepository,
-            VectorProjectionPointRepository pointRepository,
-            ExistingVectorItemRepository itemRepository,
-            VectorProjectionJobService jobService,
-            @Qualifier("vectorProjectionExecutor") Executor vectorProjectionExecutor,
-            VectorProjectionProperties properties) {
-        return new DefaultVectorProjectionService(
-                projectionRepository,
-                pointRepository,
-                itemRepository,
-                jobService,
-                vectorProjectionExecutor,
-                properties.getMaxItems(),
-                properties.getDefaultSampleSize(),
-                properties.getDefaultSamplingStrategy(),
-                properties.getProcessingTimeout());
-    }
+        @Bean
+        @Order(Ordered.LOWEST_PRECEDENCE)
+        @ConditionalOnMissingBean
+        UmapVectorProjectionGenerator umapVectorProjectionGenerator() {
+            return new UmapVectorProjectionGenerator();
+        }
 
-    @Bean
-    @ConditionalOnBean({EmbeddingPort.class, ModelDeploymentRegistry.class, VectorStorePort.class, VectorProjectionRepository.class,
-            VectorProjectionPointRepository.class, ExistingVectorItemRepository.class})
-    @ConditionalOnMissingBean
-    VectorSearchVisualizationService vectorSearchVisualizationService(
-            EmbeddingPort embeddingPort,
-            ModelDeploymentRegistry providerRegistry,
-            VectorStorePort vectorStorePort,
-            VectorProjectionRepository projectionRepository,
-            VectorProjectionPointRepository pointRepository,
-            ExistingVectorItemRepository itemRepository) {
-        return new DefaultVectorSearchVisualizationService(
-                embeddingPort,
-                vectorStorePort,
-                projectionRepository,
-                pointRepository,
-                itemRepository,
-                providerRegistry);
-    }
+        @Bean
+        @Order(Ordered.LOWEST_PRECEDENCE)
+        @ConditionalOnMissingBean
+        TsneVectorProjectionGenerator tsneVectorProjectionGenerator() {
+            return new TsneVectorProjectionGenerator();
+        }
 
-    @Bean
-    @ConditionalOnBean(VectorProjectionService.class)
-    VectorVisualizationMgmtController vectorVisualizationMgmtController(
-            VectorProjectionService projectionService,
-            @Nullable VectorSearchVisualizationService searchVisualizationService) {
-        return new VectorVisualizationMgmtController(projectionService, searchVisualizationService);
+        @Bean(name = "vectorProjectionExecutor")
+        @ConditionalOnMissingBean(name = "vectorProjectionExecutor")
+        Executor vectorProjectionExecutor() {
+            ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+            executor.setThreadNamePrefix("vector-projection-");
+            executor.setCorePoolSize(1);
+            executor.setMaxPoolSize(2);
+            executor.setQueueCapacity(10);
+            executor.initialize();
+            return executor;
+        }
+
+        @Bean
+        @ConditionalOnBean({VectorProjectionRepository.class, VectorProjectionPointRepository.class, ExistingVectorItemRepository.class})
+        @ConditionalOnMissingBean
+        VectorProjectionJobService vectorProjectionJobService(
+                VectorProjectionRepository projectionRepository,
+                VectorProjectionPointRepository pointRepository,
+                ExistingVectorItemRepository itemRepository,
+                ObjectProvider<VectorProjectionGenerator> generators,
+                ObjectProvider<VectorProjectionNotifier> projectionNotifierProvider) {
+            return new DefaultVectorProjectionJobService(
+                    projectionRepository,
+                    pointRepository,
+                    itemRepository,
+                    generators.orderedStream().toList(),
+                    projectionNotifierProvider.getIfAvailable(() -> VectorProjectionNotifier.NOOP));
+        }
+
+        @Bean
+        @ConditionalOnClass(name = "studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService")
+        @ConditionalOnBean(type = "studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService")
+        @ConditionalOnMissingBean(VectorProjectionNotifier.class)
+        VectorProjectionNotifier vectorProjectionNotifier(ApplicationContext context) {
+            try {
+                Class<?> messagingType = Class.forName("studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService");
+                Object messagingService = context.getBean(messagingType);
+                Class<?> notifierType = Class.forName(
+                        "studio.one.platform.ai.autoconfigure.realtime.StompVectorProjectionNotifier");
+                return (VectorProjectionNotifier) notifierType
+                        .getConstructor(messagingType)
+                        .newInstance(messagingService);
+            } catch (ReflectiveOperationException ex) {
+                throw new BeanInstantiationException(VectorProjectionNotifier.class,
+                        "Failed to create STOMP vector projection notifier", ex);
+            }
+        }
+
+        @Bean
+        @ConditionalOnBean(VectorProjectionJobService.class)
+        @ConditionalOnMissingBean
+        VectorProjectionService vectorProjectionService(
+                VectorProjectionRepository projectionRepository,
+                VectorProjectionPointRepository pointRepository,
+                ExistingVectorItemRepository itemRepository,
+                VectorProjectionJobService jobService,
+                @Qualifier("vectorProjectionExecutor") Executor vectorProjectionExecutor,
+                VectorProjectionProperties properties) {
+            return new DefaultVectorProjectionService(
+                    projectionRepository,
+                    pointRepository,
+                    itemRepository,
+                    jobService,
+                    vectorProjectionExecutor,
+                    properties.getMaxItems(),
+                    properties.getDefaultSampleSize(),
+                    properties.getDefaultSamplingStrategy(),
+                    properties.getProcessingTimeout());
+        }
+
+        @Bean
+        @ConditionalOnBean({EmbeddingPort.class, ModelDeploymentRegistry.class, VectorStorePort.class, VectorProjectionRepository.class,
+                VectorProjectionPointRepository.class, ExistingVectorItemRepository.class})
+        @ConditionalOnMissingBean
+        VectorSearchVisualizationService vectorSearchVisualizationService(
+                EmbeddingPort embeddingPort,
+                ModelDeploymentRegistry providerRegistry,
+                VectorStorePort vectorStorePort,
+                VectorProjectionRepository projectionRepository,
+                VectorProjectionPointRepository pointRepository,
+                ExistingVectorItemRepository itemRepository) {
+            return new DefaultVectorSearchVisualizationService(
+                    embeddingPort,
+                    vectorStorePort,
+                    projectionRepository,
+                    pointRepository,
+                    itemRepository,
+                    providerRegistry);
+        }
+
+        @Bean
+        @ConditionalOnBean(VectorProjectionService.class)
+        VectorVisualizationMgmtController vectorVisualizationMgmtController(
+                VectorProjectionService projectionService,
+                @Nullable VectorSearchVisualizationService searchVisualizationService) {
+            return new VectorVisualizationMgmtController(projectionService, searchVisualizationService);
+        }
+
     }
 
     @Bean
@@ -939,6 +842,7 @@ public class AiWebAutoConfiguration {
             "studio.one.platform.ai.service.visualization.JdbcVectorProjectionRepository",
             "studio.one.platform.ai.service.visualization.JdbcVectorProjectionPointRepository"
     })
+    @ConditionalOnProperty(prefix = "studio.ai.vector.projection", name = "enabled", havingValue = "true", matchIfMissing = true)
     static class VectorProjectionJdbcConfiguration {
 
         @Bean

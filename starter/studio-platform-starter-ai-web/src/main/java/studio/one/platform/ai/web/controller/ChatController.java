@@ -105,6 +105,11 @@ import studio.one.platform.ai.web.dto.RagRegenerateRequestDto;
 import studio.one.platform.ai.web.dto.RagSourcePolicyCapabilitiesDto;
 import studio.one.platform.ai.web.dto.TeamRagCapabilitiesDto;
 import studio.one.platform.ai.web.service.ConversationChatService;
+import studio.one.platform.ai.web.service.RagAnswerProcessingService;
+import studio.one.platform.ai.web.service.RagAnswerCacheService;
+import studio.one.platform.ai.web.service.RagContextCandidateService;
+import studio.one.platform.ai.web.service.RagStreamCollector;
+import studio.one.platform.ai.web.service.ChatRuntimeContextService;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -172,6 +177,12 @@ public class ChatController {
     private final ModelDeploymentRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
     private final RagChatRetrievalService ragChatRetrievalService;
+    private final RagAnswerProcessingService ragAnswerProcessingService;
+    private final RagAnswerCacheService ragAnswerCacheService;
+    private final RagContextCandidateService ragContextCandidateService;
+    private final RagStreamCollector ragStreamCollector = new RagStreamCollector();
+    private ChatRuntimeContextService runtimeContextService = new ChatRuntimeContextService(
+            java.time.Clock.systemUTC(), java.time.ZoneId.of("Asia/Seoul"));
     private final RagContextBuilder ragContextBuilder;
     private final int ragContextCandidateMultiplier;
     private final int ragContextMaxCandidates;
@@ -459,6 +470,10 @@ public class ChatController {
         this.ragAnswerFinalizer = ragAnswerFinalizer == null
                 ? new RagAnswerFinalizer()
                 : ragAnswerFinalizer;
+        this.ragAnswerProcessingService = new RagAnswerProcessingService(this.ragAnswerFinalizer);
+        this.ragAnswerCacheService = new RagAnswerCacheService(this.ragAnswerCache, this.ragAnswerFinalizer);
+        this.ragContextCandidateService = new RagContextCandidateService(this.ragPipelineService,
+                this.ragContextCandidateMultiplier, this.ragContextMaxCandidates);
         this.ragSourcePolicyResolver = RagSourcePolicyResolver.defaults();
         this.ragExternalEvidenceService = RagExternalEvidenceService.unavailable();
     }
@@ -567,6 +582,10 @@ public class ChatController {
         this.questionSuggestionsEnabled = enabled;
     }
 
+    public void setRuntimeContextService(ChatRuntimeContextService service) {
+        this.runtimeContextService = Objects.requireNonNull(service, "service");
+    }
+
     public void setTeamRagServices(
             TeamRagRetrievalService retrievalService,
             TeamRagCitationGuard citationGuard,
@@ -669,6 +688,8 @@ public class ChatController {
     }
 
     private ResponseEntity<ApiResponse<ChatResponseDto>> chatInternal(ChatRequestDto request, Principal principal) {
+        Optional<ChatResponseDto> systemAnswer = runtimeAnswer(request, lastUserMessage(request), principal, null);
+        if (systemAnswer.isPresent()) return ResponseEntity.ok(ApiResponse.ok(systemAnswer.get()));
         ChatMemoryContext memory = resolveMemory(request, principal);
         List<ChatMessage> domainMessages = toDomainMessages(request, memory.history());
         ChatResponse response = executeChat(chatPort(deploymentOrProvider(request)),
@@ -684,6 +705,12 @@ public class ChatController {
     public ResponseEntity<StreamingResponseBody> stream(
             @Valid @RequestBody ChatRequestDto request,
             Principal principal) {
+        Optional<ChatResponseDto> systemAnswer = runtimeAnswer(request, lastUserMessage(request), principal, null);
+        if (systemAnswer.isPresent()) {
+            String requestId = UUID.randomUUID().toString();
+            return ResponseEntity.ok().contentType(MediaType.TEXT_EVENT_STREAM)
+                    .body(output -> writeRuntimeAnswer(output, requestId, systemAnswer.get()));
+        }
         ChatMemoryContext memory = resolveMemory(request, principal);
         List<ChatMessage> domainMessages = toDomainMessages(request, memory.history());
         ChatPort port = chatPort(deploymentOrProvider(request));
@@ -812,6 +839,10 @@ public class ChatController {
             ChatRagRequestDto request,
             Principal principal,
             String replaceConversationId) {
+        RagAnswerMode.parse(request.answerMode());
+        RagSourceScope.parse(request.sourceScope());
+        Optional<ChatResponseDto> systemAnswer = runtimeAnswer(request.chat(), resolveRagQuery(request), principal, replaceConversationId);
+        if (systemAnswer.isPresent()) return ResponseEntity.ok(ApiResponse.ok(systemAnswer.get()));
         PreparedRagChat prepared = prepareRagChat(request, principal);
         if (prepared.skippedChat()) {
             RagAnswerOutcome outcome = skippedOutcome(prepared);
@@ -899,7 +930,7 @@ public class ChatController {
                 finalized.canonicalContent(),
                 finalized.validation().status().name(),
                 finalized.policyValidation().status().name(),
-                ragAnswerCache.enabled() ? "MISS" : "BYPASS",
+                cacheAvailable(prepared) ? "MISS" : "BYPASS",
                 finalized.outcome()));
         Map<String, Object> extraMetadata = new LinkedHashMap<>(persistRagConversation(
                 principal, prepared, response, replaceConversationId));
@@ -907,7 +938,7 @@ public class ChatController {
         extraMetadata.put("canonicalContent", finalized.canonicalContent());
         extraMetadata.put("citationValidationStatus", finalized.validation().status().name());
         extraMetadata.put("answerPolicyValidationStatus", finalized.policyValidation().status().name());
-        extraMetadata.put("ragAnswerCache", ragAnswerCache.enabled() ? "MISS" : "BYPASS");
+        extraMetadata.put("ragAnswerCache", cacheAvailable(prepared) ? "MISS" : "BYPASS");
         extraMetadata.put("ragCitationRepair", citationRepair.status());
         extraMetadata.putAll(ragOutcomeMetadata(prepared, finalized.outcome()));
         cacheRagAnswer(prepared, principal, response.model(), finalized);
@@ -2395,33 +2426,9 @@ public class ChatController {
     }
 
     private RagAnswerFinalizer.FinalizedAnswer finalizeRagResponse(
-            ChatResponse response,
-            PackedEvidenceSet evidenceSet,
-            ResolvedRagAnswerPolicy answerPolicy,
-            RagQueryIntentClassifier.Classification classification,
-            boolean coverageFallback) {
-        String draft = response.messages().stream()
-                .filter(message -> message.role() == ChatMessageRole.ASSISTANT)
-                .map(ChatMessage::content)
-                .filter(content -> content != null && !content.isBlank())
-                .reduce((first, last) -> last)
-                .orElse("");
-        draft = ensureInterpretiveFallbackLimitation(draft, evidenceSet, coverageFallback);
-        RagAnswerFinalizer.FinalizedAnswer finalized =
-                ragAnswerFinalizer.finalizeAnswer(draft, evidenceSet, answerPolicy, classification);
-        if (log.isDebugEnabled()) {
-            RagAnswerOutcome outcome = finalized.outcome();
-            log.debug(
-                    "RAG answer finalization type={}, stage={}, reason={}, packedEvidenceCount={}, "
-                            + "validationUnitCount={}, citedValidationUnitCount={}",
-                    outcome.type(),
-                    outcome.stage(),
-                    outcome.reasonCode(),
-                    outcome.packedEvidenceCount(),
-                    outcome.validationUnitCount(),
-                    outcome.citedValidationUnitCount());
-        }
-        return finalized;
+            ChatResponse response, PackedEvidenceSet evidenceSet, ResolvedRagAnswerPolicy answerPolicy,
+            RagQueryIntentClassifier.Classification classification, boolean coverageFallback) {
+        return ragAnswerProcessingService.process(response, evidenceSet, answerPolicy, classification, coverageFallback);
     }
 
     private CitationRepairResult repairInterpretiveCitations(
@@ -2519,27 +2526,8 @@ public class ChatController {
     }
 
     private String ensureInterpretiveFallbackLimitation(
-            String draft,
-            PackedEvidenceSet evidenceSet,
-            boolean coverageFallback) {
-        if (!coverageFallback || draft == null || draft.isBlank()) {
-            return draft;
-        }
-        String normalized = draft.toLowerCase(Locale.ROOT);
-        if (normalized.contains("확인 한계")
-                || normalized.contains("대표 구간")
-                || normalized.contains("제한")
-                || normalized.contains("limitation")
-                || normalized.contains("representative excerpts")) {
-            return draft;
-        }
-        int citationIndex = evidenceSet.evidence().stream()
-                .mapToInt(PackedEvidenceSet.PackedEvidence::citationIndex)
-                .min()
-                .orElse(1);
-        return draft.strip()
-                + " 확인 한계: 이 해석은 문서 전체에서 선택한 대표 근거 구간을 바탕으로 하므로 "
-                + "모든 세부 내용을 반영하지 못할 수 있습니다. [" + citationIndex + "]";
+            String draft, PackedEvidenceSet evidenceSet, boolean coverageFallback) {
+        return ragAnswerProcessingService.ensureInterpretiveFallbackLimitation(draft, evidenceSet, coverageFallback);
     }
 
     private ChatResponse canonicalResponse(ChatResponse response, String canonicalContent) {
@@ -3026,33 +3014,10 @@ public class ChatController {
     }
 
     private List<RagSearchResult> contextExpansionCandidates(
-            List<RagSearchResult> ragResults,
-            String objectType,
-            String objectId,
-            int ragTopK,
-            boolean resultsAlreadyObjectCandidates) {
-        if (!ragContextBuilder.supportsExpansion()
-                || objectType == null || objectId == null
-                || objectType.isBlank() || objectId.isBlank()) {
-            return ragResults;
-        }
-        if (resultsAlreadyObjectCandidates) {
-            return ragResults;
-        }
-        int limit = contextExpansionCandidateLimit(ragTopK);
-        try {
-            List<RagSearchResult> candidates = ragPipelineService.listByObject(objectType, objectId, limit);
-            return candidates == null || candidates.isEmpty() ? ragResults : candidates;
-        } catch (RuntimeException ex) {
-            log.warn("RAG context expansion candidate fetch failed: objectType={}, errorType={}",
-                    objectType, ex.getClass().getSimpleName());
-            return ragResults;
-        }
-    }
-
-    private int contextExpansionCandidateLimit(int ragTopK) {
-        long requestedLimit = (long) Math.max(ragTopK, 1) * ragContextCandidateMultiplier;
-        return (int) Math.min(ragContextMaxCandidates, requestedLimit);
+            List<RagSearchResult> ragResults, String objectType, String objectId,
+            int ragTopK, boolean resultsAlreadyObjectCandidates) {
+        return ragContextCandidateService.expand(ragResults, objectType, objectId, ragTopK,
+                resultsAlreadyObjectCandidates, ragContextBuilder.supportsExpansion());
     }
 
     private int clamp(int value, int defaultValue, int maxValue) {
@@ -3060,6 +3025,10 @@ public class ChatController {
             return defaultValue;
         }
         return Math.min(value, maxValue);
+    }
+
+    private int contextExpansionCandidateLimit(int topK) {
+        return ragContextCandidateService.candidateLimit(topK);
     }
 
     private ChatMemoryContext resolveMemory(ChatRequestDto request, Principal principal) {
@@ -3186,8 +3155,13 @@ public class ChatController {
             String requestId,
             ChatRagRequestDto request,
             Principal principal) throws IOException {
-        writeRagStatus(outputStream, requestId, "retrieval_started", Map.of());
         try {
+            Optional<ChatResponseDto> systemAnswer = runtimeAnswer(request.chat(), resolveRagQuery(request), principal, null);
+            if (systemAnswer.isPresent()) {
+                writeRuntimeAnswer(outputStream, requestId, systemAnswer.get());
+                return;
+            }
+            writeRagStatus(outputStream, requestId, "retrieval_started", Map.of());
             ResolvedRagSourcePolicy requestedSourcePolicy =
                     ragSourcePolicyResolver.resolve(request.sourceScope());
             if (requestedSourcePolicy.externalSourcesEnabled()) {
@@ -3247,53 +3221,21 @@ public class ChatController {
     }
 
     private void writeRagStreamEvents(
-            OutputStream outputStream,
-            String requestId,
-            java.util.stream.Stream<ChatStreamEvent> events,
-            PreparedRagChat prepared,
-            Principal principal,
-            long generationStartedNanos) throws IOException {
-        StringBuilder assistant = new StringBuilder();
-        ChatStreamEvent last = null;
-        try (events) {
-            Iterator<ChatStreamEvent> iterator = events.iterator();
-            while (iterator.hasNext()) {
-                ChatStreamEvent event = iterator.next();
-                last = event;
-                if (event.type() == ChatStreamEventType.ERROR) {
-                    writeSse(outputStream, requestId, ragStreamError("PROVIDER_STREAM_FAILED"));
-                    return;
-                }
-                if (event.type() == ChatStreamEventType.DELTA) {
-                    assistant.append(event.delta());
-                    continue;
-                }
-                if (event.type() == ChatStreamEventType.COMPLETE) {
-                    ChatStreamEvent completed = completeRagStream(
-                            prepared,
-                            principal,
-                            assistant,
-                            event,
-                            elapsedMillis(generationStartedNanos));
-                    writeSse(outputStream, requestId, completed);
-                    return;
-                }
-                // RAG streams expose progress only until the canonical complete event.
+            OutputStream outputStream, String requestId, java.util.stream.Stream<ChatStreamEvent> events,
+            PreparedRagChat prepared, Principal principal, long generationStartedNanos) throws IOException {
+        try {
+            RagStreamCollector.Collected collected = ragStreamCollector.collect(events);
+            if (collected.errorCode() != null) {
+                writeSse(outputStream, requestId, ragStreamError(collected.errorCode()));
+            } else if (collected.shouldComplete()) {
+                ChatStreamEvent completed = completeRagStream(prepared, principal,
+                        new StringBuilder(collected.content()), collected.terminal(), elapsedMillis(generationStartedNanos));
+                writeSse(outputStream, requestId, completed);
             }
         } catch (RuntimeException ex) {
             log.warn("RAG stream generation failed: requestId={}, errorType={}",
                     requestId, ex.getClass().getSimpleName());
             writeSse(outputStream, requestId, ragStreamError("RAG_GENERATION_FAILED"));
-            return;
-        }
-        if (assistant.length() > 0) {
-            ChatStreamEvent completed = completeRagStream(
-                    prepared,
-                    principal,
-                    assistant,
-                    last,
-                    elapsedMillis(generationStartedNanos));
-            writeSse(outputStream, requestId, completed);
         }
     }
 
@@ -3337,7 +3279,7 @@ public class ChatController {
                 finalized.canonicalContent(),
                 finalized.validation().status().name(),
                 finalized.policyValidation().status().name(),
-                ragAnswerCache.enabled() ? "MISS" : "BYPASS",
+                cacheAvailable(prepared) ? "MISS" : "BYPASS",
                 finalized.outcome()));
         int memoryMessageCount = prepared.memory().history().size();
         if (!finalized.canonicalContent().isBlank()) {
@@ -3356,7 +3298,7 @@ public class ChatController {
         metadata.put("canonicalContent", finalized.canonicalContent());
         metadata.put("citationValidationStatus", finalized.validation().status().name());
         metadata.put("answerPolicyValidationStatus", finalized.policyValidation().status().name());
-        metadata.put("ragAnswerCache", ragAnswerCache.enabled() ? "MISS" : "BYPASS");
+        metadata.put("ragAnswerCache", cacheAvailable(prepared) ? "MISS" : "BYPASS");
         metadata.put("ragCitationRepair", citationRepairStatus);
         metadata.putAll(ragOutcomeMetadata(prepared, finalized.outcome()));
         cacheRagAnswer(prepared, principal, model, finalized);
@@ -3423,68 +3365,23 @@ public class ChatController {
     }
 
     private Optional<CachedRagHit> cachedRagAnswer(PreparedRagChat prepared, Principal principal) {
-        Optional<RagAnswerCacheKey> key = ragAnswerCacheKey(prepared, principal);
-        if (key.isEmpty()) {
-            return Optional.empty();
-        }
-        String contextFingerprint = prepared.evidenceSet().contextFingerprint();
-        return ragAnswerCache.get(key.get())
-                .filter(answer -> answer.isValidFor(
-                        contextFingerprint,
-                        prepared.answerPolicy().fingerprint(),
-                        Instant.now()))
-                .filter(answer -> cachedAnswerIsCanonical(answer, prepared))
-                .map(answer -> new CachedRagHit(key.get(), answer));
+        return ragAnswerCacheKey(prepared, principal).flatMap(key ->
+                ragAnswerCacheService.get(key, prepared.evidenceSet(), prepared.answerPolicy(), prepared.queryIntent())
+                        .map(answer -> new CachedRagHit(key, answer)));
     }
 
-    private boolean cachedAnswerIsCanonical(RagCachedAnswer answer, PreparedRagChat prepared) {
-        if (!RagCitationValidator.Status.INDEX_VALID.name()
-                .equals(answer.citationValidationStatus())) {
-            return false;
-        }
-        RagAnswerFinalizer.FinalizedAnswer finalized =
-                ragAnswerFinalizer.finalizeAnswer(
-                        answer.canonicalContent(),
-                        prepared.evidenceSet(),
-                        prepared.answerPolicy(),
-                        prepared.queryIntent());
-        return finalized.validation().valid()
-                && finalized.canonicalContent().equals(answer.canonicalContent());
-    }
-
-    private void cacheRagAnswer(
-            PreparedRagChat prepared,
-            Principal principal,
-            String model,
+    private void cacheRagAnswer(PreparedRagChat prepared, Principal principal, String model,
             RagAnswerFinalizer.FinalizedAnswer finalized) {
-        if (!finalized.validation().valid()
-                || !finalized.policyValidation().valid()
+        if (!finalized.validation().valid() || !finalized.policyValidation().valid()
                 || finalized.canonicalContent().isBlank()) {
             return;
         }
-        Optional<RagAnswerCacheKey> key = ragAnswerCacheKey(prepared, principal);
-        if (key.isEmpty()) {
-            return;
-        }
-        Instant createdAt = Instant.now();
-        RagCachedAnswer answer = new RagCachedAnswer(
-                finalized.canonicalContent(),
-                model,
-                finalized.validation().status().name(),
-                prepared.evidenceSet().contextFingerprint(),
-                prepared.answerPolicy().effectiveMode().name(),
-                prepared.answerPolicy().fingerprint(),
-                finalized.policyValidation().status().name(),
-                finalized.outcome().partial(),
-                finalized.outcome().originalValidationUnitCount(),
-                finalized.outcome().omittedValidationUnitCount(),
-                createdAt,
-                createdAt.plus(ragAnswerCache.ttl()));
-        ragAnswerCache.put(key.get(), answer);
+        ragAnswerCacheKey(prepared, principal).ifPresent(key ->
+                ragAnswerCacheService.put(key, model, prepared.evidenceSet(), prepared.answerPolicy(), finalized));
     }
 
     private Optional<RagAnswerCacheKey> ragAnswerCacheKey(PreparedRagChat prepared, Principal principal) {
-        if (!ragAnswerCache.enabled()
+        if (!cacheAvailable(prepared)
                 || principal == null
                 || prepared.memory() == null
                 || prepared.memory().enabled()
@@ -3584,6 +3481,37 @@ public class ChatController {
     }
 
     private record CachedRagHit(RagAnswerCacheKey key, RagCachedAnswer answer) {
+    }
+
+    private boolean cacheAvailable(PreparedRagChat prepared) {
+        return ragAnswerCache.enabled()
+                && !runtimeContextService.isTimeDependent(resolveRagQuery(prepared.request()))
+                && prepared.chat().messages().stream().noneMatch(message ->
+                        "user".equalsIgnoreCase(message.role()) && runtimeContextService.isTimeDependent(message.content()));
+    }
+
+    private Optional<ChatResponseDto> runtimeAnswer(ChatRequestDto request, String query,
+            Principal principal, String replaceConversationId) {
+        return runtimeContextService.answer(query).map(response -> {
+            ChatMemoryContext memory = resolveMemory(request, principal);
+            Map<String, Object> metadata = new LinkedHashMap<>(response.metadata());
+            if (replaceConversationId != null && !replaceConversationId.isBlank()) {
+                int count = conversationChatService.replaceLastAssistantResponse(
+                        conversationChatService.ownerId(principal), replaceConversationId, response);
+                metadata.putAll(conversationMetadata(replaceConversationId, count));
+            } else {
+                int count = appendMemory(memory, request.messages(), response);
+                appendConversation(principal, memory, request.messages().stream().map(this::toDomainMessage).toList(), response);
+                metadata.putAll(memoryMetadata(memory, count));
+            }
+            return toDto(response, null, false, metadata);
+        });
+    }
+
+    private void writeRuntimeAnswer(OutputStream output, String requestId, ChatResponseDto answer) throws IOException {
+        ChatResponseMetadata metadata = ChatResponseMetadata.from(answer.metadata());
+        writeSse(output, requestId, ChatStreamEvent.delta(answer.answer(), "", metadata));
+        writeSse(output, requestId, ChatStreamEvent.complete("", metadata));
     }
 
     private String currentPrincipalScope(Principal principal) {

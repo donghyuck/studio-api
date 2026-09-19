@@ -104,3 +104,8 @@ Workspace 상태 변경은 사용자용/관리용 경로 모두에서 제공합�
 ```bash
 ./gradlew :starter:studio-platform-starter-workspace:build
 ```
+# 선택 구성 계약
+
+현재 제공하는 Workspace 관리 API는 Team 기반 자료 공간이다. 실행 서버는 Team starter와
+`studio.features.team.enabled=true`를 함께 구성한다. AI·첨부·Wiki·URL은 선택 연결이다.
+Flyway 설치 순서는 user → team → workspace schema이며 이미 적용된 migration은 수정하지 않는다.

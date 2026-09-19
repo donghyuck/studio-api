@@ -2,6 +2,21 @@
 
 ## 3.0.0-rc.1
 
+- 순수 날짜·시간 질문을 서버 Clock과 설정 시간대 기준으로 직접 응답한다. LLM/벡터 검색 없이
+  SYSTEM_CONTEXT 출처, 기준 시각과 시간대를 반환하며 일반/RAG 채팅 및 스트리밍에서 지원한다.
+  시간 의존 질문과 최근 사용자 메시지가 있는 RAG 답변은 exact-answer cache를 우회한다.
+- RAG 캐시 검증·저장, 동일 자료 내 검색 근거 확장, provider 스트림 수집을 HTTP 비의존 서비스로 분리한다.
+  권한 범위와 캐시 키 구성은 기존 controller에 유지하고, 검증 전 delta를 사용자에게 전송하지 않는다.
+- 최소 RAG 소비자 조합을 독립 Maven 검증에 추가한다. Vector Map의 생성기·executor·JDBC 저장소와
+  관리 API는 `studio.ai.vector.projection.enabled=false`로 제외할 수 있고 기본값은 기존 동작을 유지한다.
+  관리자 기능 계약에 `ai-vector-visualization`을 추가하여 벡터 API와 시각화 화면 가용성을 분리한다.
+  ChatController의 답변 후처리를 HTTP 비의존 RagAnswerProcessingService로 추출한다.
+- AI Web의 Team/Workspace 및 Micrometer 선택 연결을 별도 조건부 설정으로 격리한다.
+  공통 starter의 textract/thumbnail 전이 의존성과 Team의 불필요한 Workspace 의존성을 제거한다.
+  문서 처리가 필요한 소비자는 두 starter를 직접 선언해야 한다. 모듈 소유 feature descriptor와
+  `/api/platform/capabilities`를 추가하고 독립 Maven consumer 조합 검증 스크립트 및 CI를 제공한다.
+  `studio-platform-ai`를 classifier 없는 기본 JAR로 게시하여 Maven POM만 사용하는 소비자도
+  AI 계약 클래스를 정상적으로 가져오도록 한다.
 - Team Chat 해석형 질문에도 최근 대화 기반 복수 검색어를 적용하고, 1차 검색으로 관련 object scope를
   최대 8개까지 좁힌 뒤 reciprocal-rank로 후속 검색 결과를 재정렬한다. partition이 없는 동일
   object type 자료는 물리 `object_id IN (...)` 조건의 aggregate hybrid/vector 검색으로 묶고, 결과가

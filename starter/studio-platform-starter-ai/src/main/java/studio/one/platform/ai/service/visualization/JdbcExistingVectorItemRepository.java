@@ -82,11 +82,11 @@ public class JdbcExistingVectorItemRepository implements ExistingVectorItemRepos
         ProjectionSamplingStrategy strategy = samplingStrategy == null
                 ? ProjectionSamplingStrategy.STRATIFIED
                 : samplingStrategy;
-        String columns = "id, object_type, object_id, chunk_index, NULL AS text, embedding, "
+        String columns = "id, object_type, object_id, chunk_index, NULL AS text, embedding, embedding_dimension, "
                 + labelMetadataExpression() + " AS metadata, created_at";
         if (strategy == ProjectionSamplingStrategy.STRATIFIED) {
             return jdbcTemplate.query("""
-                    SELECT id, object_type, object_id, chunk_index, text, embedding, metadata, created_at
+                    SELECT id, object_type, object_id, chunk_index, text, embedding, embedding_dimension, metadata, created_at
                       FROM (
                             SELECT %s,
                                    ROW_NUMBER() OVER (
@@ -109,7 +109,7 @@ public class JdbcExistingVectorItemRepository implements ExistingVectorItemRepos
                 ? JdbcVectorProjectionSql.randomOrder(postgres)
                 : "object_type, object_id, chunk_index, id";
         return jdbcTemplate.query("""
-                SELECT id, object_type, object_id, chunk_index, text, embedding, metadata, created_at
+                SELECT id, object_type, object_id, chunk_index, text, embedding, embedding_dimension, metadata, created_at
                   FROM tb_ai_document_chunk
                  WHERE embedding IS NOT NULL
                 """ + where + """
@@ -348,7 +348,10 @@ public class JdbcExistingVectorItemRepository implements ExistingVectorItemRepos
             return new LinkedHashMap<>();
         }
         try {
-            return new LinkedHashMap<>(objectMapper.readValue(value, MAP_TYPE));
+            Map<String, Object> metadata = new LinkedHashMap<>(objectMapper.readValue(value, MAP_TYPE));
+            // Projected label fields may be JSON null; immutable vector metadata disallows null values.
+            metadata.values().removeIf(Objects::isNull);
+            return metadata;
         } catch (Exception ex) {
             return new LinkedHashMap<>();
         }

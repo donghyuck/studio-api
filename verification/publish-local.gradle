@@ -1,0 +1,9 @@
+// Temporary Maven repository for consumer verification, never publishes remotely.
+allprojects {
+    plugins.withId('maven-publish') {
+        publishing.repositories.maven {
+            name = 'modularity'
+            url = uri(rootProject.findProperty('modularityRepository'))
+        }
+    }
+}

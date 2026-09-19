@@ -1,5 +1,8 @@
 # Studio One Platform
 
+선택 모듈의 필수·선택 의존성, DB 설치 순서와 관리자 기능 감지는
+[모듈 구성 계약](docs/dev/module-composition.md)을 참고한다.
+
 [![release](https://img.shields.io/badge/release-3.0.0--rc.1-blue.svg)](https://github.com/donghyuck/studio-api/tree/3.x)
 [![license](https://img.shields.io/badge/license-APACHE-blue.svg)](LICENSE.md)
 

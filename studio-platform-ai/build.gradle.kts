@@ -14,6 +14,7 @@ bootJar.configure {
 
 tasks.named<org.gradle.jvm.tasks.Jar>("jar").configure {
     enabled = true
+    archiveClassifier.set("")
 }
 
 dependencies {
