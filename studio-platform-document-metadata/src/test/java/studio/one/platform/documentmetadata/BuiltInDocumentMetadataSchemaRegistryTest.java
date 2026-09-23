@@ -103,6 +103,83 @@ class BuiltInDocumentMetadataSchemaRegistryTest {
     }
 
     @Test
+    void compactProjectionTruncatesSummaryByCodePointWithoutBreakingSurrogates() {
+        String emoji = "😀";
+        DocumentMetadataField summary = new DocumentMetadataField(
+                "summary",
+                List.of(emoji.repeat(DocumentMetadataProjectionPolicy.MAX_SUMMARY_CHARS + 1)),
+                List.of(emoji.repeat(DocumentMetadataProjectionPolicy.MAX_SUMMARY_CHARS + 1)),
+                0.7,
+                DocumentMetadataProvenance.INFERRED,
+                List.of());
+        DocumentMetadataArtifact artifact = new DocumentMetadataArtifact(
+                "dmeta-4", "mrev-4", "v1", "native-v1", "hash",
+                new DocumentMetadataClassification(null, null, DocumentSemanticTypeSelection.AUTO,
+                        DocumentSemanticType.BOOK, null, "HUMANITIES", 0.9, "rules-v1",
+                        null, null, null, null),
+                DocumentMetadataQuality.COMPLETE,
+                Map.of("summary", summary),
+                List.of());
+
+        String compactSummary = (String) new DocumentMetadataProjectionPolicy().compact(artifact).get("docSummary");
+
+        assertThat(compactSummary.codePointCount(0, compactSummary.length()))
+                .isEqualTo(DocumentMetadataProjectionPolicy.MAX_SUMMARY_CHARS);
+        assertThat(compactSummary).isEqualTo(emoji.repeat(DocumentMetadataProjectionPolicy.MAX_SUMMARY_CHARS));
+    }
+
+    @Test
+    void compactProjectionRemovesDuplicateBlankKeywordsAndLimitsCount() {
+        DocumentMetadataField keywords = new DocumentMetadataField(
+                "keywords",
+                List.of("  정책  ", "", " ", "정책", "권한", "요약", "검색", "문서", "분류", "색인", "태그", "초과"),
+                List.of("  정책  ", "", " ", "정책", "권한", "요약", "검색", "문서", "분류", "색인", "태그", "초과"),
+                0.9,
+                DocumentMetadataProvenance.NATIVE_STRUCTURED,
+                List.of());
+        DocumentMetadataArtifact artifact = new DocumentMetadataArtifact(
+                "dmeta-5", "mrev-5", "v1", "native-v1", "hash",
+                new DocumentMetadataClassification(null, null, DocumentSemanticTypeSelection.AUTO,
+                        DocumentSemanticType.BOOK, null, "HUMANITIES", 0.9, "rules-v1",
+                        null, null, null, null),
+                DocumentMetadataQuality.COMPLETE,
+                Map.of("keywords", keywords),
+                List.of());
+
+        assertThat(new DocumentMetadataProjectionPolicy().compact(artifact))
+                .containsEntry("docKeywords", List.of("정책", "권한", "요약", "검색", "문서", "분류", "색인", "태그"));
+    }
+
+    @Test
+    void compactProjectionTruncatesKeywordByCodePointWithoutBreakingSurrogates() {
+        String emoji = "😀";
+        DocumentMetadataField keywords = new DocumentMetadataField(
+                "keywords",
+                List.of(emoji.repeat(DocumentMetadataProjectionPolicy.MAX_KEYWORD_CHARS + 1)),
+                List.of(emoji.repeat(DocumentMetadataProjectionPolicy.MAX_KEYWORD_CHARS + 1)),
+                0.9,
+                DocumentMetadataProvenance.NATIVE_STRUCTURED,
+                List.of());
+        DocumentMetadataArtifact artifact = new DocumentMetadataArtifact(
+                "dmeta-6", "mrev-6", "v1", "native-v1", "hash",
+                new DocumentMetadataClassification(null, null, DocumentSemanticTypeSelection.AUTO,
+                        DocumentSemanticType.BOOK, null, "HUMANITIES", 0.9, "rules-v1",
+                        null, null, null, null),
+                DocumentMetadataQuality.COMPLETE,
+                Map.of("keywords", keywords),
+                List.of());
+
+        @SuppressWarnings("unchecked")
+        List<String> compactKeywords = (List<String>) new DocumentMetadataProjectionPolicy()
+                .compact(artifact)
+                .get("docKeywords");
+
+        assertThat(compactKeywords).containsExactly(emoji.repeat(DocumentMetadataProjectionPolicy.MAX_KEYWORD_CHARS));
+        assertThat(compactKeywords.get(0).codePointCount(0, compactKeywords.get(0).length()))
+                .isEqualTo(DocumentMetadataProjectionPolicy.MAX_KEYWORD_CHARS);
+    }
+
+    @Test
     void commonSchemaContainsKeywordAndSummaryFields() {
         DocumentMetadataSchema general = registry.require(DocumentSemanticType.GENERAL);
 

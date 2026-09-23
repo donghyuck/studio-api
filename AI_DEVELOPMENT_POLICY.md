@@ -13,7 +13,7 @@ AI-assisted 변경의 책임, 검증, 기록, 보안 기준을 표준화한다.
 1. `AGENTS.md`는 agent 실행 진입점이다.
 2. 본 문서는 AI-assisted 작업의 최상위 정책 기준이다.
 3. `CONTRIBUTING.md`는 Git 작업 절차를 설명한다.
-4. `SKILL.md`는 이 템플릿 저장소 정비 방식에 적용한다.
+4. `SKILL.md`는 Studio API 애플리케이션의 개발·검증 방식에 적용한다.
 5. `.codex/agents/*.toml`과 `docs/agents/*.md`는 명시적으로 선택한 subagent에만 적용한다.
 6. `.codex/config.toml`은 선택적 메타데이터다.
 
@@ -29,8 +29,8 @@ Codex 앱 호환성을 위해 `.codex/config.toml`의 `agents.dir`는 활성화�
 - 관련 없는 리팩터링과 형식 변경을 섞지 않는다.
 - 비밀정보, 토큰, 비밀번호, 개인정보를 프롬프트, 로그, 주석, 문서에 남기지 않는다.
 - 민감값은 환경변수나 secret store를 사용한다.
-- GitLab 자동화 토큰은 `.env.local` 또는 secret store에서 로드하고 저장소에 커밋하지 않는다.
-- GitLab API 자동화는 전체 JSON 응답을 출력하지 않고 필요한 결과 필드만 남긴다.
+- GitHub/GitLab 자동화 토큰은 해당 도구가 지원하는 환경변수 또는 secret store로 전달하고 저장소에 커밋하지 않는다.
+- GitHub/GitLab API 자동화는 전체 JSON 응답을 출력하지 않고 필요한 결과 필드만 남긴다.
 - 동일 규칙은 여러 문서에 반복하지 않고 기준 문서로 연결한다.
 
 ## AI Workflow
@@ -43,7 +43,7 @@ Codex 앱 호환성을 위해 `.codex/config.toml`의 `agents.dir`는 활성화�
 
 ## Issue Rules
 
-- Issue는 `.gitlab/issue_templates/default.md`를 사용한다.
+- GitHub Issue도 `.gitlab/issue_templates/default.md`의 필수 항목을 사용한다.
 - `Type`은 정확히 하나만 선택한다.
 - `Size`는 정확히 하나만 선택한다.
 - `AI-Assisted`는 정확히 하나만 선택한다.
@@ -110,7 +110,7 @@ AI-assisted 변경은 최소 하나의 실행 가능한 검증 기록을 남긴�
 
 ## Merge Request Rules
 
-- MR은 `.gitlab/merge_request_templates/default.md`를 사용한다.
+- GitHub PR도 `.gitlab/merge_request_templates/default.md`의 필수 항목을 사용한다.
 - `Why`, `What`, `Validation`을 작성한다.
 - Checklist를 완료한다.
 - AI-assisted 변경은 merge 전 human review를 거친다.
@@ -141,9 +141,9 @@ Merge 전 다음을 확인한다.
 
 ## Document Ownership
 
-- `README.md`: 저장소 목적, 포함 파일, 설치/업데이트/적용 순서
+- `README.md`: Studio API 목적, 모듈 구성, 실행 및 적용 안내
 - `AI_DEVELOPMENT_POLICY.md`: AI-assisted 강제 기준
 - `CONTRIBUTING.md`: Git 작업 절차
-- `SKILL.md`: 템플릿 저장소 정비 방식
+- `SKILL.md`: Studio API 개발·검증 방식
 - `POLICY_VERSION.md`: 배포 정책 파일 세트의 버전 기준
-- `CHANGELOG.md`: 템플릿 저장소 변경 이력
+- `CHANGELOG.md`: 제품 및 개발 정책 변경 이력

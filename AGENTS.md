@@ -1,12 +1,13 @@
 # AGENTS.md
 
-Operational guide for AI agents using this policy template in real projects.
+Operational guide for AI agents developing the Studio API application.
 
 ## Repository Purpose
 
-This repository is policy-first.
-It provides GitLab-oriented AI-assisted development rules, templates, commit policy, lightweight workflow skills, and Codex subagent definitions.
-Do not turn it into an application repository, a generic skill catalog, or a second AI framework.
+This repository develops Studio API: modular platform, identity, storage, document, AI and RAG capabilities.
+Implement approved application changes using the existing module boundaries and Java/Gradle conventions.
+The bundled policies and skills guide development; they do not make this a policy-template-only repository.
+Sanakan local usage and verification scope are documented in `docs/dev/sanakan.md`.
 
 ## Rule Order
 
@@ -105,10 +106,10 @@ When the task matches, read the matching file before producing the artifact:
 
 If a required skill file is missing, stop and report it.
 
-## GitLab and Commit Records
+## GitHub/GitLab and Commit Records
 
-- Use `.gitlab/issue_templates/default.md` for Issues.
-- Use `.gitlab/merge_request_templates/default.md` for MRs.
+- Use the fields in `.gitlab/issue_templates/default.md` for Issues, including GitHub Issues.
+- Use the fields in `.gitlab/merge_request_templates/default.md` for MRs and GitHub PRs.
 - Use `.gitmessage-ai-assisted.txt` for AI-assisted commits.
 - Select exactly one `Type`, `Size`, and `AI-Assisted` value in Issues.
 - Mark `AI-Assisted: Yes` when AI is used for drafting, planning, coding, review, or validation preparation.

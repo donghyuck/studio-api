@@ -1,26 +1,26 @@
 ---
-name: devops-policy-template-maintainer
-description: Maintain this reusable AI-assisted DevOps policy template. Use task-specific skills for issue, MR, and commit drafting.
+name: studio-api-development
+description: Develop and verify Studio API modules while preserving repository policies, module boundaries and review evidence.
 license: MIT
 ---
 
-# DevOps Policy Template Maintainer
+# Studio API Development
 
 Use this skill when editing this repository.
 
 ## Mission
 
-Keep this repository reusable across projects.
+Develop Studio API as reusable application modules with stable contracts.
 Prefer fewer clearer files over more guidance.
-Every changed line must support policy distribution, policy maintenance, or agent operation.
+Every changed line must support the approved application task, its tests or development guidance.
 
 ## Working Rules
 
-- Treat this as a template repository, not a business system.
-- Do not add application code or product-specific behavior.
+- Treat this as the Studio API application repository.
+- Implement approved application behavior and tests within existing module boundaries.
 - Reuse existing files before creating new files.
 - Keep policy sentences short and declarative.
-- Keep templates copy-ready for real teams.
+- Keep Issue/PR templates and validation records aligned with the project.
 - Write policy explanations and workflow outputs in Korean unless the user asks otherwise.
 - Keep README focused on purpose, file roles, install, update, and application flow.
 - Keep AGENTS focused on agent execution rules.
