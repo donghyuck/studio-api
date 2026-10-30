@@ -11,6 +11,7 @@ import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
 import studio.one.platform.ai.core.rag.team.TeamKnowledgeManifest;
 import studio.one.platform.ai.core.rag.team.TeamRagScopeResolver;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
+import studio.one.platform.ai.web.dto.IndexedWebSourceRefDto;
 
 class RagObjectAuthorizationRouterTest {
 
@@ -38,6 +39,45 @@ class RagObjectAuthorizationRouterTest {
     }
 
     @Test
+    void requiresAtLeastOneAuthorizedRequestScopeAndAllowsObjectWithIndexedSources() {
+        RagObjectAuthorizationRouter router = new RagObjectAuthorizationRouter(
+                null,
+                List.of(authorizer("attachment", true, false), authorizer("web_source", true, false)));
+
+        assertThat(router.canRead(request(null, null))).isFalse();
+        assertThat(router.canRead(indexedRequest("attachment", "11", "source-a"))).isTrue();
+        assertThat(router.canRead(indexedRequest(null, null, "source-a"))).isTrue();
+        assertThat(router.canRead(indexedRequest(null, null))).isFalse();
+    }
+
+    @Test
+    void rejectsIndexedRequestWhenAnySourceIsUnauthorizedOrAuthorizerDiscoveryFails() {
+        RagObjectAuthorizationRouter denied = new RagObjectAuthorizationRouter(
+                null,
+                List.of(authorizer("web_source", false, false)));
+        assertThat(denied.canRead(indexedRequest(null, null, "source-a"))).isFalse();
+        RagObjectAuthorizationRouter partiallyDenied = new RagObjectAuthorizationRouter(
+                null,
+                List.of(authorizer("attachment", true, false), authorizer("web_source", false, false)));
+        assertThat(partiallyDenied.canRead(indexedRequest("attachment", "11", "source-a"))).isFalse();
+
+        RagObjectAuthorizationRouter failingDiscovery = new RagObjectAuthorizationRouter(
+                null,
+                List.of(new RagObjectAuthorizer() {
+                    @Override
+                    public boolean supports(String objectType) {
+                        throw new IllegalStateException("test");
+                    }
+
+                    @Override
+                    public boolean canRead(String objectType, String objectId) {
+                        return true;
+                    }
+                }));
+        assertThat(failingDiscovery.canRead(indexedRequest(null, null, "source-a"))).isFalse();
+    }
+
+    @Test
     void delegatesTeamRequestToAuthorizedScopeResolver() {
         TeamRagScopeResolver resolver = org.mockito.Mockito.mock(TeamRagScopeResolver.class);
         org.mockito.Mockito.when(resolver.resolveAuthorized(7L, 2L)).thenReturn(Optional.of(
@@ -53,10 +93,14 @@ class RagObjectAuthorizationRouterTest {
     }
 
     private RagObjectAuthorizer authorizer(boolean allowed, boolean fail) {
+        return authorizer("attachment", allowed, fail);
+    }
+
+    private RagObjectAuthorizer authorizer(String supportedType, boolean allowed, boolean fail) {
         return new RagObjectAuthorizer() {
             @Override
             public boolean supports(String objectType) {
-                return "attachment".equals(objectType);
+                return supportedType.equals(objectType);
             }
 
             @Override
@@ -71,5 +115,15 @@ class RagObjectAuthorizationRouterTest {
 
     private ChatRagRequestDto request(String objectType, String objectId) {
         return new ChatRagRequestDto(null, null, null, objectType, objectId);
+    }
+
+    private ChatRagRequestDto indexedRequest(String objectType, String objectId, String... sourceIds) {
+        return new ChatRagRequestDto(
+                null, null, null, objectType, objectId,
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                java.util.Arrays.stream(sourceIds)
+                        .map(sourceId -> new IndexedWebSourceRefDto(sourceId, "revision-" + sourceId))
+                        .toList(),
+                null, null);
     }
 }

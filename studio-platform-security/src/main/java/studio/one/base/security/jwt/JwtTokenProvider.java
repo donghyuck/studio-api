@@ -36,6 +36,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.security.autoconfigure.SecurityProperties;
+import org.springframework.security.authentication.AccountStatusUserDetailsChecker;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -112,6 +113,8 @@ public class JwtTokenProvider {
     private static final String AUTHORITIES_KEY = "authorities";
     private static final String CLAIM_USER_ID = "uid";
     private static final String CLAIM_USERNAME = "uname";
+    private static final AccountStatusUserDetailsChecker ACCOUNT_STATUS_CHECKER =
+            new AccountStatusUserDetailsChecker();
 
     /**
      * JwtTokenProvider 생성자
@@ -265,10 +268,11 @@ public class JwtTokenProvider {
         String subject = StringUtils.defaultIfBlank(claims.getSubject(), extractUsername(claims));
         log.debug("claims subject {} ", subject);
         if (StringUtils.isBlank(subject)) {
-            throw JwtTokenException.invalid(token);
+            throw JwtTokenException.invalid(null);
         }
         // Jwts.parser().verifyWith(secretKey).build()
         UserDetails details = userDetailsService.loadUserByUsername(subject);
+        ACCOUNT_STATUS_CHECKER.check(details);
         Collection<? extends GrantedAuthority> authorities = null;
         if (refresh) {
             // 리프레시 토큰은 권한 정보가 없으므로 빈 컬렉션 사용
@@ -289,7 +293,7 @@ public class JwtTokenProvider {
             Claims claims = parser.parseSignedClaims(token).getPayload();
             return StringUtils.defaultIfBlank(claims.getSubject(), extractUsername(claims));
         } catch (JwtException | IllegalArgumentException e) {
-            throw JwtTokenException.invalid(token);
+            throw JwtTokenException.invalid(null);
         }
     }
 
@@ -330,13 +334,13 @@ public class JwtTokenProvider {
             return true;
         } catch (MalformedJwtException e) {
             log.error("Invalid JWT token: {}", e.getMessage());
-            throw JwtTokenException.invalid(token);
+            throw JwtTokenException.invalid(null);
         } catch (ExpiredJwtException e) {
             log.error("JWT token is expired: {}", e.getMessage());
-            throw JwtTokenException.expired(token);
+            throw JwtTokenException.expired(null);
         } catch (UnsupportedJwtException e) {
             log.error("JWT token is unsupported: {}", e.getMessage());
-            throw JwtTokenException.invalid(token);
+            throw JwtTokenException.invalid(null);
         } catch (IllegalArgumentException e) {
             log.error("JWT claims string is empty: {}", e.getMessage());
             return false;

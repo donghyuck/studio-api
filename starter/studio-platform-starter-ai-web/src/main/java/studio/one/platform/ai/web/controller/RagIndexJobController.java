@@ -186,9 +186,10 @@ public class RagIndexJobController {
     }
 
     @PostMapping("/jobs")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','write')"
+    @PreAuthorize("@ragObjectAuthorizationRouter.canWriteRagService()"
+            + " and @ragObjectAuthorizationRouter.canWrite(#request.objectType(), #request.objectId())"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentSource(#request)"
-            + " or @endpointAuthz.can('features:attachment','write'))")
+            + " or @ragObjectAuthorizationRouter.canStrictEndpoint('features:attachment','write'))")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> createJob(
             @Valid @RequestBody RagIndexJobCreateRequestDto request) {
         CreateJobCommand command = toCreateRequest(request);
@@ -200,9 +201,10 @@ public class RagIndexJobController {
     }
 
     @PostMapping("/jobs/{jobId}/retry")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','write')"
+    @PreAuthorize("@ragObjectAuthorizationRouter.canWriteRagService()"
+            + " and @ragIndexJobEndpointSecurity.canWriteJob(#jobId, @ragObjectAuthorizationRouter)"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
-            + " or @endpointAuthz.can('features:attachment','write'))")
+            + " or @ragObjectAuthorizationRouter.canStrictEndpoint('features:attachment','write'))")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> retryJob(@PathVariable("jobId") String jobId) {
         RagIndexJob job = requireJob(jobId);
         if (job.status() == RagIndexJobStatus.PENDING || job.status() == RagIndexJobStatus.RUNNING) {
@@ -213,9 +215,10 @@ public class RagIndexJobController {
     }
 
     @PostMapping("/jobs/{jobId}/cancel")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','write')"
+    @PreAuthorize("@ragObjectAuthorizationRouter.canWriteRagService()"
+            + " and @ragIndexJobEndpointSecurity.canWriteJob(#jobId, @ragObjectAuthorizationRouter)"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
-            + " or @endpointAuthz.can('features:attachment','write'))")
+            + " or @ragObjectAuthorizationRouter.canStrictEndpoint('features:attachment','write'))")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> cancelJob(@PathVariable("jobId") String jobId) {
         requireJob(jobId);
         try {
@@ -242,7 +245,8 @@ public class RagIndexJobController {
     @GetMapping("/jobs/{jobId}/chunks")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
-            + " or @endpointAuthz.can('features:attachment','read'))")
+            + " or @endpointAuthz.can('features:attachment','read'))"
+            + " and @ragIndexJobEndpointSecurity.canReadJobObject(#jobId, @ragObjectAuthorizationRouter)")
     public ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> getJobChunks(
             @PathVariable("jobId") String jobId,
             @PageableDefault(size = DEFAULT_CHUNK_LIMIT) Pageable pageable) {
@@ -256,7 +260,8 @@ public class RagIndexJobController {
     @GetMapping("/jobs/{jobId}/chunks/page")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
-            + " or @endpointAuthz.can('features:attachment','read'))")
+            + " or @endpointAuthz.can('features:attachment','read'))"
+            + " and @ragIndexJobEndpointSecurity.canReadJobObject(#jobId, @ragObjectAuthorizationRouter)")
     public ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> getJobChunksPage(
             @PathVariable("jobId") String jobId,
             @PageableDefault(size = DEFAULT_CHUNK_LIMIT) Pageable pageable) {
@@ -270,7 +275,8 @@ public class RagIndexJobController {
     @GetMapping("/objects/{objectType}/{objectId}/chunks")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
-            + " or @endpointAuthz.can('features:attachment','read'))")
+            + " or @endpointAuthz.can('features:attachment','read'))"
+            + " and @ragObjectAuthorizationRouter.canRead(#objectType, #objectId)")
     public ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> objectChunks(
             @PathVariable("objectType") String objectType,
             @PathVariable("objectId") String objectId,
@@ -281,7 +287,8 @@ public class RagIndexJobController {
     @GetMapping("/objects/{objectType}/{objectId}/chunks/page")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
-            + " or @endpointAuthz.can('features:attachment','read'))")
+            + " or @endpointAuthz.can('features:attachment','read'))"
+            + " and @ragObjectAuthorizationRouter.canRead(#objectType, #objectId)")
     public ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> objectChunksPage(
             @PathVariable("objectType") String objectType,
             @PathVariable("objectId") String objectId,
@@ -301,9 +308,10 @@ public class RagIndexJobController {
     }
 
     @DeleteMapping("/objects/{objectType}/{objectId}")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','write')"
+    @PreAuthorize("@ragObjectAuthorizationRouter.canWriteRagService()"
+            + " and @ragObjectAuthorizationRouter.canWrite(#objectType, #objectId)"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
-            + " or @endpointAuthz.can('features:attachment','write'))")
+            + " or @ragObjectAuthorizationRouter.canStrictEndpoint('features:attachment','write'))")
     public ResponseEntity<ApiResponse<Void>> deleteObject(
             @PathVariable("objectType") String objectType,
             @PathVariable("objectId") String objectId) {
@@ -327,7 +335,8 @@ public class RagIndexJobController {
     @GetMapping("/objects/{objectType}/{objectId}/metadata")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
-            + " or @endpointAuthz.can('features:attachment','read'))")
+            + " or @endpointAuthz.can('features:attachment','read'))"
+            + " and @ragObjectAuthorizationRouter.canRead(#objectType, #objectId)")
     public ResponseEntity<ApiResponse<Map<String, Object>>> objectMetadata(
             @PathVariable("objectType") String objectType,
             @PathVariable("objectId") String objectId) {
@@ -442,6 +451,12 @@ public class RagIndexJobController {
             metadata.put("sourceType", request.sourceType().trim());
         }
         String documentId = hasText(request.documentId()) ? request.documentId().trim() : null;
+        if (isAttachmentSource(request)) {
+            validateAttachmentSourceScope(request, metadata);
+            if (metadata.containsKey("attachmentId") && metadata.get("attachmentId") == null) {
+                metadata.remove("attachmentId");
+            }
+        }
         if (isAttachmentSource(request) && documentId == null) {
             documentId = request.objectId().trim();
             metadata.putIfAbsent("attachmentId", request.objectId().trim());
@@ -491,7 +506,42 @@ public class RagIndexJobController {
     }
 
     private boolean isAttachmentSource(RagIndexJobCreateRequestDto request) {
-        return "attachment".equalsIgnoreCase(request.sourceType());
+        return "attachment".equalsIgnoreCase(pathSegment(request.sourceType()));
+    }
+
+    private void validateAttachmentSourceScope(
+            RagIndexJobCreateRequestDto request,
+            Map<String, Object> metadata) {
+        if (!"attachment".equalsIgnoreCase(pathSegment(request.objectType()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "attachment source requires attachment object scope");
+        }
+        long objectAttachmentId = attachmentId(request.objectId(), "objectId");
+        Object metadataAttachmentId = metadata.get("attachmentId");
+        if (!metadata.containsKey("attachmentId") || metadataAttachmentId == null) {
+            return;
+        }
+        long sourceAttachmentId = attachmentId(metadataAttachmentId, "metadata.attachmentId");
+        if (objectAttachmentId != sourceAttachmentId) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "attachment source must match the authorized object scope");
+        }
+    }
+
+    private long attachmentId(Object value, String fieldName) {
+        String text = text(value);
+        if (text == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " is required");
+        }
+        try {
+            long attachmentId = Long.parseLong(text.trim());
+            if (attachmentId <= 0L) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " must be positive");
+            }
+            return attachmentId;
+        } catch (NumberFormatException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " must be numeric", ex);
+        }
     }
 
     private String sourceName(

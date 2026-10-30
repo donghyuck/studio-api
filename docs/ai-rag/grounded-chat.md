@@ -124,6 +124,11 @@ Content-Type: application/json
 
 `COMPLETED` revision은 RAG 요청의 `indexedWebSources`에 최대 10개까지 고정한다. revision을 명시하지
 않거나 workspace 권한·embedding space가 맞지 않으면 요청을 거부한다.
+RAG 요청은 현재 사용자가 읽을 수 있는 `objectType`/`objectId`, team scope, 또는 승인된
+`indexedWebSources` 중 하나 이상의 검색 범위를 포함해야 한다. `objectType`/`objectId`와
+`indexedWebSources`는 함께 사용할 수 있으며 각 범위를 모두 재인가한다. 빈 `indexedWebSources`만 있는
+요청과 저장된 무범위 RAG turn은 거부한다. 저장 metadata의 `indexedWebSources.count=0`은 승인된
+object 또는 team scope와 함께 있을 때만 웹 범위 부재로 해석한다.
 
 ```json
 {

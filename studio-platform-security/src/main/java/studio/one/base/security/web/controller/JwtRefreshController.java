@@ -27,6 +27,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AccountStatusUserDetailsChecker;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -69,6 +70,9 @@ import studio.one.platform.web.dto.ApiResponse;
 @Slf4j
 public class JwtRefreshController extends AbstractTokenController {
 
+    private static final AccountStatusUserDetailsChecker ACCOUNT_STATUS_CHECKER =
+            new AccountStatusUserDetailsChecker();
+
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenStore refreshTokenStore;
     private final UserDetailsService userDetailsService;
@@ -92,6 +96,7 @@ public class JwtRefreshController extends AbstractTokenController {
         Long userId = refreshTokenStore.resolveUserId(raw);
         String username = getUsernameByUserID(userId);
         UserDetails details = userDetailsService.loadUserByUsername(username);
+        ACCOUNT_STATUS_CHECKER.check(details);
         Authentication authentication = new UsernamePasswordAuthenticationToken(details, "", details.getAuthorities());
         String access = jwtTokenProvider.generateToken(authentication);
         String rotated = refreshTokenStore.rotate(raw); 

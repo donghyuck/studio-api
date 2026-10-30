@@ -47,6 +47,23 @@ public class RefreshTokenJdbcRepositoryV2 implements RefreshTokenRepository {
              where SELECTOR = :selector
             """;
 
+    private static final String REVOKE_IF_ACTIVE_SQL = """
+            update TB_APPLICATION_REFRESH_TOKEN
+               set REVOKED = :revoked
+             where ID = :id
+               and SELECTOR = :selector
+               and REVOKED = :active
+            """;
+
+    private static final String LINK_REPLACEMENT_SQL = """
+            update TB_APPLICATION_REFRESH_TOKEN
+               set REPLACED_BY_ID = :successorId
+             where ID = :predecessorId
+               and SELECTOR = :predecessorSelector
+               and REVOKED = :revoked
+               and REPLACED_BY_ID is null
+            """;
+
     private static final RowMapper<RefreshToken> ROW_MAPPER = (rs, rowNum) -> RefreshToken.builder()
             .id(rs.getLong("ID"))
             .userId(rs.getLong("USER_ID"))
@@ -75,6 +92,24 @@ public class RefreshTokenJdbcRepositoryV2 implements RefreshTokenRepository {
     @Override
     public Optional<RefreshToken> findBySelector(String selector) {
         return template.query(FIND_BY_SELECTOR_SQL, Map.of("selector", selector), ROW_MAPPER).stream().findFirst();
+    }
+
+    @Override
+    public int revokeIfActive(Long id, String selector) {
+        return template.update(REVOKE_IF_ACTIVE_SQL, Map.of(
+                "id", id,
+                "selector", selector,
+                "revoked", true,
+                "active", false));
+    }
+
+    @Override
+    public int linkReplacement(Long predecessorId, String predecessorSelector, RefreshToken successor) {
+        return template.update(LINK_REPLACEMENT_SQL, Map.of(
+                "successorId", successor.getId(),
+                "predecessorId", predecessorId,
+                "predecessorSelector", predecessorSelector,
+                "revoked", true));
     }
 
     private RefreshToken insert(RefreshToken token) {

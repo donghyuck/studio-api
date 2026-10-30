@@ -13,7 +13,6 @@ import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
-import studio.one.base.security.jwt.JwtTokenProvider;
 
 /**
  * WebSocket Handshake 시 JWT를 통한 Principal 주입을 처리한다.
@@ -26,7 +25,14 @@ import studio.one.base.security.jwt.JwtTokenProvider;
 public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
 
     private final RealtimeStompProperties properties;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final Object jwtTokenProvider;
+    private final Object userDetailsService;
+
+    public RealtimeHandshakeHandler(
+            RealtimeStompProperties properties,
+            Object jwtTokenProvider) {
+        this(properties, jwtTokenProvider, null);
+    }
 
     @Override
     protected Principal determineUser(org.springframework.http.server.ServerHttpRequest request,
@@ -47,11 +53,14 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
             if (token == null) {
                 return super.determineUser(request, wsHandler, attributes);
             }
-            if (!jwtTokenProvider.validateToken(token)) {
+            if (!validateToken(token)) {
                 throw new HandshakeFailureException("Valid JWT bearer token is required");
             }
-            String name = jwtTokenProvider.getUsername(token);
-            return new SimplePrincipal(name);
+            Principal principal = authenticate(token);
+            if (principal == null) {
+                throw new HandshakeFailureException("JWT handshake failed");
+            }
+            return principal;
         } catch (Exception ex) {
             log.debug("Handshake JWT decode failed: {}", ex.getMessage());
             if (ex instanceof HandshakeFailureException hfe) {
@@ -81,6 +90,33 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
         @Override
         public String getName() {
             return name;
+        }
+    }
+
+    private Principal authenticate(String token) {
+        if (userDetailsService == null) {
+            throw new HandshakeFailureException("JWT-enabled WebSocket connections require a UserDetailsService");
+        }
+        try {
+            Class<?> userDetailsServiceType =
+                    Class.forName("org.springframework.security.core.userdetails.UserDetailsService");
+            Object authentication = jwtTokenProvider.getClass()
+                    .getMethod("getAuthentication", String.class, userDetailsServiceType, boolean.class)
+                    .invoke(jwtTokenProvider, token, userDetailsService, true);
+            return authentication instanceof Principal principal ? principal : null;
+        } catch (ReflectiveOperationException | LinkageError ex) {
+            throw new HandshakeFailureException("JWT handshake failed", ex);
+        }
+    }
+
+    private boolean validateToken(String token) {
+        try {
+            Object result = jwtTokenProvider.getClass()
+                    .getMethod("validateToken", String.class)
+                    .invoke(jwtTokenProvider, token);
+            return Boolean.TRUE.equals(result);
+        } catch (ReflectiveOperationException | LinkageError ex) {
+            return false;
         }
     }
 

@@ -34,6 +34,12 @@ flowchart LR
 `RagPipelineService.index(...)`는 text 정제, chunking, embedding, vector 저장을 순서대로 수행한다.
 `ChunkingOrchestrator`가 있으면 이를 우선하고 없으면 legacy `TextChunker`를 사용한다.
 
+색인과 재색인, 재시도, 취소, 삭제 같은 RAG 변경 작업은 `services:ai_rag`의 명시적 `write`
+정책과 object scope별 mutation 권한을 모두 요구한다. `write` 정책이 없는 principal은 기존
+endpoint authorization의 read fallback으로 RAG 변경 작업을 수행할 수 없다.
+범용 `/rag/index` 요청은 metadata에 `objectType`과 `objectId`를 모두 포함해야 하며, 둘 중 하나가
+없거나 빈 값이면 변경 권한이 승인되지 않는다.
+
 새로운 소비 모듈은 다음 값을 명시해야 한다.
 
 - 안정적인 `documentId`
@@ -54,6 +60,9 @@ flowchart LR
 5. 대용량 문서는 chunk를 batch upsert해 전체 embedding 목록을 메모리에 보관하지 않는다.
 
 구조화 경로와 fallback 경로는 요청의 embedding 선택과 object scope를 동일하게 전달해야 한다.
+attachment source 색인 요청은 `features:attachment` 명시적 write 권한과 실제 attachment object 변경
+권한을 모두 요구한다. `sourceType=attachment`의 `metadata.attachmentId`는 인가된 `objectType=attachment`,
+`objectId`와 같은 attachment를 가리켜야 하며, 불일치하면 source 이름 조회, job 저장, 실행 전에 거부한다.
 상세 API는
 [Content Embedding Pipeline](../../studio-application-modules/content-embedding-pipeline/README.md)을
 참고한다.

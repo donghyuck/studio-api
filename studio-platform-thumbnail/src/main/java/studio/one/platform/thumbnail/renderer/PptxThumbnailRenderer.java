@@ -88,9 +88,6 @@ public class PptxThumbnailRenderer implements ThumbnailRenderer {
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
-                if (entry.isDirectory()) {
-                    continue;
-                }
                 long entryBytes = readBounded(zip, maxEntryBytes, entry.getName());
                 totalBytes += entryBytes;
                 if (totalBytes > maxSourceBytes) {

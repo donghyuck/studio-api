@@ -42,7 +42,15 @@ public class EndpointAuthorizationImpl {
      * @return {@code true} if the user is authorized, {@code false} otherwise
      */
     public boolean can(String resource, String action) {
-        return check(resourceKey(resource), normalizeAction(action));
+        return check(resourceKey(resource), normalizeAction(action), true);
+    }
+
+    /**
+     * Checks authorization without action fallback. This is intended for mutation
+     * paths that must require an explicit policy for the requested action.
+     */
+    public boolean canStrict(String resource, String action) {
+        return check(resourceKey(resource), normalizeAction(action), false);
     }
 
     /**
@@ -54,7 +62,14 @@ public class EndpointAuthorizationImpl {
      * @return {@code true} if the user is authorized, {@code false} otherwise
      */
     public boolean can(String domain, String component, String action) {
-        return check(resourceKey(domain, component), normalizeAction(action));
+        return check(resourceKey(domain, component), normalizeAction(action), true);
+    }
+
+    /**
+     * Checks authorization without action fallback.
+     */
+    public boolean canStrict(String domain, String component, String action) {
+        return check(resourceKey(domain, component), normalizeAction(action), false);
     }
 
     /**
@@ -71,7 +86,7 @@ public class EndpointAuthorizationImpl {
             return false;
         String key = resourceKey(resource);
         for (String a : actions)
-            if (check(key, normalizeAction(a)))
+            if (check(key, normalizeAction(a), true))
                 return true;
         return false;
     }
@@ -91,14 +106,14 @@ public class EndpointAuthorizationImpl {
             return false;
         String key = resourceKey(domain, component);
         for (String a : actions)
-            if (check(key, normalizeAction(a)))
+            if (check(key, normalizeAction(a), true))
                 return true;
         return false;
     }
 
     // ===== Core =====
 
-    private boolean check(String resourceKey, String action) {
+    private boolean check(String resourceKey, String action, boolean allowWriteReadFallback) {
         Authentication auth = currentAuth();
         if (auth == null || !auth.isAuthenticated() || auth.getAuthorities() == null) {
             log.trace("AuthZ DENY (unauthenticated): resource={}, action={}", resourceKey, action);
@@ -124,7 +139,7 @@ public class EndpointAuthorizationImpl {
         // 3) 정책 조회 + write→read 폴백
         List<String> required = safe(registry.requiredRoles(resourceKey, action));
         log.debug("resource={}, action={} are required roles={}.", resourceKey, action, required);
-        if (required.isEmpty() && "write".equals(action)) {
+        if (allowWriteReadFallback && required.isEmpty() && "write".equals(action)) {
             required = safe(registry.requiredRoles(resourceKey, "read"));
         }
         

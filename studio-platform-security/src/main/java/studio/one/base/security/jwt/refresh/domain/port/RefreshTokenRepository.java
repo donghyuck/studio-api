@@ -49,4 +49,18 @@ public interface RefreshTokenRepository {
      * Finds a token by its public selector.
      */
     Optional<RefreshToken> findBySelector(String selector);
+
+    /**
+     * Atomically marks an active token as revoked.
+     *
+     * @return the number of rows affected
+     */
+    int revokeIfActive(Long id, String selector);
+
+    /**
+     * Links a revoked predecessor to its successor.
+     *
+     * @return the number of rows affected
+     */
+    int linkReplacement(Long predecessorId, String predecessorSelector, RefreshToken successor);
 }

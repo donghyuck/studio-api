@@ -77,7 +77,7 @@ public class RagController {
      * Indexes a document for later retrieval.
      * <pre>
      * POST /api/mgmt/ai/rag/index
-     * Authorization: Bearer &lt;token&gt;   (requires services:ai_rag read)
+     * Authorization: Bearer &lt;token&gt;   (requires explicit services:ai_rag write and object write)
      * {
      *   "documentId": "doc-123",
      *   "text": "Full text to embed",
@@ -90,7 +90,8 @@ public class RagController {
      * </pre>
      */
     @PostMapping("/index")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@ragObjectAuthorizationRouter.canWriteRagService()"
+            + " and @ragObjectAuthorizationRouter.canWrite(#request)")
     public ResponseEntity<Void> index(@Valid @RequestBody IndexRequest request) {
         Map<String, Object> metadata = request.metadata() == null ? Map.of() : request.metadata();
         List<String> keywords = request.keywords() == null ? List.of() : request.keywords();
@@ -124,10 +125,12 @@ public class RagController {
      * Performs a semantic search across indexed content.
      * <pre>
      * POST /api/mgmt/ai/rag/search
-     * Authorization: Bearer &lt;token&gt;   (requires services:ai_rag read)
+     * Authorization: Bearer &lt;token&gt;   (requires services:ai_rag read and object read)
      * {
      *   "query": "find me something",
-     *   "topK": 5
+     *   "topK": 5,
+     *   "objectType": "attachment",
+     *   "objectId": "42"
      * }
      *
      * 200 OK
@@ -139,7 +142,8 @@ public class RagController {
      * </pre>
      */
     @PostMapping("/search")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+            + " and @ragObjectAuthorizationRouter.canRead(#request.objectType(), #request.objectId())")
     public ResponseEntity<SearchResponse> search(@Valid @RequestBody SearchRequest request) {
         List<RagSearchResult> results;
         try {
@@ -185,7 +189,8 @@ public class RagController {
         String normalizedObjectType = normalize(objectType);
         String normalizedObjectId = normalize(objectId);
         if (normalizedObjectType == null && normalizedObjectId == null) {
-            return MetadataFilter.empty();
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "RAG search requires objectType and objectId");
         }
         if (normalizedObjectType == null || normalizedObjectId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,

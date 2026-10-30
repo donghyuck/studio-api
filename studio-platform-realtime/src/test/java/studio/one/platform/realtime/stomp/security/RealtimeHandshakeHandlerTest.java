@@ -1,6 +1,9 @@
 package studio.one.platform.realtime.stomp.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -11,7 +14,14 @@ import java.util.HashMap;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.ServerHttpRequest;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.socket.WebSocketHandler;
+import org.springframework.web.socket.server.HandshakeFailureException;
 
 import studio.one.base.security.jwt.JwtTokenProvider;
 import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
@@ -21,8 +31,10 @@ class RealtimeHandshakeHandlerTest {
     @Test
     void authenticatesAccessTokenFromQueryParameter() {
         JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        UserDetails details = User.withUsername("admin").password("n/a").roles("MAIL").build();
         when(tokenProvider.validateToken("query-token")).thenReturn(true);
-        when(tokenProvider.getUsername("query-token")).thenReturn("admin");
+        when(tokenProvider.getAuthentication(eq("query-token"), any(UserDetailsService.class), eq(true)))
+                .thenReturn(new TestingAuthenticationToken(details, "", "ROLE_MAIL"));
 
         Principal principal = handler(tokenProvider).determineUser(
                 request("http://localhost/ws?access_token=query-token", new HttpHeaders()),
@@ -30,13 +42,18 @@ class RealtimeHandshakeHandlerTest {
                 new HashMap<>());
 
         assertThat(principal.getName()).isEqualTo("admin");
+        assertThat(((Authentication) principal).getAuthorities())
+                .extracting("authority")
+                .containsExactly("ROLE_MAIL");
     }
 
     @Test
     void authorizationHeaderTakesPrecedenceOverQueryParameter() {
         JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        UserDetails details = User.withUsername("header-user").password("n/a").roles("MAIL").build();
         when(tokenProvider.validateToken("header-token")).thenReturn(true);
-        when(tokenProvider.getUsername("header-token")).thenReturn("header-user");
+        when(tokenProvider.getAuthentication(eq("header-token"), any(UserDetailsService.class), eq(true)))
+                .thenReturn(new TestingAuthenticationToken(details, "", "ROLE_MAIL"));
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth("header-token");
 
@@ -46,6 +63,23 @@ class RealtimeHandshakeHandlerTest {
                 new HashMap<>());
 
         assertThat(principal.getName()).isEqualTo("header-user");
+    }
+
+    @Test
+    void rejectsInactiveUserDetailsFromHandshakeToken() {
+        JwtTokenProvider tokenProvider = mock(JwtTokenProvider.class);
+        when(tokenProvider.validateToken("disabled-token")).thenReturn(true);
+        when(tokenProvider.getAuthentication(eq("disabled-token"), any(UserDetailsService.class), eq(true)))
+                .thenThrow(new DisabledException("disabled"));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth("disabled-token");
+
+        assertThatThrownBy(() -> handler(tokenProvider).determineUser(
+                request("http://localhost/ws", headers),
+                mock(WebSocketHandler.class),
+                new HashMap<>()))
+                .isInstanceOf(HandshakeFailureException.class);
     }
 
     @Test
@@ -62,7 +96,8 @@ class RealtimeHandshakeHandlerTest {
         RealtimeStompProperties properties = new RealtimeStompProperties();
         properties.setJwtEnabled(true);
         properties.setRejectAnonymous(true);
-        return new TestableRealtimeHandshakeHandler(properties, tokenProvider);
+        UserDetails details = User.withUsername("admin").password("n/a").roles("MAIL").build();
+        return new TestableRealtimeHandshakeHandler(properties, tokenProvider, username -> details);
     }
 
     private ServerHttpRequest request(String uri, HttpHeaders headers) {
@@ -75,8 +110,9 @@ class RealtimeHandshakeHandlerTest {
     private static final class TestableRealtimeHandshakeHandler extends RealtimeHandshakeHandler {
         private TestableRealtimeHandshakeHandler(
                 RealtimeStompProperties properties,
-                JwtTokenProvider jwtTokenProvider) {
-            super(properties, jwtTokenProvider);
+                JwtTokenProvider jwtTokenProvider,
+                UserDetailsService userDetailsService) {
+            super(properties, jwtTokenProvider, userDetailsService);
         }
 
         @Override

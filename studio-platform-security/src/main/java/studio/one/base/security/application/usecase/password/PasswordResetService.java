@@ -63,7 +63,7 @@ public class PasswordResetService {
     @Transactional
     public void resetPassword(String token, String newPassword) {
         Long userId = extractUserId(token);
-        PasswordResetToken tokenEntity = tokenRepository.findActiveByUserId(userId)
+        PasswordResetToken tokenEntity = tokenRepository.findLatestByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
         if (!passwordEncoder.matches(token, tokenEntity.getToken())) {
             throw new IllegalArgumentException("Invalid token");
@@ -74,15 +74,17 @@ public class PasswordResetService {
         if (tokenEntity.getExpiresAt().isBefore(Instant.now())) {
             throw new IllegalArgumentException("Token expired");
         }
+        if (!tokenRepository.claimLatestUnused(tokenEntity.getId(), tokenEntity.getUserId(),
+                tokenEntity.getCreatedAt())) {
+            throw new IllegalArgumentException("Invalid token");
+        }
         User user = userService.get(tokenEntity.getUserId());
         userService.resetPassword(user.getUserId(), newPassword, user.getUsername(), "사용자에 의한 비밀번호 재성정");
-        tokenEntity.setUsed(true);
-        tokenRepository.save(tokenEntity);
     }
 
     public boolean validateToken(String token) {
         try {
-            return tokenRepository.findActiveByUserId(extractUserId(token))
+            return tokenRepository.findLatestByUserId(extractUserId(token))
                     .filter(t -> passwordEncoder.matches(token, t.getToken()))
                     .filter(t -> !t.isUsed())
                     .filter(t -> t.getExpiresAt().isAfter(Instant.now()))

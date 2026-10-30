@@ -37,7 +37,7 @@ public class PasswordResetTokenJdbcRepository implements PasswordResetTokenRepos
         this.template = template;
         this.insert = new SimpleJdbcInsert(template.getJdbcTemplate())
                 .withTableName(TABLE)
-                .usingGeneratedKeyColumns("ID");
+                .usingGeneratedKeyColumns("id");
     }
 
     @Override
@@ -55,9 +55,45 @@ public class PasswordResetTokenJdbcRepository implements PasswordResetTokenRepos
                   from %s
                  where USER_ID = :userId
                    and USED = false
-                 order by CREATED_AT desc
+                 order by CREATED_AT desc, ID desc
                 """.formatted(TABLE);
         return template.query(sql, Map.of("userId", userId), ROW_MAPPER).stream().findFirst();
+    }
+
+    @Override
+    public Optional<PasswordResetToken> findLatestByUserId(Long userId) {
+        String sql = """
+                select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT
+                  from %s
+                 where USER_ID = :userId
+                 order by CREATED_AT desc, ID desc
+                """.formatted(TABLE);
+        return template.query(sql, Map.of("userId", userId), ROW_MAPPER).stream().findFirst();
+    }
+
+    @Override
+    public boolean claimLatestUnused(Long id, Long userId, Instant createdAt) {
+        String sql = """
+                update %s
+                   set USED = true
+                 where ID = :id
+                   and USER_ID = :userId
+                   and USED = false
+                   and not exists (
+                       select 1
+                         from %s newer
+                        where newer.USER_ID = :userId
+                          and (
+                              newer.CREATED_AT > :createdAt
+                              or (newer.CREATED_AT = :createdAt and newer.ID > :id)
+                          )
+                   )
+                """.formatted(TABLE, TABLE);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("userId", userId)
+                .addValue("createdAt", Timestamp.from(createdAt));
+        return template.update(sql, params) == 1;
     }
 
     private PasswordResetToken insert(PasswordResetToken token) {

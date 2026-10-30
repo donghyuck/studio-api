@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
@@ -25,10 +26,13 @@ import java.util.function.Supplier;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -50,6 +54,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
+import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -129,6 +134,7 @@ class AttachmentEmbeddingPipelineControllerTest {
                 provider(ragPipelineService),
                 provider(ragIndexJobService),
                 provider(RagPipelineOptions.defaults()),
+                provider(new TestRagObjectAuthorizer("1")),
                 attachmentRagIndexService,
                 provider((I18n) null));
         ReflectionTestUtils.setField(controller, "allowClientDebug", allowClientDebug);
@@ -207,6 +213,7 @@ class AttachmentEmbeddingPipelineControllerTest {
                 provider(ragPipelineService),
                 provider((RagIndexJobService) null),
                 provider(new RagPipelineOptions(0.7d, 0.3d, 0.42d, 0.15d, true, true, 9, 20, 100)),
+                provider((studio.one.platform.ai.core.rag.RagObjectAuthorizer) null),
                 attachmentRagIndexService,
                 provider((I18n) null));
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
@@ -290,6 +297,39 @@ class AttachmentEmbeddingPipelineControllerTest {
                     && "text/plain".equals(metadata.get("contentType"))
                     && Long.valueOf(5L).equals(metadata.get("size"));
         }), any(RagIndexProgressListener.class));
+    }
+
+    @Test
+    void ragIndexEndpointRequiresStrictFeatureWriteAndAttachmentMutation() throws Exception {
+        Method method = AttachmentEmbeddingPipelineController.class.getMethod(
+                "ragIndex", long.class, AttachmentRagIndexRequestDto.class);
+
+        String expression = method.getAnnotation(PreAuthorize.class).value();
+        assertThat(expression).isEqualTo("@endpointAuthz.canStrict('features:attachment','write')");
+    }
+
+    @Test
+    void canWriteAttachmentDelegatesToAttachmentObjectAuthorizer() {
+        AttachmentRagIndexService attachmentRagIndexService = new AttachmentRagIndexService(
+                attachmentService,
+                provider(extractionService),
+                provider(ragPipelineService),
+                provider((AttachmentStructuredRagIndexer) null),
+                provider((RagChunkStageStore) null));
+        AttachmentEmbeddingPipelineController controller = new AttachmentEmbeddingPipelineController(
+                attachmentService,
+                provider(extractionService),
+                provider(embeddingPort),
+                provider((VectorStorePort) null),
+                provider(ragPipelineService),
+                provider((RagIndexJobService) null),
+                provider(RagPipelineOptions.defaults()),
+                provider(new TestRagObjectAuthorizer("1")),
+                attachmentRagIndexService,
+                provider((I18n) null));
+
+        assertThat(controller.canWriteAttachment(1L)).isTrue();
+        assertThat(controller.canWriteAttachment(2L)).isFalse();
     }
 
     @Test
@@ -613,6 +653,93 @@ class AttachmentEmbeddingPipelineControllerTest {
                                 && "2103".equals(request.metadata().get("ownerObjectType"))
                                 && "1".equals(request.metadata().get("ownerObjectId"))),
                 any(RagIndexProgressListener.class));
+    }
+
+    @Test
+    void ragIndexRejectsMismatchedMetadataAttachmentIdBeforeCreatingJob() throws Exception {
+        RagIndexJobService jobService = mock(RagIndexJobService.class);
+        configureMockMvc(null, false, jobService);
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "metadata": {
+                                    "attachmentId": "2"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+
+        verify(jobService, never()).createJob(any(RagIndexJobCreateRequest.class), any(RagIndexJobSourceRequest.class));
+        verifyNoInteractions(attachmentService, extractionService, ragPipelineService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"\"\"", "\"   \"", "\"abc\"", "\"9223372036854775808\"", "0", "-1"})
+    void ragIndexRejectsInvalidMetadataAttachmentIdBeforeDownstream(String metadataAttachmentId) throws Exception {
+        RagIndexJobService jobService = mock(RagIndexJobService.class);
+        configureMockMvc(null, false, jobService);
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "metadata": {
+                                    "attachmentId": %s
+                                  }
+                                }
+                                """.formatted(metadataAttachmentId)))
+                .andExpect(status().isBadRequest());
+
+        verify(jobService, never()).createJob(any(RagIndexJobCreateRequest.class), any(RagIndexJobSourceRequest.class));
+        verifyNoInteractions(attachmentService, extractionService, ragPipelineService);
+    }
+
+    @Test
+    void ragIndexAllowsNullMetadataAttachmentIdAsOmitted() throws Exception {
+        setupSimpleIndexAttachment();
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "metadata": {
+                                    "attachmentId": null,
+                                    "filename": "caller.txt"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+
+        verify(ragPipelineService).index(argThat((RagIndexRequest request) -> {
+            Map<String, Object> metadata = request.metadata();
+            return Long.valueOf(1L).equals(metadata.get("attachmentId"))
+                    && "caller.txt".equals(metadata.get("filename"))
+                    && "attachment".equals(metadata.get("objectType"))
+                    && "1".equals(metadata.get("objectId"));
+        }), any(RagIndexProgressListener.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1", "\"1\""})
+    void ragIndexAllowsMatchingMetadataAttachmentId(String metadataAttachmentId) throws Exception {
+        setupSimpleIndexAttachment();
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "documentId": "custom-doc",
+                                  "metadata": {
+                                    "attachmentId": %s
+                                  }
+                                }
+                                """.formatted(metadataAttachmentId)))
+                .andExpect(status().isAccepted());
+
+        verify(ragPipelineService).index(argThat((RagIndexRequest request) ->
+                "custom-doc".equals(request.documentId())), any(RagIndexProgressListener.class));
     }
 
     @Test
@@ -1068,7 +1195,48 @@ class AttachmentEmbeddingPipelineControllerTest {
             Supplier<T> defaultSupplier = invocation.getArgument(0);
             return value == null ? defaultSupplier.get() : value;
         });
+        when(provider.stream())
+                .thenAnswer(invocation -> value == null
+                        ? java.util.stream.Stream.empty()
+                        : java.util.stream.Stream.of(value));
+        when(provider.orderedStream())
+                .thenAnswer(invocation -> value == null
+                        ? java.util.stream.Stream.empty()
+                        : java.util.stream.Stream.of(value));
         return provider;
+    }
+
+    private Attachment setupSimpleIndexAttachment() throws Exception {
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getObjectType()).thenReturn(2103);
+        when(attachment.getObjectId()).thenReturn(34L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(5L);
+        when(extractionService.extractText(any(), any(), any(InputStream.class))).thenReturn("hello");
+        return attachment;
+    }
+
+    private record TestRagObjectAuthorizer(String writableObjectId) implements RagObjectAuthorizer {
+
+        @Override
+        public boolean supports(String objectType) {
+            return "attachment".equals(objectType);
+        }
+
+        @Override
+        public boolean canRead(String objectType, String objectId) {
+            return false;
+        }
+
+        @Override
+        public boolean canWrite(String objectType, String objectId) {
+            return "attachment".equals(objectType) && writableObjectId.equals(objectId);
+        }
     }
 
     private Map<String, Object> mergedChunkAttributes(Map<String, Object> metadata) {

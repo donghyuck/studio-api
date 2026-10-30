@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -101,11 +102,16 @@ class RagIndexJobControllerTest {
         Method cancelJob = RagIndexJobController.class.getMethod("cancelJob", String.class);
         Method deleteObject = RagIndexJobController.class.getMethod("deleteObject", String.class, String.class);
 
-        assertThat(preAuthorizeValue(createJob)).contains("services:ai_rag','write");
-        assertThat(preAuthorizeValue(retryJob)).contains("services:ai_rag','write");
-        assertThat(preAuthorizeValue(cancelJob)).contains("services:ai_rag','write");
-        assertThat(preAuthorizeValue(deleteObject)).contains("services:ai_rag','write");
+        assertThat(preAuthorizeValue(createJob)).contains("ragObjectAuthorizationRouter.canWriteRagService");
+        assertThat(preAuthorizeValue(retryJob)).contains("ragObjectAuthorizationRouter.canWriteRagService");
+        assertThat(preAuthorizeValue(cancelJob)).contains("ragObjectAuthorizationRouter.canWriteRagService");
+        assertThat(preAuthorizeValue(deleteObject)).contains("ragObjectAuthorizationRouter.canWriteRagService");
+        assertThat(preAuthorizeValue(createJob)).contains("ragObjectAuthorizationRouter.canWrite(#request.objectType(), #request.objectId())");
+        assertThat(preAuthorizeValue(retryJob)).contains("ragIndexJobEndpointSecurity.canWriteJob");
+        assertThat(preAuthorizeValue(cancelJob)).contains("ragIndexJobEndpointSecurity.canWriteJob");
+        assertThat(preAuthorizeValue(deleteObject)).contains("ragObjectAuthorizationRouter.canWrite(#objectType, #objectId)");
         assertThat(preAuthorizeValue(deleteObject)).contains("features:attachment','write");
+        assertThat(preAuthorizeValue(deleteObject)).contains("canStrict");
     }
 
     @Test
@@ -162,6 +168,145 @@ class RagIndexJobControllerTest {
         assertThat(jobService.createdRequest.documentId()).isEqualTo("doc-1");
         assertThat(jobService.createdRequest.sourceName()).isEqualTo("sample.pdf");
         assertThat(jobService.createdSourceRequest.metadata()).containsEntry("attachmentId", "42");
+    }
+
+    @Test
+    void createJobRejectsAttachmentSourceWithDifferentObjectTypeBeforeResolvingName() {
+        CapturingJobService jobService = new CapturingJobService();
+        ThrowingSourceNameResolver resolver = new ThrowingSourceNameResolver();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null,
+                Runnable::run,
+                200,
+                List.of(resolver));
+
+        assertThatThrownBy(() -> controller.createJob(new RagIndexJobCreateRequestDto(
+                "project",
+                "6",
+                "doc-1",
+                " attachment ",
+                false,
+                null,
+                Map.of("attachmentId", "6"),
+                List.of(),
+                false)))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(403));
+
+        assertThat(jobService.createdRequest).isNull();
+    }
+
+    @Test
+    void createJobRejectsMismatchedAttachmentMetadataBeforeResolvingName() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null,
+                Runnable::run,
+                200,
+                List.of(new ThrowingSourceNameResolver()));
+
+        assertThatThrownBy(() -> controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "6",
+                "doc-1",
+                "attachment",
+                false,
+                "raw text",
+                Map.of("attachmentId", "7"),
+                List.of(),
+                false)))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(403));
+
+        assertThat(jobService.createdRequest).isNull();
+    }
+
+    @Test
+    void createJobRejectsInvalidAttachmentMetadataBeforePersistence() {
+        for (Object invalidAttachmentId : List.of("   ", "abc", "92233720368547758070")) {
+            CapturingJobService jobService = new CapturingJobService();
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("attachmentId", invalidAttachmentId);
+            metadata.put("filename", "sample.pdf");
+            RagIndexJobController controller = new RagIndexJobController(
+                    jobService,
+                    mock(RagPipelineService.class),
+                    null,
+                    Runnable::run,
+                    200,
+                    List.of(new ThrowingSourceNameResolver()));
+
+            assertThatThrownBy(() -> controller.createJob(new RagIndexJobCreateRequestDto(
+                    "attachment",
+                    "6",
+                    "doc-1",
+                    "attachment",
+                    false,
+                    null,
+                    metadata,
+                    List.of(),
+                    false)))
+                    .isInstanceOf(ResponseStatusException.class)
+                    .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(400));
+
+            assertThat(jobService.createdRequest).isNull();
+        }
+    }
+
+    @Test
+    void createJobTreatsNullAttachmentMetadataAsOmittedSelector() {
+        CapturingJobService jobService = new CapturingJobService();
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("attachmentId", null);
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+
+        ResponseEntity<ApiResponse<RagIndexJobDto>> response = controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "custom-doc",
+                "attachment",
+                false,
+                null,
+                metadata,
+                List.of(),
+                false));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(202);
+        assertThat(jobService.createdRequest.documentId()).isEqualTo("custom-doc");
+        assertThat(jobService.createdSourceRequest.metadata()).doesNotContainKey("attachmentId");
+    }
+
+    @Test
+    void createJobAcceptsCanonicalAttachmentSelectorAndCustomDocumentId() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+
+        ResponseEntity<ApiResponse<RagIndexJobDto>> response = controller.createJob(new RagIndexJobCreateRequestDto(
+                " attachment ",
+                "006",
+                "custom-doc",
+                " ATTACHMENT ",
+                false,
+                null,
+                Map.of("attachmentId", 6, "filename", "sample.pdf"),
+                List.of(),
+                false));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(202);
+        assertThat(jobService.createdRequest.objectType()).isEqualTo("attachment");
+        assertThat(jobService.createdRequest.objectId()).isEqualTo("006");
+        assertThat(jobService.createdRequest.documentId()).isEqualTo("custom-doc");
+        assertThat(jobService.createdSourceRequest.metadata()).containsEntry("attachmentId", 6);
     }
 
     @Test

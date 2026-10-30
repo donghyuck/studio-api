@@ -29,6 +29,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -73,16 +74,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain)
             throws ServletException, IOException {
-        try {
-            String token = jwtTokenProvider.resolveToken(request);
-            if (token != null && jwtTokenProvider.validateToken(token)) {
-                var auth = jwtTokenProvider.getAuthentication(token, userDetailsService, true);
-                SecurityContextHolder.getContext().setAuthentication(auth);
+        String token = jwtTokenProvider.resolveToken(request);
+        if (token != null) {
+            try {
+                if (jwtTokenProvider.validateToken(token)) {
+                    var auth = jwtTokenProvider.getAuthentication(token, userDetailsService, true);
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            } catch (JwtTokenException ex) {
+                SecurityContextHolder.clearContext();
+                errorHandler.handle(request, response, ex.getType(), ex.getArgs());
+                return;
+            } catch (AuthenticationException ex) {
+                SecurityContextHolder.clearContext();
+                errorHandler.unauthorized(request, response);
+                return;
             }
-            filterChain.doFilter(request, response);
-        } catch (JwtTokenException ex) {
-            errorHandler.handle(request, response, ex.getType(), ex.getArgs());
         }
+        filterChain.doFilter(request, response);
     }
 
     @Override

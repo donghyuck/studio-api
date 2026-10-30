@@ -99,6 +99,7 @@ public class AclAdministrationService {
 
     public void deleteObjectIdentity(Long id) {
         objectIdentityRepository.deleteById(id);
+        refreshPublisher.publishAfterCommit();
     }
 
     public List<AclEntryResult> listEntries() {

@@ -23,6 +23,7 @@ package studio.one.application.web.controller;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -63,6 +64,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
+import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorDocument;
@@ -114,6 +116,7 @@ public class AttachmentEmbeddingPipelineController {
     private final ObjectProvider<RagPipelineService> ragPipelineProvider;
     private final ObjectProvider<RagIndexJobService> ragIndexJobServiceProvider;
     private final ObjectProvider<RagPipelineOptions> ragPipelineOptionsProvider;
+    private final ObjectProvider<RagObjectAuthorizer> ragObjectAuthorizers;
     private final AttachmentRagIndexService attachmentRagIndexService;
     private final ObjectProvider<I18n> i18nProvider;
 
@@ -257,13 +260,17 @@ public class AttachmentEmbeddingPipelineController {
      * 첨부파일 내용을 RAG 인덱스에 등록한다.
      */
     @PostMapping("/{attachmentId:[\\p{Digit}]+}/rag/index")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','write')")
+    @PreAuthorize("@endpointAuthz.canStrict('features:attachment','write')")
     public ResponseEntity<Void> ragIndex(@PathVariable("attachmentId") long attachmentId,
             @RequestBody(required = false) AttachmentRagIndexRequestDto request)
             throws NotFoundException, IOException {
         if (attachmentId <= 0) {
             return ResponseEntity.badRequest().build();
         }
+        if (!canWriteAttachment(attachmentId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "attachment write permission is required");
+        }
+        validateAttachmentMetadataScope(attachmentId, request);
         if (!attachmentRagIndexService.hasTextExtractor()) {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
         }
@@ -272,7 +279,7 @@ public class AttachmentEmbeddingPipelineController {
                 request == null ? null : request.documentId(),
                 request == null ? null : request.objectType(),
                 request == null ? null : request.objectId(),
-                request == null ? null : request.metadata(),
+                request == null ? null : omitNullAttachmentId(request.metadata()),
                 request == null ? null : request.keywords(),
                 request == null ? null : request.useLlmKeywordExtraction(),
                 request == null ? null : request.embeddingProfileId(),
@@ -292,6 +299,65 @@ public class AttachmentEmbeddingPipelineController {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
         } catch (IOException | RuntimeException ex) {
             throw ex;
+        }
+    }
+
+    boolean canWriteAttachment(long attachmentId) {
+        if (attachmentId <= 0L) {
+            return false;
+        }
+        String objectId = Long.toString(attachmentId);
+        return ragObjectAuthorizers.stream()
+                .filter(authorizer -> authorizer.supports("attachment"))
+                .anyMatch(authorizer -> {
+                    try {
+                        return authorizer.canWrite("attachment", objectId);
+                    } catch (RuntimeException ex) {
+                        return false;
+                    }
+                });
+    }
+
+    private void validateAttachmentMetadataScope(long attachmentId, AttachmentRagIndexRequestDto request) {
+        if (request == null || request.metadata() == null) {
+            return;
+        }
+        if (!request.metadata().containsKey("attachmentId")) {
+            return;
+        }
+        Object requestedAttachmentId = request.metadata().get("attachmentId");
+        if (requestedAttachmentId == null) {
+            return;
+        }
+        long metadataAttachmentId = attachmentId(requestedAttachmentId, "metadata.attachmentId");
+        if (metadataAttachmentId != attachmentId) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "attachment metadata must match the authorized attachment scope");
+        }
+    }
+
+    private Map<String, Object> omitNullAttachmentId(Map<String, Object> metadata) {
+        if (metadata == null || !metadata.containsKey("attachmentId") || metadata.get("attachmentId") != null) {
+            return metadata;
+        }
+        Map<String, Object> copy = new HashMap<>(metadata);
+        copy.remove("attachmentId");
+        return copy;
+    }
+
+    private long attachmentId(Object value, String fieldName) {
+        String text = text(value);
+        if (text == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " is required");
+        }
+        try {
+            long attachmentId = Long.parseLong(text);
+            if (attachmentId <= 0L) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " must be positive");
+            }
+            return attachmentId;
+        } catch (NumberFormatException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, fieldName + " must be numeric", ex);
         }
     }
 
