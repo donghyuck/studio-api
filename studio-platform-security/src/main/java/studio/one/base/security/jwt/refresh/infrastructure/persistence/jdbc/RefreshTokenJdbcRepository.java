@@ -40,7 +40,7 @@ public class RefreshTokenJdbcRepository implements RefreshTokenRepository {
         this.namedTemplate = namedTemplate;
         this.insert = new SimpleJdbcInsert(namedTemplate.getJdbcTemplate())
                 .withTableName(TABLE)
-                .usingGeneratedKeyColumns("ID");
+                .usingGeneratedKeyColumns("id");
     }
 
     @Override
@@ -60,6 +60,39 @@ public class RefreshTokenJdbcRepository implements RefreshTokenRepository {
                  where SELECTOR = :selector
                 """.formatted(TABLE);
         return namedTemplate.query(sql, Map.of("selector", selector), ROW_MAPPER).stream().findFirst();
+    }
+
+    @Override
+    public int revokeIfActive(Long id, String selector) {
+        String sql = """
+                update %s
+                   set REVOKED = :revoked
+                 where ID = :id
+                   and SELECTOR = :selector
+                   and REVOKED = :active
+                """.formatted(TABLE);
+        return namedTemplate.update(sql, Map.of(
+                "id", id,
+                "selector", selector,
+                "revoked", true,
+                "active", false));
+    }
+
+    @Override
+    public int linkReplacement(Long predecessorId, String predecessorSelector, RefreshToken successor) {
+        String sql = """
+                update %s
+                   set REPLACED_BY_ID = :successorId
+                 where ID = :predecessorId
+                   and SELECTOR = :predecessorSelector
+                   and REVOKED = :revoked
+                   and REPLACED_BY_ID is null
+                """.formatted(TABLE);
+        return namedTemplate.update(sql, Map.of(
+                "successorId", successor.getId(),
+                "predecessorId", predecessorId,
+                "predecessorSelector", predecessorSelector,
+                "revoked", true));
     }
 
     private RefreshToken insert(RefreshToken token) {

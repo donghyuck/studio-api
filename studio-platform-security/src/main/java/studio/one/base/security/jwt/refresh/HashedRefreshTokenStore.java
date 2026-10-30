@@ -70,30 +70,19 @@ public class HashedRefreshTokenStore implements RefreshTokenStore {
     @Override
     @Transactional
     public String mint(Long userId, Instant expiresAt) {
-        String selector = UUID.randomUUID().toString();
-        String verifier = UUID.randomUUID().toString() + UUID.randomUUID();
-        String hash = bcrypt.encode(verifier);
-
-        RefreshToken e = RefreshToken.builder().userId(userId).selector(selector).verifierHash(hash).expiresAt(expiresAt).revoked(false).build();
-        refreshTokenRepository.save(e);
-
-        return selector + D_STRING + verifier;
+        IssuedRefreshToken issued = issue(userId, expiresAt);
+        refreshTokenRepository.save(issued.token());
+        return issued.raw();
     }
 
     @Override
     @Transactional
     public String mint(Long userId) {
-
-        String selector = UUID.randomUUID().toString();
-        String verifier = UUID.randomUUID().toString() + UUID.randomUUID();
-        String hash = bcrypt.encode(verifier);
-
         Instant now = Instant.now(clock);
         Instant expiresAt = now.plus(jwtConfig.getRefreshTtl());
-        RefreshToken e = RefreshToken.builder().userId(userId).selector(selector).verifierHash(hash).expiresAt(expiresAt).revoked(false).build();
-        refreshTokenRepository.save(e);
-
-        return selector + D_STRING + verifier;
+        IssuedRefreshToken issued = issue(userId, expiresAt);
+        refreshTokenRepository.save(issued.token());
+        return issued.raw();
     }
 
     @Override
@@ -106,18 +95,20 @@ public class HashedRefreshTokenStore implements RefreshTokenStore {
 
         Instant now = Instant.now(clock);
         Instant effectiveExpiry = current.getExpiresAt().plus(jwtConfig.getRotationGrace());
-         if (current.isRevoked() || effectiveExpiry.isBefore(now)) 
+        if (current.isRevoked() || effectiveExpiry.isBefore(now))
             throw new IllegalStateException("expired or revoked");
         if (!bcrypt.matches(verifier, current.getVerifierHash()))
             throw new IllegalArgumentException("invalid refresh");
-        // 폐기하고 새 토큰 발급
-        current.setRevoked(true);
-        String nextRaw = mint(current.getUserId());
-        // replacedBy 연결(선택)
-        String[] nextParts = split(nextRaw);
-        refreshTokenRepository.findBySelector(nextParts[0]).ifPresent(current::setReplacedBy);
-        refreshTokenRepository.save(current);
-        return nextRaw ;
+        int claimed = refreshTokenRepository.revokeIfActive(current.getId(), current.getSelector());
+        if (claimed != 1)
+            throw new IllegalStateException("expired or revoked");
+
+        IssuedRefreshToken next = issue(current.getUserId(), now.plus(jwtConfig.getRefreshTtl()));
+        RefreshToken successor = refreshTokenRepository.save(next.token());
+        int linked = refreshTokenRepository.linkReplacement(current.getId(), current.getSelector(), successor);
+        if (linked != 1)
+            throw new IllegalStateException("refresh token replacement link failed");
+        return next.raw();
     }
 
     @Override
@@ -125,8 +116,7 @@ public class HashedRefreshTokenStore implements RefreshTokenStore {
     public void revoke(String raw) {
         String[] parts = split(raw);
         refreshTokenRepository.findBySelector(parts[0]).ifPresent(e -> {
-            e.setRevoked(true);
-            refreshTokenRepository.save(e);
+            refreshTokenRepository.revokeIfActive(e.getId(), e.getSelector());
         });
     }
 
@@ -143,5 +133,22 @@ public class HashedRefreshTokenStore implements RefreshTokenStore {
         if (!bcrypt.matches(verifier, e.getVerifierHash()))
             throw new IllegalArgumentException("invalid refresh");
         return e.getUserId();
+    }
+
+    private IssuedRefreshToken issue(Long userId, Instant expiresAt) {
+        String selector = UUID.randomUUID().toString();
+        String verifier = UUID.randomUUID().toString() + UUID.randomUUID();
+        String hash = bcrypt.encode(verifier);
+        RefreshToken token = RefreshToken.builder()
+                .userId(userId)
+                .selector(selector)
+                .verifierHash(hash)
+                .expiresAt(expiresAt)
+                .revoked(false)
+                .build();
+        return new IssuedRefreshToken(token, selector + D_STRING + verifier);
+    }
+
+    private record IssuedRefreshToken(RefreshToken token, String raw) {
     }
 }
