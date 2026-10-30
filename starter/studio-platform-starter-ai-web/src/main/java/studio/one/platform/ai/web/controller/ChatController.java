@@ -1527,8 +1527,12 @@ public class ChatController {
         if ((objectType == null) != (objectId == null)) {
             return false;
         }
-        if (objectType != null && !authorizationRouter.canRead(objectType, objectId)) {
-            return false;
+        boolean authorizedScope = false;
+        if (objectType != null) {
+            if (!authorizationRouter.canRead(objectType, objectId)) {
+                return false;
+            }
+            authorizedScope = true;
         }
 
         Object teamValue = metadata.get("teamRagScope");
@@ -1576,11 +1580,12 @@ public class ChatController {
                     citations)) {
                 return false;
             }
+            authorizedScope = true;
         }
 
         Object indexedValue = metadata.get("indexedWebSources");
         if (indexedValue == null) {
-            return true;
+            return authorizedScope;
         }
         if (!(indexedValue instanceof Map<?, ?> indexedMetadata)) {
             return false;
@@ -1590,8 +1595,11 @@ public class ChatController {
             return false;
         }
         Object countValue = indexedMetadata.get("count");
-        if (countValue instanceof Number count && count.intValue() != sources.size()) {
+        if (!(countValue instanceof Number count) || count.intValue() != sources.size()) {
             return false;
+        }
+        if (sources.isEmpty()) {
+            return authorizedScope;
         }
         for (Object sourceValue : sources) {
             if (!(sourceValue instanceof Map<?, ?> source)) {

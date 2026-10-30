@@ -31,15 +31,25 @@ class ChatControllerStoredRagScopeAuthorizationTest {
     }
 
     @Test
-    void supportsWebOnlyAndUnscopedRagTurnsWithServicePermission() {
+    void supportsWebOnlyAndRejectsUnscopedRagTurnsWithServicePermission() {
         RagObjectAuthorizationRouter router = mock(RagObjectAuthorizationRouter.class);
         when(router.canReadRagService()).thenReturn(true);
+        when(router.canRead("attachment", "11")).thenReturn(true);
         when(router.canRead("web_source", "source-a")).thenReturn(true);
 
         assertThat(ChatController.canReadStoredRagScope(
                 Map.of("indexedWebSources", indexedSources("source-a")),
                 router)).isTrue();
-        assertThat(ChatController.canReadStoredRagScope(Map.of(), router)).isTrue();
+        assertThat(ChatController.canReadStoredRagScope(Map.of(), router)).isFalse();
+        assertThat(ChatController.canReadStoredRagScope(
+                Map.of("indexedWebSources", Map.of("count", 0, "sources", List.of())),
+                router)).isFalse();
+        assertThat(ChatController.canReadStoredRagScope(
+                Map.of(
+                        "ragObjectType", "attachment",
+                        "ragObjectId", "11",
+                        "indexedWebSources", Map.of("count", 0, "sources", List.of())),
+                router)).isTrue();
     }
 
     @Test
@@ -55,6 +65,12 @@ class ChatControllerStoredRagScopeAuthorizationTest {
                 router)).isFalse();
         assertThat(ChatController.canReadStoredRagScope(
                 Map.of("indexedWebSources", "invalid"),
+                router)).isFalse();
+        assertThat(ChatController.canReadStoredRagScope(
+                Map.of(
+                        "ragObjectType", "attachment",
+                        "ragObjectId", "11",
+                        "indexedWebSources", Map.of("sources", List.of())),
                 router)).isFalse();
     }
 

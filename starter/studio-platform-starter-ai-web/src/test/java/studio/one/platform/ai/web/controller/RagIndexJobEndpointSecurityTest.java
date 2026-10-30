@@ -15,6 +15,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobLog;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
+import studio.one.platform.ai.core.rag.RagObjectAuthorizer;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
@@ -87,6 +88,40 @@ class RagIndexJobEndpointSecurityTest {
 
         assertThat(security.isAttachmentObject("attachment")).isTrue();
         assertThat(security.isAttachmentObject("article")).isFalse();
+    }
+
+    @Test
+    void canWriteJobRequiresStoredObjectWriteAuthorization() {
+        RagIndexJob job = RagIndexJob.pending(
+                "job-1",
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                Instant.parse("2026-04-26T00:00:00Z"));
+        RagIndexJobEndpointSecurity security = new RagIndexJobEndpointSecurity(new StubJobService(job));
+        RagObjectAuthorizationRouter router = org.mockito.Mockito.mock(RagObjectAuthorizationRouter.class);
+        org.mockito.Mockito.when(router.canWrite("attachment", "42")).thenReturn(true);
+
+        assertThat(security.canWriteJob("job-1", router)).isTrue();
+    }
+
+    @Test
+    void canWriteJobFailsClosedForMissingJobOrScope() {
+        RagIndexJobEndpointSecurity missing = new RagIndexJobEndpointSecurity(new StubJobService(null));
+        RagObjectAuthorizationRouter router = org.mockito.Mockito.mock(RagObjectAuthorizationRouter.class);
+
+        assertThat(missing.canWriteJob("job-1", router)).isFalse();
+
+        RagIndexJob unscoped = RagIndexJob.pending(
+                "job-1",
+                null,
+                null,
+                "doc-1",
+                "raw",
+                Instant.parse("2026-04-26T00:00:00Z"));
+        RagIndexJobEndpointSecurity noScope = new RagIndexJobEndpointSecurity(new StubJobService(unscoped));
+        assertThat(noScope.canWriteJob("job-1", router)).isFalse();
     }
 
     private record StubJobService(RagIndexJob job) implements RagIndexJobService {

@@ -40,6 +40,10 @@ public final class AttachmentRagObjectAuthorizer implements RagObjectAuthorizer 
 
     @Override
     public boolean canRead(String objectType, String objectId) {
+        return canAccess(objectId, AttachmentOwnerAccessAction.READ);
+    }
+
+    private boolean canAccess(String objectId, AttachmentOwnerAccessAction action) {
         try {
             long attachmentId = Long.parseLong(objectId);
             if (attachmentId <= 0) {
@@ -52,8 +56,35 @@ public final class AttachmentRagObjectAuthorizer implements RagObjectAuthorizer 
                     principal,
                     ownerAccessAuthorizers,
                     objectTypeResolver,
-                    AttachmentOwnerAccessAction.READ);
+                    action);
             return true;
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean canWrite(String objectType, String objectId) {
+        try {
+            long attachmentId = Long.parseLong(objectId);
+            if (attachmentId <= 0) {
+                return false;
+            }
+            Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+            ApplicationPrincipal principal = AttachmentAccessSupport.requirePrincipal(principalResolverProvider);
+            if (AttachmentAccessSupport.isAdmin(principal)) {
+                return true;
+            }
+            if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(
+                    attachment.getObjectType(), objectTypeResolver)) {
+                return java.util.Objects.equals(attachment.getCreatedBy(), principal.getUserId());
+            }
+            return ownerAccessAuthorizers.orderedStream()
+                    .filter(authorizer -> authorizer.supports(attachment.getObjectType()))
+                    .anyMatch(authorizer -> authorizer.canIndex(
+                            attachment.getObjectType(),
+                            attachment.getObjectId(),
+                            principal));
         } catch (RuntimeException ex) {
             return false;
         }

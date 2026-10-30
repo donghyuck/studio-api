@@ -37,6 +37,10 @@ RAG job API에서 현재 단계와 로그를 확인한다.
 원문 chunk를 확인할 때는 vector search 대신 chunk inspection API를 사용하면 query embedding provider를
 호출하지 않는다.
 
+관리용 search와 chunk/metadata 조회 API는 `services:ai_rag:read`와 대상 object read 권한을 함께 요구한다.
+`POST /rag/search`는 `objectType`과 `objectId`를 모두 지정한 scoped 검색만 허용한다. job chunk 조회는 요청
+파라미터가 아니라 저장된 job의 object scope로 권한을 확인하며, 저장된 scope가 비어 있거나 부분값이면 거부한다.
+
 ### 3. Retrieval
 
 - 요청의 `objectType`/`objectId`가 색인 metadata와 같은지 확인한다.

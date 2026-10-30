@@ -28,6 +28,15 @@ public class WebKnowledgeRagObjectAuthorizer implements RagObjectAuthorizer {
 
     @Override
     public boolean canRead(String objectType, String objectId) {
+        return canAccess(objectType, objectId, WorkspacePermissionActions.READ);
+    }
+
+    @Override
+    public boolean canWrite(String objectType, String objectId) {
+        return canAccess(objectType, objectId, WorkspacePermissionActions.UPDATE);
+    }
+
+    private boolean canAccess(String objectType, String objectId, String action) {
         if (!supports(objectType) || objectId == null || objectId.isBlank()) {
             return false;
         }
@@ -38,7 +47,7 @@ public class WebKnowledgeRagObjectAuthorizer implements RagObjectAuthorizer {
         return sources.findById(objectId)
                 .filter(source -> !source.archived())
                 .map(source -> permissions.isGranted(
-                        source.workspaceId(), principal.getUserId(), WorkspacePermissionActions.READ))
+                        source.workspaceId(), principal.getUserId(), action))
                 .orElse(false);
     }
 }

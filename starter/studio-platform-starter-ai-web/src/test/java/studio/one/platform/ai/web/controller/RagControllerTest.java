@@ -12,6 +12,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -66,6 +67,17 @@ class RagControllerTest {
     }
 
     @Test
+    void indexEndpointRequiresStrictRagWriteAndObjectWriteAuthorization() throws NoSuchMethodException {
+        PreAuthorize preAuthorize = RagController.class
+                .getMethod("index", IndexRequest.class)
+                .getAnnotation(PreAuthorize.class);
+
+        assertThat(preAuthorize.value()).contains("ragObjectAuthorizationRouter.canWriteRagService");
+        assertThat(preAuthorize.value()).contains("ragObjectAuthorizationRouter.canWrite(#request)");
+        assertThat(preAuthorize.value()).doesNotContain("services:ai_rag','read");
+    }
+
+    @Test
     void searchMapsObjectFilterToCoreRequest() {
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
         RagController controller = new RagController(ragPipelineService);
@@ -90,7 +102,7 @@ class RagControllerTest {
         when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of());
 
         controller.search(new SearchRequest(
-                "humanities", 3, null, null, null, null, null, null, "humanities-text-v1"));
+                "humanities", 3, "attachment", "42", null, null, null, null, "humanities-text-v1"));
 
         verify(ragPipelineService).search(captor.capture());
         assertThat(captor.getValue().embeddingDeploymentId()).isEqualTo("humanities-text-v1");
@@ -120,6 +132,17 @@ class RagControllerTest {
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> controller.search(new SearchRequest("hello", 3, "attachment", null)));
+
+        assertThat(exception.getStatusCode().value()).isEqualTo(400);
+    }
+
+    @Test
+    void searchRejectsEmptyObjectScopeBeforeSearching() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagController controller = new RagController(ragPipelineService);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.search(new SearchRequest("hello", 3, null, null)));
 
         assertThat(exception.getStatusCode().value()).isEqualTo(400);
     }

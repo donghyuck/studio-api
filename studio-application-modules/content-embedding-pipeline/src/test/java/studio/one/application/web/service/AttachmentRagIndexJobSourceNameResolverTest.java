@@ -2,6 +2,7 @@ package studio.one.application.web.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,11 +51,11 @@ class AttachmentRagIndexJobSourceNameResolverTest {
     }
 
     @Test
-    void resolvesAttachmentNameFromMetadataAttachmentId() throws Exception {
+    void resolvesAttachmentNameFromMatchingMetadataAttachmentId() throws Exception {
         AttachmentService attachmentService = mock(AttachmentService.class);
         Attachment attachment = mock(Attachment.class);
         when(attachment.getName()).thenReturn("sample.pdf");
-        when(attachmentService.getAttachmentById(99L)).thenReturn(attachment);
+        when(attachmentService.getAttachmentById(42L)).thenReturn(attachment);
         AttachmentRagIndexJobSourceNameResolver resolver = new AttachmentRagIndexJobSourceNameResolver(attachmentService);
 
         assertThat(resolver.resolveSourceName(
@@ -65,9 +66,38 @@ class AttachmentRagIndexJobSourceNameResolverTest {
                         "attachment",
                         false,
                         null),
-                new RagIndexJobSourceRequest(Map.of("attachmentId", "99"), java.util.List.of(), false)))
+                new RagIndexJobSourceRequest(Map.of("attachmentId", "042"), java.util.List.of(), false)))
                 .contains("sample.pdf");
-        verify(attachmentService).getAttachmentById(99L);
+        verify(attachmentService).getAttachmentById(42L);
+    }
+
+    @Test
+    void rejectsMismatchedAttachmentSelectorBeforeLookup() throws Exception {
+        AttachmentService attachmentService = mock(AttachmentService.class);
+        AttachmentRagIndexJobSourceNameResolver resolver = new AttachmentRagIndexJobSourceNameResolver(attachmentService);
+
+        assertThat(resolver.resolveSourceName(
+                new RagIndexJobCreateRequest(
+                        "project",
+                        "6",
+                        "doc-1",
+                        " attachment ",
+                        false,
+                        null),
+                new RagIndexJobSourceRequest(Map.of("attachmentId", "6"), java.util.List.of(), false)))
+                .isEmpty();
+        assertThat(resolver.resolveSourceName(
+                new RagIndexJobCreateRequest(
+                        "attachment",
+                        "6",
+                        "doc-1",
+                        "attachment",
+                        false,
+                        null),
+                new RagIndexJobSourceRequest(Map.of("attachmentId", "7"), java.util.List.of(), false)))
+                .isEmpty();
+        verify(attachmentService, never()).getAttachmentById(6L);
+        verify(attachmentService, never()).getAttachmentById(7L);
     }
 
     @Test
@@ -88,6 +118,24 @@ class AttachmentRagIndexJobSourceNameResolverTest {
                         null),
                 RagIndexJobSourceRequest.empty()))
                 .contains("object.pdf");
+    }
+
+    @Test
+    void rejectsBlankMetadataAttachmentIdBeforeLookup() throws Exception {
+        AttachmentService attachmentService = mock(AttachmentService.class);
+        AttachmentRagIndexJobSourceNameResolver resolver = new AttachmentRagIndexJobSourceNameResolver(attachmentService);
+
+        assertThat(resolver.resolveSourceName(
+                new RagIndexJobCreateRequest(
+                        "attachment",
+                        "42",
+                        "42",
+                        "attachment",
+                        false,
+                        null),
+                new RagIndexJobSourceRequest(Map.of("attachmentId", "   "), java.util.List.of(), false)))
+                .isEmpty();
+        verify(attachmentService, never()).getAttachmentById(42L);
     }
 
     @Test

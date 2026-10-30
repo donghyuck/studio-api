@@ -33,15 +33,36 @@ public class AttachmentRagIndexJobSourceNameResolver implements RagIndexJobSourc
     }
 
     private Optional<Long> attachmentId(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
-        Object metadataAttachmentId = sourceRequest == null ? null : sourceRequest.metadata().get("attachmentId");
-        String value = metadataAttachmentId == null ? request.objectId() : metadataAttachmentId.toString();
-        if (value == null || value.isBlank()) {
+        if (!ATTACHMENT.equalsIgnoreCase(text(request.objectType()).orElse(null))) {
             return Optional.empty();
         }
+        Optional<Long> objectAttachmentId = parseAttachmentId(request.objectId());
+        if (objectAttachmentId.isEmpty()) {
+            return Optional.empty();
+        }
+        if (sourceRequest == null || !sourceRequest.metadata().containsKey("attachmentId")) {
+            return objectAttachmentId;
+        }
+        Object metadataAttachmentId = sourceRequest.metadata().get("attachmentId");
+        if (metadataAttachmentId == null) {
+            return objectAttachmentId;
+        }
+        Optional<String> metadataAttachmentIdText = text(metadataAttachmentId.toString());
+        if (metadataAttachmentIdText.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<Long> sourceAttachmentId = parseAttachmentId(metadataAttachmentIdText.get());
+        if (sourceAttachmentId.isEmpty() || !sourceAttachmentId.equals(objectAttachmentId)) {
+            return Optional.empty();
+        }
+        return sourceAttachmentId;
+    }
+
+    private Optional<Long> parseAttachmentId(String value) {
         try {
             long attachmentId = Long.parseLong(value.trim());
             return attachmentId <= 0L ? Optional.empty() : Optional.of(attachmentId);
-        } catch (NumberFormatException ex) {
+        } catch (RuntimeException ex) {
             return Optional.empty();
         }
     }

@@ -13,4 +13,8 @@ public interface AttachmentOwnerAccessAuthorizer {
             long objectId,
             ApplicationPrincipal principal,
             AttachmentOwnerAccessAction action);
+
+    default boolean canIndex(int objectType, long objectId, ApplicationPrincipal principal) {
+        return false;
+    }
 }

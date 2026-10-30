@@ -1,9 +1,12 @@
 package studio.one.application.web.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -89,5 +92,139 @@ class AttachmentRagIndexJobSourceExecutorTest {
         executor.execute(job, request, sourceRequest, RagIndexProgressListener.noop());
 
         verify(service).index(eq(42L), eq(command), any(RagIndexProgressListener.class));
+    }
+
+    @Test
+    void delegatesAttachmentJobWhenSourceRequestIsOmitted() throws Exception {
+        AttachmentRagIndexService service = mock(AttachmentRagIndexService.class);
+        AttachmentRagIndexCommand command = new AttachmentRagIndexCommand(
+                "doc-1",
+                "attachment",
+                "42",
+                Map.of(),
+                List.of(),
+                false);
+        when(service.command(
+                eq(42L),
+                eq("doc-1"),
+                eq("attachment"),
+                eq("42"),
+                eq(Map.of()),
+                eq(List.of()),
+                eq(false))).thenReturn(command);
+        when(service.index(eq(42L), eq(command), any(RagIndexProgressListener.class)))
+                .thenReturn(new AttachmentRagIndexResult(AttachmentRagIndexDiagnostics.fallback("structured_not_attempted")));
+        AttachmentRagIndexJobSourceExecutor executor = new AttachmentRagIndexJobSourceExecutor(service);
+        RagIndexJob job = RagIndexJob.pending(
+                "job-1",
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                Instant.parse("2026-04-26T00:00:00Z"));
+        RagIndexJobCreateRequest request = new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null);
+
+        executor.execute(job, request, null, RagIndexProgressListener.noop());
+
+        verify(service).index(eq(42L), eq(command), any(RagIndexProgressListener.class));
+    }
+
+    @Test
+    void rejectsBlankAttachmentSelectorBeforeIndexing() throws Exception {
+        AttachmentRagIndexService service = mock(AttachmentRagIndexService.class);
+        AttachmentRagIndexJobSourceExecutor executor = new AttachmentRagIndexJobSourceExecutor(service);
+        RagIndexJob job = RagIndexJob.pending(
+                "job-1",
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                Instant.parse("2026-04-26T00:00:00Z"));
+        RagIndexJobCreateRequest request = new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null);
+
+        assertThatThrownBy(() -> executor.execute(
+                job,
+                request,
+                new RagIndexJobSourceRequest(Map.of("attachmentId", "   "), List.of(), false),
+                RagIndexProgressListener.noop()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("attachmentId is required");
+
+        verify(service, never()).index(anyLong(), any(AttachmentRagIndexCommand.class),
+                any(RagIndexProgressListener.class));
+    }
+
+    @Test
+    void rejectsMismatchedAttachmentSelectorBeforeIndexing() throws Exception {
+        AttachmentRagIndexService service = mock(AttachmentRagIndexService.class);
+        AttachmentRagIndexJobSourceExecutor executor = new AttachmentRagIndexJobSourceExecutor(service);
+        RagIndexJob job = RagIndexJob.pending(
+                "job-1",
+                "project",
+                "6",
+                "doc-1",
+                "attachment",
+                Instant.parse("2026-04-26T00:00:00Z"));
+        RagIndexJobCreateRequest request = new RagIndexJobCreateRequest(
+                "project",
+                "6",
+                "doc-1",
+                "attachment",
+                false,
+                null);
+
+        assertThatThrownBy(() -> executor.execute(
+                job,
+                request,
+                new RagIndexJobSourceRequest(Map.of("attachmentId", "6"), List.of(), false),
+                RagIndexProgressListener.noop()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("attachment object scope");
+
+        verify(service, never()).index(anyLong(), any(AttachmentRagIndexCommand.class),
+                any(RagIndexProgressListener.class));
+    }
+
+    @Test
+    void rejectsDifferentMetadataAttachmentIdBeforeIndexing() throws Exception {
+        AttachmentRagIndexService service = mock(AttachmentRagIndexService.class);
+        AttachmentRagIndexJobSourceExecutor executor = new AttachmentRagIndexJobSourceExecutor(service);
+        RagIndexJob job = RagIndexJob.pending(
+                "job-1",
+                "attachment",
+                "6",
+                "doc-1",
+                "attachment",
+                Instant.parse("2026-04-26T00:00:00Z"));
+        RagIndexJobCreateRequest request = new RagIndexJobCreateRequest(
+                "attachment",
+                "6",
+                "doc-1",
+                "attachment",
+                false,
+                null);
+
+        assertThatThrownBy(() -> executor.execute(
+                job,
+                request,
+                new RagIndexJobSourceRequest(Map.of("attachmentId", "7"), List.of(), false),
+                RagIndexProgressListener.noop()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must match");
+
+        verify(service, never()).index(anyLong(), any(AttachmentRagIndexCommand.class),
+                any(RagIndexProgressListener.class));
     }
 }
