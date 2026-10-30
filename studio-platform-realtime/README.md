@@ -161,6 +161,8 @@ studio:
 
 ### 클라이언트 구독 예시
 - 예: `topic-prefix=/topic` 이면 구독 경로는 `/topic/mail-sync`.
+- `/topic/mail-sync` 는 `features:mail/read` 정책으로 보호된다.
+- `studio.features.mail.web.stomp-destination` 값을 바꾼 경우에도 같은 `features:mail/read` 정책을 적용한다.
 
 ### Vue(STOMP) 수신 예시
 ```js
@@ -181,10 +183,13 @@ stomp.connect({}, () => {
 
 ## 제약사항 / 사용 규칙
 - **Payload는 DTO만**: 모든 페이로드 DTO는 `RealtimePayload` 를 구현해야 하며, 엔티티/도메인 모델 직접 전송은 금지.
-- **Destination 규칙**: 토픽은 `/topic/*`, 유저 대상은 `/user/*` 경로 사용을 권장.
+- **Destination 규칙**: 클라이언트 `SUBSCRIBE` 는 명시적으로 등록된 destination 만 허용한다. 기본 보호 토픽은 `/topic/mail-sync`, `/topic/skillgraph/extraction-jobs`, `/topic/skillgraph/extraction-jobs/{id}`, `/topic/skillgraph/jobs/{id}`, `/topic/ai/vectors/projections/{id}` 이며 각각 기존 REST 경계와 같은 read 권한을 사용한다.
+- **Custom destination**: 새 토픽은 `RealtimeStompDestinationAuthorizer` 빈으로 명시 등록해야 한다. wildcard, unknown topic, `/user/...` 직접 구독, prefix 충돌, 경로 중복 구분자는 fail-closed 로 거부된다.
+- **Client SEND 차단**: `/topic`, `/user`, `/app` 대상 클라이언트 `SEND` 는 기본 authorizer 에서 거부한다. 앱 명령이 필요하면 별도 서버 핸들러와 명시 authorizer 를 함께 제공한다.
 - **Redis 사용 시**: `publish()` 로만 전송해야 중복 없이 모든 노드에 전달된다. `sendToTopic/sendToUser` 는 단일 노드 전용.
-- **JWT 핸드셰이크**: `studio.realtime.jwt-enabled=true` 일 때 Authorization Bearer 토큰이 없으면 익명 Principal이 생성되며, `reject-anonymous=true` 설정 시 연결이 거부된다.
-- **클라이언트 식별**: USER 메시지는 `userId` 기준이므로 서버의 Principal 추출 정책(예: JWT claim)이 일관돼야 한다.
+- **JWT 핸드셰이크/CONNECT**: `studio.realtime.jwt-enabled=true` 일 때 handshake 또는 STOMP CONNECT 의 Bearer token 은 서버의 `UserDetailsService` 로 현재 계정 상태와 권한을 다시 확인해 `Authentication` 으로 변환한다. frame `Authorization` 헤더는 이미 신뢰된 session principal 을 교체하지 않는다.
+- **JWT 비활성화 호환성**: `studio.realtime.stomp.jwt-enabled=false` 구성은 security starter 없이도 부팅할 수 있다. 이 경우에도 `SUBSCRIBE`/`SEND` destination 인가는 적용되며 authorizer 또는 endpoint policy 가 없으면 거부된다.
+- **클라이언트 식별**: USER 메시지는 `userId` 기준이므로 서버의 Principal 추출 정책(예: JWT claim)이 일관돼야 한다. 다른 사용자의 `/user/...` destination 직접 접근은 허용하지 않는다.
 
 ## 운영 측면 주의/위험성 예시
 

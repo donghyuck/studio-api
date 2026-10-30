@@ -28,6 +28,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
+import org.springframework.util.ClassUtils;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
@@ -40,8 +42,10 @@ import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
 import studio.one.platform.realtime.stomp.messaging.LocalStompMessagingService;
 import studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService;
+import studio.one.platform.realtime.stomp.security.EndpointRealtimeStompDestinationAuthorizer;
 import studio.one.platform.realtime.stomp.security.RealtimeHandshakeHandler;
 import studio.one.platform.realtime.stomp.security.RealtimeStompAuthChannelInterceptor;
+import studio.one.platform.realtime.stomp.security.RealtimeStompDestinationAuthorizer;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -74,8 +78,9 @@ public class RealtimeStompAutoConfiguration {
     @ConditionalOnMissingBean(RealtimeHandshakeHandler.class)
     @ConditionalOnProperty(prefix = "studio.realtime.stomp", name = "enabled", havingValue = "true", matchIfMissing = true)
     public RealtimeHandshakeHandler handshakeHandler(
-            ObjectProvider<studio.one.base.security.jwt.JwtTokenProvider> provider) {
-        studio.one.base.security.jwt.JwtTokenProvider jwtTokenProvider = provider.getIfAvailable();
+            ObjectProvider<BeanFactory> beanFactoryProvider) {
+        BeanFactory beanFactory = beanFactoryProvider.getIfAvailable();
+        Object jwtTokenProvider = jwtTokenProvider(beanFactory);
         if (properties.isJwtEnabled() && jwtTokenProvider == null) {
             throw new IllegalStateException(
                     "studio.realtime.stomp.jwt-enabled=true requires a JwtTokenProvider. "
@@ -86,14 +91,32 @@ public class RealtimeStompAutoConfiguration {
                 RealtimeStompAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(RealtimeHandshakeHandler.class, true),
                 LogUtils.red(State.CREATED.toString())));
-        return new RealtimeHandshakeHandler(properties, jwtTokenProvider);
+        return new RealtimeHandshakeHandler(properties, jwtTokenProvider,
+                userDetailsService(beanFactory));
     }
 
     @Bean
     @ConditionalOnMissingBean(RealtimeStompAuthChannelInterceptor.class)
     public RealtimeStompAuthChannelInterceptor realtimeStompAuthChannelInterceptor(
-            ObjectProvider<studio.one.base.security.jwt.JwtTokenProvider> provider) {
-        return new RealtimeStompAuthChannelInterceptor(properties, provider.getIfAvailable());
+            ObjectProvider<BeanFactory> beanFactoryProvider,
+            ObjectProvider<RealtimeStompDestinationAuthorizer> destinationAuthorizerProvider) {
+        BeanFactory beanFactory = beanFactoryProvider.getIfAvailable();
+        return new RealtimeStompAuthChannelInterceptor(properties, jwtTokenProvider(beanFactory),
+                userDetailsService(beanFactory), destinationAuthorizerProvider.getIfAvailable());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(RealtimeStompDestinationAuthorizer.class)
+    public RealtimeStompDestinationAuthorizer realtimeStompDestinationAuthorizer(
+            ObjectProvider<BeanFactory> beanFactoryProvider,
+            Environment environment) {
+        BeanFactory beanFactory = beanFactoryProvider.getIfAvailable();
+        Object endpointAuthz = null;
+        if (beanFactory != null && beanFactory.containsBean(ServiceNames.DOMAIN_ENDPOINT_AUTHZ)) {
+            endpointAuthz = beanFactory.getBean(ServiceNames.DOMAIN_ENDPOINT_AUTHZ);
+        }
+        return new EndpointRealtimeStompDestinationAuthorizer(properties, endpointAuthz,
+                java.util.List.of(environment.getProperty("studio.features.mail.web.stomp-destination", "/mail-sync")));
     }
 
     @Bean(name = ServiceNames.Featrues.PREFIX + ":realtime:session-handshake-interceptor")
@@ -109,6 +132,34 @@ public class RealtimeStompAutoConfiguration {
                 LogUtils.red(State.CREATED.toString())));
 
         return new HttpSessionHandshakeInterceptor();
+    }
+
+    private Object jwtTokenProvider(BeanFactory beanFactory) {
+        if (beanFactory == null
+                || !ClassUtils.isPresent("studio.one.base.security.jwt.JwtTokenProvider",
+                        getClass().getClassLoader())) {
+            return null;
+        }
+        try {
+            Class<?> type = Class.forName("studio.one.base.security.jwt.JwtTokenProvider");
+            return beanFactory.getBean(type);
+        } catch (ReflectiveOperationException | LinkageError | org.springframework.beans.BeansException ex) {
+            return null;
+        }
+    }
+
+    private Object userDetailsService(BeanFactory beanFactory) {
+        if (beanFactory == null
+                || !ClassUtils.isPresent("org.springframework.security.core.userdetails.UserDetailsService",
+                        getClass().getClassLoader())) {
+            return null;
+        }
+        try {
+            Class<?> type = Class.forName("org.springframework.security.core.userdetails.UserDetailsService");
+            return beanFactory.getBean(type);
+        } catch (ReflectiveOperationException | LinkageError | org.springframework.beans.BeansException ex) {
+            return null;
+        }
     }
 
 }
