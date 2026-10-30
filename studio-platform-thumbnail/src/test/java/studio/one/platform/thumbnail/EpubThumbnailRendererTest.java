@@ -161,6 +161,45 @@ class EpubThumbnailRendererTest {
     }
 
     @Test
+    void rejectsOversizedDirectoryEntry() throws Exception {
+        Map<String, byte[]> directories = new LinkedHashMap<>();
+        directories.put("OPS/images/", new byte[2048]);
+        ThumbnailOptions tightOptions = new ThumbnailOptions(96, "png", 25_000_000, 1024);
+
+        assertThatThrownBy(() -> renderer(null).render(source(epub(Map.of(), directories)), tightOptions))
+                .isInstanceOf(ThumbnailGenerationException.class)
+                .hasMessageContaining("entry exceeds max extracted bytes");
+    }
+
+    @Test
+    void rejectsDirectoryAndFileEntriesThatExceedTotalExtractedBytes() throws Exception {
+        Map<String, byte[]> directories = new LinkedHashMap<>();
+        directories.put("OPS/images/", new byte[600]);
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("META-INF/container.xml", new byte[600]);
+        ThumbnailOptions tightOptions = new ThumbnailOptions(96, "png", 25_000_000, 1024);
+
+        assertThatThrownBy(() -> renderer(null).render(source(epub(entries, directories)), tightOptions))
+                .isInstanceOf(ThumbnailGenerationException.class)
+                .hasMessageContaining("exceeds max extracted bytes");
+    }
+
+    @Test
+    void rendersThumbnailWhenPackageContainsEmptyDirectory() throws Exception {
+        Map<String, byte[]> entries = baseEntries("OPS/package.opf", opf("""
+                <item id="cover" href="images/cover.png" media-type="image/png"
+                      properties="cover-image"/>
+                """, ""));
+        entries.put("OPS/images/cover.png", image(420, 620, Color.RED));
+        Map<String, byte[]> directories = new LinkedHashMap<>();
+        directories.put("OPS/images/", new byte[0]);
+
+        BufferedImage thumbnail = render(epub(entries, directories), null);
+
+        assertThat(center(thumbnail)).isEqualTo(Color.RED.getRGB());
+    }
+
+    @Test
     void rejectsExcessiveZipEntryCount() throws Exception {
         Map<String, byte[]> entries = new LinkedHashMap<>();
         for (int i = 0; i < 2049; i++) {
@@ -256,8 +295,17 @@ class EpubThumbnailRendererTest {
     }
 
     private static byte[] epub(Map<String, byte[]> entries) throws Exception {
+        return epub(entries, Map.of());
+    }
+
+    private static byte[] epub(Map<String, byte[]> entries, Map<String, byte[]> directories) throws Exception {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(output)) {
+            for (Map.Entry<String, byte[]> entry : directories.entrySet()) {
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
+                zip.write(entry.getValue());
+                zip.closeEntry();
+            }
             for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
                 zip.putNextEntry(new ZipEntry(entry.getKey()));
                 zip.write(entry.getValue());

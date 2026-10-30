@@ -114,6 +114,12 @@ public class EpubThumbnailRenderer implements ThumbnailRenderer {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
+                    long entryBytes = readBoundedEntryBytes(zip, maxEntryBytes, entry.getName());
+                    totalBytes += entryBytes;
+                    if (totalBytes > maxSourceBytes) {
+                        throw new ThumbnailGenerationException(
+                                "EPUB package exceeds max extracted bytes " + maxSourceBytes + ": " + filename);
+                    }
                     continue;
                 }
                 entryCount++;
@@ -152,6 +158,20 @@ public class EpubThumbnailRenderer implements ThumbnailRenderer {
             output.write(buffer, 0, read);
         }
         return output.toByteArray();
+    }
+
+    private long readBoundedEntryBytes(ZipInputStream input, long maxBytes, String entryName) throws IOException {
+        byte[] buffer = new byte[BUFFER_SIZE];
+        long total = 0;
+        int read;
+        while ((read = input.read(buffer)) != -1) {
+            total += read;
+            if (total > maxBytes) {
+                throw new ThumbnailGenerationException(
+                        "EPUB package entry exceeds max extracted bytes " + maxBytes + ": " + entryName);
+            }
+        }
+        return total;
     }
 
     private Document parseXml(byte[] bytes, String sourceDescription) {
