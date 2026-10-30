@@ -14,6 +14,10 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 val mapstructVersion: String = project.findProperty("mapstructVersion") as String? ?: "0.11.5"
 val jsonwebtokenVersion: String = project.findProperty("jsonwebtokenVersion") as String? ?: "0.11.5"
 dependencies {
+    // Test-only APIs for security and document-conversion boundary regressions.
+    testImplementation(project(":studio-platform-user"))
+    testImplementation(project(":studio-platform-identity"))
+    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
 
     compileOnly("org.springframework.boot:spring-boot-starter") 
     compileOnly("org.springframework.boot:spring-boot-starter-webmvc")

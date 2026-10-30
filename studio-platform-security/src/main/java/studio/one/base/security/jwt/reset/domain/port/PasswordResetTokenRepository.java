@@ -21,6 +21,7 @@
 
 package studio.one.base.security.jwt.reset.domain.port;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import studio.one.base.security.jwt.reset.domain.model.PasswordResetToken;
@@ -39,4 +40,14 @@ public interface PasswordResetTokenRepository {
      * Finds the latest active token for a user.
      */
     Optional<PasswordResetToken> findActiveByUserId(Long userId);
+
+    /**
+     * Finds the latest issued token for a user, including already-used tokens.
+     */
+    Optional<PasswordResetToken> findLatestByUserId(Long userId);
+
+    /**
+     * Atomically marks the latest unused token as used.
+     */
+    boolean claimLatestUnused(Long id, Long userId, Instant createdAt);
 }

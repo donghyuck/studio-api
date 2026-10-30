@@ -42,8 +42,33 @@ public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRep
               from TB_APPLICATION_PASSWORD_RESET_TOKEN
              where USER_ID = :userId
                and USED = false
-             order by CREATED_AT desc
+             order by CREATED_AT desc, ID desc
              limit 1
+            """;
+
+    private static final String FIND_LATEST_BY_USER_ID_SQL = """
+            select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT
+              from TB_APPLICATION_PASSWORD_RESET_TOKEN
+             where USER_ID = :userId
+             order by CREATED_AT desc, ID desc
+             limit 1
+            """;
+
+    private static final String CLAIM_LATEST_UNUSED_SQL = """
+            update TB_APPLICATION_PASSWORD_RESET_TOKEN
+               set USED = true
+             where ID = :id
+               and USER_ID = :userId
+               and USED = false
+               and not exists (
+                   select 1
+                     from TB_APPLICATION_PASSWORD_RESET_TOKEN newer
+                    where newer.USER_ID = :userId
+                      and (
+                          newer.CREATED_AT > :createdAt
+                          or (newer.CREATED_AT = :createdAt and newer.ID > :id)
+                      )
+               )
             """;
 
     private static final RowMapper<PasswordResetToken> ROW_MAPPER = (rs, rowNum) -> PasswordResetToken.builder()
@@ -72,6 +97,20 @@ public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRep
     @Override
     public Optional<PasswordResetToken> findActiveByUserId(Long userId) {
         return template.query(FIND_ACTIVE_BY_USER_ID_SQL, Map.of("userId", userId), ROW_MAPPER).stream().findFirst();
+    }
+
+    @Override
+    public Optional<PasswordResetToken> findLatestByUserId(Long userId) {
+        return template.query(FIND_LATEST_BY_USER_ID_SQL, Map.of("userId", userId), ROW_MAPPER).stream().findFirst();
+    }
+
+    @Override
+    public boolean claimLatestUnused(Long id, Long userId, Instant createdAt) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("userId", userId)
+                .addValue("createdAt", Timestamp.from(createdAt));
+        return template.update(CLAIM_LATEST_UNUSED_SQL, params) == 1;
     }
 
     private PasswordResetToken insert(PasswordResetToken token) {
